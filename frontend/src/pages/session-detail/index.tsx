@@ -55,6 +55,7 @@ import {
   isUnresolvedControl,
   useRuntimeControls,
 } from '../runtime-control-history'
+import { ExecutionContextPanel } from './execution-context'
 
 let fallbackRequestSequence = 0
 
@@ -71,6 +72,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
   const token = useAuthStore((state) => state.token)
   const userId = useAuthStore((state) => state.userId)
   const [streamText, setStreamText] = useState<Record<string, string>>({})
+  const [contextBlocked, setContextBlocked] = useState(false)
   const canManageAgents = useAuthStore((state) => state.permissions.includes('agents:manage'))
   const session = useQuery({
     queryKey: ['session', sessionId],
@@ -346,7 +348,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
 
   function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!messageBody.trim() || messageBlocked) return
+    if (contextBlocked || !messageBody.trim() || messageBlocked) return
     messageMutation.mutate(
       messageUncertain && messageMutation.variables
         ? messageMutation.variables
@@ -404,6 +406,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
       ) : null}
 
       <SessionSummary session={session.data} />
+      <ExecutionContextPanel sessionId={sessionId!} onBlocked={setContextBlocked} />
 
       <div className="page-split mt-6 items-start" data-page-layout="detail-with-aside">
         <div className="min-w-0 space-y-8">
@@ -483,7 +486,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
                 <Button
                   type="submit"
                   className="h-10"
-                  disabled={messageBlocked || !messageBody.trim()}
+                  disabled={contextBlocked || messageBlocked || !messageBody.trim()}
                 >
                   <Send className="h-4 w-4" />
                   {messageMutation.isPending

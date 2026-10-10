@@ -23,7 +23,11 @@ jobs:
           path: fleet-control
       - name: Read pinned Base revision
         id: base
-        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
+        run: |
+          pin=.base-revision
+          if [ -f .namespace-base-revision ]; then pin=.namespace-base-revision; fi
+          echo "sha=$(cat "$pin")" >> "$GITHUB_OUTPUT"
+          echo "pin=$pin" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
@@ -31,7 +35,7 @@ jobs:
           ref: ${{ steps.base.outputs.sha }}
           token: ${{ secrets.SERVICES_BASE_TOKEN }}
       - name: Verify pinned Base checkout
-        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision "${{ steps.base.outputs.pin }}" --base ../services-base
       - name: Disposable Compose credentials
         run: |
           for key in POSTGRES_PASSWORD FLEET_CONTROL_JWT_SECRET FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET; do
@@ -109,7 +113,11 @@ jobs:
       - name: Read pinned Base revision
         id: base
         working-directory: fleet-control
-        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
+        run: |
+          pin=.base-revision
+          if [ -f .namespace-base-revision ]; then pin=.namespace-base-revision; fi
+          echo "sha=$(cat "$pin")" >> "$GITHUB_OUTPUT"
+          echo "pin=$pin" >> "$GITHUB_OUTPUT"
       - name: Check out services-base sibling (path deps)
         uses: actions/checkout@v7
         with:
@@ -126,7 +134,7 @@ jobs:
           ref: 4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58
       - name: Verify pinned Base checkout
         working-directory: fleet-control
-        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision "${{ steps.base.outputs.pin }}" --base ../services-base
       - run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev postgresql-client
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -164,7 +172,7 @@ jobs:
         run: |
           psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_approval_outcome_keyset_test;'
           cargo test --locked -p infra --test sdlc_foundation approval_outcome_http_keyset -- --ignored --test-threads=1
-      - name: Clean migration up, rollback new revisions and reapply
+      - name: Clean migration up, namespace rollback refusal and idempotent reapply
         env:
           PGPASSWORD: fleet_control
           DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_migration_smoke
@@ -172,7 +180,17 @@ jobs:
           psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_migration_smoke;'
           cargo run --locked -p migration -- up
           cargo run --locked -p migration -- status
-          cargo run --locked -p migration -- down -n 1
+          if cargo run --locked -p migration -- down -n 1 > /tmp/namespace-down.log 2>&1; then
+            echo 'Namespace down migration unexpectedly succeeded'
+            exit 1
+          fi
+          grep -F 'Namespace draft admission requires a compatible cohort; history is retained' /tmp/namespace-down.log
+          namespace_revision=$(psql -h 127.0.0.1 -U fleet_control -d fleet_migration_smoke -At -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM seaql_migrations WHERE version IN ('m20261008_000090_execution_context','m20261008_000091_context_drafts');")
+          test "$namespace_revision" = 2
+          namespace_table=$(psql -h 127.0.0.1 -U fleet_control -d fleet_migration_smoke -At -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.session_execution_contexts') IS NOT NULL;")
+          test "$namespace_table" = t
+          namespace_draft_guard=$(psql -h 127.0.0.1 -U fleet_control -d fleet_migration_smoke -At -v ON_ERROR_STOP=1 -c "SELECT pg_get_functiondef('guard_namespace_session_start()'::regprocedure) LIKE '%namespace-v2:%';")
+          test "$namespace_draft_guard" = t
           cargo run --locked -p migration -- up
           cargo run --locked -p migration -- status
       - name: Additive credential journal migration and legacy downgrade
@@ -258,7 +276,11 @@ jobs:
       - name: Read pinned Base revision
         id: base
         working-directory: fleet-control
-        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
+        run: |
+          pin=.base-revision
+          if [ -f .namespace-base-revision ]; then pin=.namespace-base-revision; fi
+          echo "sha=$(cat "$pin")" >> "$GITHUB_OUTPUT"
+          echo "pin=$pin" >> "$GITHUB_OUTPUT"
       - name: Check out services-base sibling (@sdlc/ui file dep)
         uses: actions/checkout@v7
         with:
@@ -268,7 +290,7 @@ jobs:
           ref: ${{ steps.base.outputs.sha }}
       - name: Verify pinned Base checkout
         working-directory: fleet-control
-        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision "${{ steps.base.outputs.pin }}" --base ../services-base
       - uses: pnpm/action-setup@v6
         with:
           version: 10.28.1
@@ -341,7 +363,11 @@ jobs:
       - name: Read pinned Base revision
         id: base
         working-directory: fleet-control
-        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
+        run: |
+          pin=.base-revision
+          if [ -f .namespace-base-revision ]; then pin=.namespace-base-revision; fi
+          echo "sha=$(cat "$pin")" >> "$GITHUB_OUTPUT"
+          echo "pin=$pin" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
@@ -350,7 +376,7 @@ jobs:
           token: ${{ secrets.SERVICES_BASE_TOKEN }}
       - name: Verify pinned Base checkout
         working-directory: fleet-control
-        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision "${{ steps.base.outputs.pin }}" --base ../services-base
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.88.0"

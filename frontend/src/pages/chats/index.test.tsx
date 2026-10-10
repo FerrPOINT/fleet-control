@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, useLocation, useNavigate } from 'react-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatsPage } from './index'
 import * as fleet from '@/api/fleet'
 import * as directory from '@/api/chats-directory'
@@ -10,7 +10,12 @@ import type { AgentDirectoryItem, AgentSession, UserResponse } from '@/api/types
 import { useAuthStore } from '@/shared/auth/store'
 import { ApiError } from '@sdlc/ui/lib'
 
-vi.mock('@/api/fleet', () => ({ createSession: vi.fn() }))
+vi.mock('@/api/fleet', () => ({
+  createSession: vi.fn(),
+  createContextSession: vi.fn(),
+  getSession: vi.fn(),
+  listAgentDirectory: vi.fn(),
+}))
 vi.mock('@/api/chats-directory', () => ({ getChatsDirectory: vi.fn() }))
 vi.mock('@/api/auth', () => ({ listUsers: vi.fn() }))
 const owner = '00000000-0000-4000-8000-000000000001'
@@ -410,5 +415,55 @@ describe('server-scoped ChatsPage', () => {
     expect(vi.mocked(fleet.createSession).mock.calls[1]?.[0].idempotency_key).toBe(
       first?.idempotency_key,
     )
+  })
+})
+
+afterEach(() => vi.unstubAllEnvs())
+
+describe('Namespace creation', () => {
+  it('creates an inert v2 chat from a Task URL and freezes its context across retries', async () => {
+    vi.stubEnv('VITE_NAMESPACE_ENABLED', 'true')
+    vi.mocked(fleet.listAgentDirectory).mockResolvedValue([developer, tester])
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...session, title: 'Private work' })
+    vi.mocked(fleet.createContextSession).mockImplementation(async (input) => ({
+      session: { ...session, title: input.title },
+      execution_context: {
+        context: input.context,
+        tracker_project_id: '11111111-1111-4111-8111-111111111111',
+        binding_generation: 1,
+        runtime_ready: false,
+        dispatch_allowed: false,
+        adapter_version: 'namespace-context-v2/foundation-v1-disabled',
+      },
+    }))
+    vi.mocked(fleet.createContextSession).mockRejectedValueOnce(new Error('offline'))
+    const registry = '11111111-1111-4111-8111-111111111111'
+    const namespace = '22222222-2222-4222-8222-222222222222'
+    const tracker = '33333333-3333-4333-8333-333333333333'
+    const task = '44444444-4444-4444-8444-444444444444'
+    renderPage(
+      `/chats?registry_instance_id=${registry}&namespace_id=${namespace}&tracker_instance_id=${tracker}&task_id=${task}`,
+    )
+    const button = await screen.findByRole('button', { name: 'Новый чат' })
+    await waitFor(() => expect(button).toBeEnabled())
+    fireEvent.click(button)
+    fireEvent.change(screen.getByLabelText('Название'), { target: { value: 'Private work' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await waitFor(() => expect(fleet.createContextSession).toHaveBeenCalledTimes(1))
+    expect(fleet.createSession).not.toHaveBeenCalled()
+    const original = vi.mocked(fleet.createContextSession).mock.calls[0]?.[0]
+    expect(original?.context).toMatchObject({
+      schema_version: 2,
+      namespace: { registry_instance_id: registry, namespace_id: namespace },
+      task: { tracker_instance_id: tracker, task_id: task },
+    })
+    await screen.findByText(/Результат создания чата пока неизвестен/)
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Создать сессию' })).toBeEnabled(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await waitFor(() => expect(fleet.createContextSession).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(fleet.createContextSession).mock.calls[1]?.[0]).toEqual(original)
+    vi.unstubAllEnvs()
   })
 })

@@ -3030,6 +3030,7 @@ mod tests {
             delivery_state: MessageDeliveryState::Pending,
             delivery_error: None,
             replayed: false,
+            request_payload_hash: None,
             created_at: "2026-09-01T00:00:00Z".to_string(),
         }
     }

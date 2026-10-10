@@ -34,7 +34,7 @@ pub struct SessionQuery {
     params(
         ("agent_id" = Option<Uuid>, Query, description = "Limit sessions to one agent"),
         ("leader_agent_id" = Option<Uuid>, Query, description = "Limit sessions to one leader"),
-        ("user_id" = Option<String>, Query, description = "Comma-separated user ids, or all for admin. Omit for current user.")
+        ("user_id" = Option<String>, Query, description = "Comma-separated user ids, or all for central users and legacy operators/admins. Central private sessions remain owner-only. Omit for current user.")
     ),
     responses((status = 200, body = Vec<AgentSession>))
 )]
@@ -259,6 +259,36 @@ mod tests {
             assert!(ensure_session_read_access(&shared, &current).is_ok());
             assert!(ensure_session_write_access(&shared, &current).is_ok());
         }
+    }
+
+    #[test]
+    fn session_stream_principal_stays_active_and_bound_to_original_user() {
+        let mut principal = app::auth::UserRecord {
+            id: Uuid::new_v4(),
+            email: "stream@example.test".into(),
+            username: "stream".into(),
+            display_name: "Stream".into(),
+            password_hash: "!".into(),
+            refresh_token_hash: None,
+            system_role: domain::SystemRole::User,
+            is_system_admin: false,
+            is_active: true,
+        };
+        assert!(session_stream_user_matches(&principal, principal.id));
+        assert!(!session_stream_user_matches(&principal, Uuid::new_v4()));
+        principal.is_active = false;
+        assert!(!session_stream_user_matches(&principal, principal.id));
+    }
+
+    #[test]
+    fn session_stream_legacy_subject_must_match_original_user() {
+        let id = Uuid::new_v4();
+        assert!(session_stream_subject_matches(&id.to_string(), id));
+        assert!(!session_stream_subject_matches(
+            &Uuid::new_v4().to_string(),
+            id
+        ));
+        assert!(!session_stream_subject_matches("not-a-uuid", id));
     }
 }
 
@@ -566,16 +596,14 @@ pub async fn stream_session(
                         if !central.allows_service("fleet-control", "GET") {
                             return None;
                         }
-                        let verified = ctx
-                            .repo
-                            .find_or_create_central_user(
-                                &central.user_id,
-                                central.email.as_deref()?,
-                                &name,
-                            )
-                            .await
-                            .ok()?;
-                        verified.id == user.id && verified.is_active
+                        let principal = crate::middleware::resolve_central_user(
+                            &ctx,
+                            &central,
+                            name.as_deref(),
+                        )
+                        .await
+                        .ok()?;
+                        session_stream_user_matches(&principal, user.id)
                     }
                     crate::middleware::central_auth::CentralCheck::FallThrough
                         if std::env::var_os("FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI").is_none() =>
@@ -583,11 +611,13 @@ pub async fn stream_session(
                         ctx.auth
                             .validate_access_token(&token)
                             .await
-                            .is_ok_and(|claims| claims.sub.parse::<Uuid>().ok() == Some(user.id))
+                            .is_ok_and(|claims| {
+                                session_stream_subject_matches(&claims.sub, user.id)
+                            })
                     }
                     _ => false,
                 };
-                if !valid_token || !principal.is_active {
+                if !valid_token || !session_stream_user_matches(&principal, user.id) {
                     return None;
                 }
                 let session = ctx.repo.get_session(session_id).await.ok()?;
@@ -793,6 +823,14 @@ fn ensure_run_belongs_to_session(run: &SessionAgentRun, session_id: Uuid) -> Res
     Ok(())
 }
 
+fn session_stream_user_matches(principal: &app::auth::UserRecord, expected_user_id: Uuid) -> bool {
+    principal.id == expected_user_id && principal.is_active
+}
+
+fn session_stream_subject_matches(subject: &str, expected_user_id: Uuid) -> bool {
+    subject.parse::<Uuid>().ok() == Some(expected_user_id)
+}
+
 pub(super) fn ensure_session_read_access(
     session: &AgentSession,
     user: &crate::middleware::CurrentUser,
@@ -810,7 +848,7 @@ pub(super) fn ensure_session_read_access(
     Err(AppError::Forbidden)
 }
 
-fn ensure_session_write_access(
+pub(super) fn ensure_session_write_access(
     session: &AgentSession,
     user: &crate::middleware::CurrentUser,
 ) -> Result<(), AppError> {

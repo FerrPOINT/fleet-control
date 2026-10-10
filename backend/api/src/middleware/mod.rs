@@ -86,10 +86,19 @@ pub async fn require_auth(
     // central configuration. Request scopes precede human permission checks.
     match central_auth::check_token(token).await {
         central_auth::CentralCheck::Validated(central, display_name) => {
+            if central.role.as_deref() == Some("service_account")
+                || std::env::var("FLEET_CONTROL_NAMESPACE__MACHINE_SUBJECTS")
+                    .unwrap_or_default()
+                    .split(',')
+                    .map(str::trim)
+                    .any(|subject| !subject.is_empty() && subject == central.user_id)
+            {
+                return Err(AppError::Forbidden);
+            }
             if !central.allows_service("fleet-control", req.method().as_str()) {
                 return Err(AppError::Forbidden);
             }
-            let user = find_or_link_central_user(&ctx, &central, &display_name).await?;
+            let user = resolve_central_user(&ctx, &central, display_name.as_deref()).await?;
             if central.session_id.is_some() {
                 req.extensions_mut().insert(VerifiedHumanSession);
             }
@@ -155,14 +164,31 @@ pub async fn find_or_link_central_user_public(
     central: &sdlc_auth_core::AuthContext,
     display_name: &str,
 ) -> Result<app::auth::UserRecord, AppError> {
-    find_or_link_central_user(ctx, central, display_name).await
+    resolve_central_user(ctx, central, Some(display_name)).await
 }
 
-async fn find_or_link_central_user(
-    ctx: &Arc<AppContext>,
+pub(crate) async fn resolve_central_user(
+    ctx: &AppContext,
     central: &sdlc_auth_core::AuthContext,
-    display_name: &str,
+    display_name: Option<&str>,
 ) -> Result<app::auth::UserRecord, AppError> {
+    if central.role.as_deref() == Some("service_account")
+        || std::env::var("FLEET_CONTROL_NAMESPACE__MACHINE_SUBJECTS")
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .any(|subject| !subject.is_empty() && subject == central.user_id)
+    {
+        return Err(AppError::Forbidden);
+    }
+    let Some(display_name) = display_name else {
+        return ctx
+            .repo
+            .find_user_by_central_subject(&central.user_id)
+            .await?
+            .filter(|user| user.is_active)
+            .ok_or(AppError::Unauthorized);
+    };
     if display_name.trim().is_empty() {
         return Err(AppError::Unavailable(
             "Central Auth profile is unavailable".into(),

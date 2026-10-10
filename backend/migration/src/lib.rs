@@ -29,6 +29,8 @@ mod m20261006_000019_runtime_endpoints;
 mod m20261007_000020_controller_recovery;
 mod m20261007_000021_controller_recovery_delivery;
 mod m20261007_000022_controller_stop_delivery;
+mod m20261008_000090_execution_context;
+mod m20261008_000091_context_drafts;
 mod m20261009_000023_pm_execution_lease;
 mod m20261009_000024_pm_workflow_assignment;
 mod m20261009_000025_pm_checkpoints;
@@ -98,6 +100,8 @@ impl MigratorTrait for CanonicalMigrator {
         let mut migrations = common_migrations();
         migrations.push(Box::new(m20261001_000009_sdlc_foundation::Migration));
         migrations.extend(runtime_followups());
+        migrations.push(Box::new(m20261008_000090_execution_context::Migration));
+        migrations.push(Box::new(m20261008_000091_context_drafts::Migration));
         migrations
     }
 }
@@ -115,6 +119,8 @@ impl MigratorTrait for LegacyMigrator {
             Box::new(m20261001_000012_config_revisions::Migration),
         ]);
         migrations.extend(runtime_followups());
+        migrations.push(Box::new(m20261008_000090_execution_context::Migration));
+        migrations.push(Box::new(m20261008_000091_context_drafts::Migration));
         migrations
     }
 }

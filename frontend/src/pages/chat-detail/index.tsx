@@ -84,6 +84,11 @@ import {
   isUnresolvedControl,
   useRuntimeControls,
 } from '../runtime-control-history'
+import {
+  ExecutionContextPanel,
+  namespaceContextEnabled,
+  type Context,
+} from '../session-detail/execution-context'
 import './chat.css'
 
 function requestKey() {
@@ -231,6 +236,8 @@ function ChatWorkspace({ id }: { id: string }) {
     refetchInterval: 10000,
   })
   const [contextOpen, setContextOpen] = useState(false)
+  const [namespaceBlocked, setNamespaceBlocked] = useState(namespaceContextEnabled)
+  const [storedContext, setStoredContext] = useState<Context | null>(null)
   const contextTrigger = useRef<HTMLButtonElement>(null)
   const [drafts, setDrafts] = useState<Record<string, AnswerDraft>>({})
   const [body, setBody] = useState('')
@@ -804,6 +811,7 @@ function ChatWorkspace({ id }: { id: string }) {
     !controlHeld
   const uncertainSteer = messageUncertain && message.variables?.kind === 'steer'
   const canSubmitMessage =
+    !namespaceBlocked &&
     owner &&
     controlsFresh &&
     !message.isPending &&
@@ -964,12 +972,17 @@ function ChatWorkspace({ id }: { id: string }) {
   )
   return (
     <section className="fc-chat-workbench">
+      <ExecutionContextPanel
+        sessionId={id}
+        onBlocked={setNamespaceBlocked}
+        onContext={setStoredContext}
+      />
       <header className="fc-chat-header">
         <div>
           <Link to={backTo} aria-label="Вернуться к чатам">
             <ArrowLeft size={18} />
           </Link>
-          <span>{session.data.task_key}</span>
+          <span>{storedContext?.task.task_id ?? session.data.task_key}</span>
           <h1>{session.data.title}</h1>
           <StatusBadge
             value={session.data.visibility === 'private' ? 'private' : 'leader_scoped'}

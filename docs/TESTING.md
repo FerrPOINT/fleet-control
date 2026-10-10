@@ -939,10 +939,50 @@ fresh database. Fixture Playwright cases run on Chromium, Firefox and WebKit;
 live cases require `SDLC_LIVE_QA=1`. Screenshots are fixture evidence, not a real
 seven-agent PM/decomposition/Rework/deployment acceptance.
 
+## Event Receipt Regression
+
+`agent_events` также требует `FLEET_TEST_DATABASE_URL` и завершается ошибкой
+без изолированного PostgreSQL. AFTER INSERT trigger добавляет более новое
+событие до возврата исходной записи; проверяется возврат собственного ID,
+payload и времени из БД. Второй тест проверяет 64 конкурентных writer:
+каждый получает свою сохранённую строку. Эти тесты входят в полный workspace
+gate; отдельно их можно запустить через
+`cargo test --locked -p infra --test agent_events -- --test-threads=1`.
+
+The managed-settings fixture changes themes through the shared account menu,
+checks the selected radio item and preserves preview/apply/rollback assertions.
+The removed standalone theme button is not an alternative control contract.
+
+## Message Receipt Boundary Regression
+
+`message_receipts_and_replay_are_independent_of_history_limit` requires a
+disposable `FLEET_TEST_DATABASE_URL`; missing configuration fails the test.
+It preserves the session's initial system event while populating exactly 499
+and 500 history rows. It verifies the committed 500th/501st receipt, identical-key
+replay, conflicting payload and foreign-owner denial. Dispatch receives the
+original prompt; public receipts remain redacted. Assistant mirror receipts and
+deduplication also work outside the history page. History remains limited to 500.
+The POST digest matches the client protocol fixture; history and runtime reads
+omit it. The fixture retains unknown runtime acceptance rather than claiming
+that an external runner executed the command.
+
+```bash
+cargo test --locked -p infra --test sdlc_foundation \
+  message_receipts_and_replay_are_independent_of_history_limit -- --exact
+```
+
+Chats browser regressions separately cover a valid redacted POST receipt and
+missing/wrong request digests retaining the original command. Their API/SSE
+fixtures do not replace the PostgreSQL boundary regression or live delivery.
+
 ## Heartbeat Incident Regression
 
 `backend/infra/tests/heartbeat_alerts.rs` requires `FLEET_TEST_DATABASE_URL`
-pointing at a disposable PostgreSQL instance. Run explicitly:
+pointing at a disposable PostgreSQL instance. An absent database URL fails the
+fixture instead of returning a successful
+test without executing PostgreSQL assertions.
+
+Run explicitly:
 
 ```bash
 cargo test --locked -p infra --test heartbeat_alerts -- --test-threads=1
@@ -1136,3 +1176,23 @@ Migration target `hermes_journal_time_order` requires its own empty database via
 guard preservation, actual trigger order and empty down/reapply. Running without
 that variable is not PostgreSQL migration evidence. These checks do not certify
 host clock stability or safe unknown redispatch.
+## Browser Authentication Regression Gate
+
+Run the frontend test, typecheck, lint, format and build gates before release.
+The focused tests are `src/api/client.test.ts`,
+`src/app/auth-boundary.test.tsx`, `src/shared/auth/store.test.ts`,
+`src/widgets/app-shell.test.tsx` and `src/pages/sso-callback/index.test.tsx`.
+They cover late successful/error responses, response-body races, concurrent
+expiration, same-subject reauthentication, cache/draft removal, StrictMode,
+pending/failed sign-out, permission subject mismatch and obsolete SSO completion.
+
+Run `pnpm exec playwright test e2e/fleet-control.spec.ts` in Chromium, Firefox
+and WebKit against the built frontend. These browser flows use mocked API and
+signed SSO responses: they verify UI integration, not live Central Auth,
+Hermes, workflow resume or autonomous SDLC acceptance. Live specifications
+require the separately documented QA setup and are not covered by fixture runs.
+
+Backend ownership and SSE revocation tests remain independently required.
+Discarding an obsolete browser result must never be treated as permission to
+resend an uncertain mutation. Recovery tests must preserve original command
+identity and verify authoritative readback before allowing any new dispatch.

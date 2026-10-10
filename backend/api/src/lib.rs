@@ -25,6 +25,9 @@ pub mod routes;
         routes::approvals::list,
         routes::approvals::read,
         routes::approvals::decide,
+        routes::execution_context::get,
+        routes::execution_context::bind,
+        routes::execution_context::create,
         routes::auth::register,
         routes::auth::login,
         routes::auth::refresh_openapi,
@@ -224,6 +227,8 @@ pub mod routes;
         domain::UpdateAgentConfigRequest,
         domain::UpdateSkillRequest,
         domain::CreateSessionRequest,
+        domain::execution_context::CreateContextSessionRequest,
+        domain::execution_context::ContextSessionReceipt,
         domain::CreateSessionDelegationRequest,
         domain::HandoffSessionRequest,
         domain::AssignSessionLeaderRequest,
@@ -283,6 +288,11 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             patch(routes::users::update_user_role),
         )
         .route("/api/v1/dashboard", get(routes::dashboard::get_dashboard))
+        .route("/api/v2/sessions", post(routes::execution_context::create))
+        .route(
+            "/api/v2/sessions/{session_id}/execution-context",
+            get(routes::execution_context::get).put(routes::execution_context::bind),
+        )
         .route(
             "/api/v1/agent-directory",
             get(routes::agents::list_agent_directory),

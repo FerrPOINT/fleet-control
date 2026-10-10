@@ -3,19 +3,36 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Bot, MessageSquare, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ApiError } from '@sdlc/ui/lib'
+import { ApiError, parseNamespaceLocation } from '@sdlc/ui/lib'
+import type { components } from '@/api/generated'
+import {
+  payloadDigest,
+  markDispatch,
+  clearDispatch,
+  dispatchHeld,
+  commandService,
+  type DispatchMarker,
+} from '../chat-detail/core'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label } from '@sdlc/ui/ui'
-import { createSession } from '@/api/fleet'
+import { createSession, createContextSession, getSession, listAgentDirectory } from '@/api/fleet'
 import { getChatsDirectory } from '@/api/chats-directory'
 import type { AgentDirectoryItem, CreateSessionRequest } from '@/api/types'
 import { useSessionUserFilter, SessionUserFilter } from '@/shared/session-user-filter'
-import { ssoConfig, useAuthStore } from '@/shared/auth/store'
+import { isCurrentAuth, ssoConfig, useAuthStore } from '@/shared/auth/store'
 import { apiBaseUrl } from '@/api/client'
 import { ControlPreparationError, controlRecoveryService } from '@/shared/chat-control-recovery'
 import { useDispatchRecovery } from '../chat-detail/dispatch-recovery'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { sdlcRoleLabel } from '@/shared/sdlc-roles'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
+
+function contextPath(path: string, params: URLSearchParams) {
+  const target = new URL(path, 'https://relative.invalid')
+  const context = target.searchParams
+  for (const key of ['registry_instance_id', 'namespace_id', 'tracker_instance_id', 'task_id'])
+    for (const value of params.getAll(key)) context.append(key, value)
+  return target.pathname + target.search + target.hash
+}
 
 export function ChatsPage() {
   const { t } = useTranslation()
@@ -222,7 +239,10 @@ export function ChatsPage() {
                   {visibleSessions.map((session) => (
                     <li key={session.id}>
                       <Link
-                        to={`/chats/${session.id}?returnTo=${encodeURIComponent(returnTo)}`}
+                        to={contextPath(
+                          `/chats/${session.id}?returnTo=${encodeURIComponent(returnTo)}`,
+                          params,
+                        )}
                         className="flex min-w-0 items-start gap-3 rounded-sm px-2 py-4 hover:bg-surface-raised focus-visible:outline-focus"
                       >
                         <UserAvatar
@@ -326,8 +346,94 @@ function CreatePrivateChat({
   const [key, setKey] = useState(() => crypto.randomUUID())
   const [uncertain, setUncertain] = useState(false)
   const dispatch = useDispatchRecovery('create:chats')
+  const [contextParams] = useSearchParams()
+  const namespaceCreation =
+    import.meta.env.VITE_NAMESPACE_ENABLED === 'true' &&
+    ['registry_instance_id', 'namespace_id', 'tracker_instance_id', 'task_id'].some((name) =>
+      contextParams.has(name),
+    )
+  const namespaceScope = `create:namespace:${agent?.id ?? ''}`
+  const [namespaceHeld, setNamespaceHeld] = useState(() => dispatchHeld(namespaceScope))
   const mutation = useMutation({
-    mutationFn: async (command: { input: CreateSessionRequest; agentName: string }) => {
+    mutationFn: async (command: {
+      input: CreateSessionRequest
+      agentName: string
+      context?: components['schemas']['ExecutionContextV2']
+      marker?: DispatchMarker
+    }) => {
+      if (namespaceCreation || command.context) {
+        const scope = useAuthStore.getState()
+        const namespace = parseNamespaceLocation(contextParams.toString())
+        const identity = (name: string) => {
+          const values = contextParams.getAll(name)
+          return values.length === 1 &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              values[0] ?? '',
+            ) &&
+            values[0] !== '00000000-0000-0000-0000-000000000000'
+            ? values[0]
+            : null
+        }
+        const tracker = identity('tracker_instance_id'),
+          task = identity('task_id')
+        if (!command.context && (!namespace || !tracker || !task))
+          throw new ControlPreparationError('Invalid Namespace Task reference')
+        const context: components['schemas']['ExecutionContextV2'] = command.context ?? {
+          schema_version: 2,
+          operation_id: command.input.idempotency_key!,
+          namespace: namespace!,
+          task: { tracker_instance_id: tracker!, task_id: task! },
+          repositories: [],
+        }
+        const current = (await listAgentDirectory()).find(
+          (entry) => entry.id === command.input.primary_agent_id,
+        )
+        if (
+          !isCurrentAuth(scope) ||
+          !scope.permissions.includes('sessions:write_own') ||
+          current?.product_role !== 'executor' ||
+          current.status === 'archived'
+        )
+          throw new ControlPreparationError('Read-only')
+        const scopeId = `create:namespace:${command.input.primary_agent_id}`
+        if (!command.marker && dispatchHeld(scopeId))
+          throw new ControlPreparationError('Reconcile original Namespace creation')
+        command.context = context
+        if (!command.marker) {
+          const marker = {
+            actor: scope.userId!,
+            agent: command.input.primary_agent_id!,
+            service: commandService(apiBaseUrl, ssoConfig.issuer),
+            key: command.input.idempotency_key!,
+            digest: await payloadDigest({
+              primary_agent_id: command.input.primary_agent_id,
+              title: command.input.title,
+              context,
+            }),
+          }
+          markDispatch(scopeId, marker)
+          command.marker = marker
+        }
+        if (command.marker.actor !== scope.userId)
+          throw new ControlPreparationError('Authentication changed')
+        setNamespaceHeld(true)
+        const receipt = await createContextSession({
+          primary_agent_id: command.input.primary_agent_id!,
+          title: command.input.title!,
+          context,
+        })
+        const confirmed = await getSession(receipt.session.id)
+        if (
+          !isCurrentAuth(scope) ||
+          confirmed.user_id !== scope.userId ||
+          confirmed.primary_agent_id !== command.input.primary_agent_id ||
+          confirmed.title !== command.input.title ||
+          (await payloadDigest(receipt.execution_context.context)) !==
+            (await payloadDigest(context))
+        )
+          throw new Error('Unconfirmed Namespace creation')
+        return confirmed
+      }
       await dispatch.prepare(
         command.input,
         command.input.idempotency_key!,
@@ -345,19 +451,30 @@ function CreatePrivateChat({
         session.user_id === useAuthStore.getState().userId &&
         session.primary_agent_id === command.input.primary_agent_id,
       )
-      if (!dispatch.finish(matching)) {
+      if (!matching || (!command.context && !dispatch.finish(matching))) {
         setUncertain(true)
         return
       }
+      if (
+        command.context &&
+        (!command.marker ||
+          !clearDispatch(`create:namespace:${command.input.primary_agent_id}`, command.marker))
+      ) {
+        setUncertain(true)
+        return
+      }
+      setNamespaceHeld(false)
       setUncertain(false)
       await client.invalidateQueries({ queryKey: ['chats-directory'] })
       onOpenChange(false)
       setTitle('')
       setKey(crypto.randomUUID())
-      navigate(`/chats/${session.id}?returnTo=${encodeURIComponent(returnTo)}`)
+      navigate(
+        contextPath(`/chats/${session.id}?returnTo=${encodeURIComponent(returnTo)}`, contextParams),
+      )
     },
-    onError: (error) => {
-      dispatch.fail(error)
+    onError: (error, command) => {
+      if (!command.context) dispatch.fail(error)
       if (
         !(error instanceof ControlPreparationError) &&
         (!(error instanceof ApiError) ||
@@ -368,7 +485,8 @@ function CreatePrivateChat({
         setUncertain(true)
     },
   })
-  const held = mutation.isPending || uncertain || dispatch.restored
+  const held =
+    mutation.isPending || uncertain || (namespaceCreation ? namespaceHeld : dispatch.restored)
   if (!agent && !held) return null
   return (
     <Dialog
@@ -388,7 +506,12 @@ function CreatePrivateChat({
           aria-busy={mutation.isPending}
           onSubmit={(event) => {
             event.preventDefault()
-            if (mutation.isPending || dispatch.restored) return
+            if (
+              mutation.isPending ||
+              (!namespaceCreation && dispatch.restored) ||
+              (namespaceCreation && namespaceHeld && !mutation.variables)
+            )
+              return
             if (uncertain && mutation.variables) mutation.mutate(mutation.variables)
             else if (
               title.trim() &&
@@ -424,13 +547,21 @@ function CreatePrivateChat({
             <ErrorState message={t('sessions.createError')} />
           ) : null}
           {uncertain ? <ErrorState message={t('chats.creationUnknown')} /> : null}
-          {dispatch.restored && (
+          {!namespaceCreation && dispatch.restored && (
             <p role="status">
               Создание исходного чата требует сверки после перезагрузки. Новый чат заблокирован;
               приватный текст не сохранён.
             </p>
           )}
-          <Button type="submit" disabled={mutation.isPending || dispatch.restored || !title.trim()}>
+          <Button
+            type="submit"
+            disabled={
+              mutation.isPending ||
+              (!namespaceCreation && dispatch.restored) ||
+              !title.trim() ||
+              (namespaceCreation && namespaceHeld && !mutation.variables)
+            }
+          >
             <Plus className="h-4 w-4" />
             {mutation.isPending ? t('sessions.creating') : t('sessions.create')}
           </Button>

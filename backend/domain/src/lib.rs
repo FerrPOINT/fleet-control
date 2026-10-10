@@ -1543,6 +1543,8 @@ pub struct SessionMessage {
     pub delivery_state: MessageDeliveryState,
     pub delivery_error: Option<String>,
     pub replayed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_payload_hash: Option<String>,
     pub created_at: Timestamp,
 }
 
@@ -2201,3 +2203,4 @@ fn default_jwt_audience() -> String {
 pub struct ListResponse<T> {
     pub items: Vec<T>,
 }
+pub mod execution_context;

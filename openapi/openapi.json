@@ -1793,7 +1793,7 @@
           {
             "name": "user_id",
             "in": "query",
-            "description": "Comma-separated user ids, or all for admin. Omit for current user.",
+            "description": "Comma-separated user ids, or all for central users and legacy operators/admins. Central private sessions remain owner-only. Omit for current user.",
             "required": false,
             "schema": {
               "type": "string"
@@ -3569,6 +3569,119 @@
         }
       }
     },
+    "/api/v2/sessions": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "fleet_create_context_session_v2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContextSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContextSessionReceipt"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Original-key context conflict"
+          }
+        }
+      }
+    },
+    "/api/v2/sessions/{session_id}/execution-context": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "fleet_get_execution_context_v2",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SessionExecutionContext"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "fleet_bind_execution_context_v2",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionContextV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionExecutionContext"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Immutable context/replay conflict"
+          }
+        }
+      }
+    },
     "/internal/runtime/v1/agents/{agent_id}/configuration": {
       "get": {
         "tags": [
@@ -5309,6 +5422,22 @@
         },
         "additionalProperties": false
       },
+      "ContextSessionReceipt": {
+        "type": "object",
+        "required": [
+          "session",
+          "execution_context"
+        ],
+        "properties": {
+          "execution_context": {
+            "$ref": "#/components/schemas/SessionExecutionContext"
+          },
+          "session": {
+            "$ref": "#/components/schemas/AgentSession"
+          }
+        },
+        "additionalProperties": false
+      },
       "ContinuePmDraftRequest": {
         "type": "object",
         "additionalProperties": false
@@ -5381,6 +5510,28 @@
             ]
           }
         }
+      },
+      "CreateContextSessionRequest": {
+        "type": "object",
+        "description": "A v2 draft chat has no execution queue until a compatible foundation enables it.",
+        "required": [
+          "primary_agent_id",
+          "title",
+          "context"
+        ],
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/ExecutionContextV2"
+          },
+          "primary_agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "CreateDeploymentJobRequest": {
         "type": "object",
@@ -5686,6 +5837,41 @@
           "running",
           "stopped"
         ]
+      },
+      "ExecutionContextV2": {
+        "type": "object",
+        "description": "Separate v2 context; it does not add fields to strict SDLC v1 envelopes.",
+        "required": [
+          "schema_version",
+          "operation_id",
+          "namespace",
+          "task",
+          "repositories"
+        ],
+        "properties": {
+          "namespace": {
+            "$ref": "#/components/schemas/NamespaceRef"
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepositoryRef"
+            }
+          },
+          "schema_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "task": {
+            "$ref": "#/components/schemas/TaskRef"
+          }
+        },
+        "additionalProperties": false
       },
       "FleetAlert": {
         "type": "object",
@@ -6167,6 +6353,24 @@
           "system_event",
           "control"
         ]
+      },
+      "NamespaceRef": {
+        "type": "object",
+        "required": [
+          "registry_instance_id",
+          "namespace_id"
+        ],
+        "properties": {
+          "namespace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "registry_instance_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
       },
       "PmDraftCreationResponse": {
         "type": "object",
@@ -6663,6 +6867,24 @@
             "type": "string"
           }
         }
+      },
+      "RepositoryRef": {
+        "type": "object",
+        "required": [
+          "forge_instance_id",
+          "repository_id"
+        ],
+        "properties": {
+          "forge_instance_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
       },
       "ResolveRuntimeApprovalRequest": {
         "type": "object",
@@ -7183,6 +7405,40 @@
           }
         }
       },
+      "SessionExecutionContext": {
+        "type": "object",
+        "required": [
+          "context",
+          "tracker_project_id",
+          "binding_generation",
+          "runtime_ready",
+          "dispatch_allowed",
+          "adapter_version"
+        ],
+        "properties": {
+          "adapter_version": {
+            "type": "string"
+          },
+          "binding_generation": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "context": {
+            "$ref": "#/components/schemas/ExecutionContextV2"
+          },
+          "dispatch_allowed": {
+            "type": "boolean"
+          },
+          "runtime_ready": {
+            "type": "boolean"
+          },
+          "tracker_project_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "SessionMessage": {
         "type": "object",
         "required": [
@@ -7241,6 +7497,12 @@
           },
           "replayed": {
             "type": "boolean"
+          },
+          "request_payload_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "runtime_message_id": {
             "type": [
@@ -7444,6 +7706,24 @@
           },
           "tracker_instance_id": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TaskRef": {
+        "type": "object",
+        "required": [
+          "tracker_instance_id",
+          "task_id"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tracker_instance_id": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false

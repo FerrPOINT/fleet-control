@@ -11,7 +11,7 @@ pub static BRIDGE: ServiceBridge = ServiceBridge::new("FLEET_CONTROL_AUTH__CENTR
 /// Central-first bearer validation result, flattened for the middleware.
 pub enum CentralCheck {
     /// Validated centrally — shadow user must be linked by the caller.
-    Validated(sdlc_auth_core::AuthContext, String),
+    Validated(sdlc_auth_core::AuthContext, Option<String>),
     /// Not a central token (or central not configured) — legacy path.
     FallThrough,
     /// Central token, expired.
@@ -26,10 +26,11 @@ pub async fn check_token(token: &str) -> CentralCheck {
 
 fn bridge_check(outcome: BridgeOutcome, name: Option<String>) -> CentralCheck {
     match outcome {
-        BridgeOutcome::Validated(ctx) => match name.filter(|name| !name.trim().is_empty()) {
-            Some(name) => CentralCheck::Validated(ctx, name.trim().to_string()),
-            None => CentralCheck::Unavailable,
-        },
+        BridgeOutcome::Validated(ctx) => CentralCheck::Validated(
+            ctx,
+            name.filter(|name| !name.trim().is_empty())
+                .map(|name| name.trim().to_string()),
+        ),
         BridgeOutcome::NotOurs | BridgeOutcome::NotConfigured => CentralCheck::FallThrough,
         BridgeOutcome::Expired => CentralCheck::Expired,
         BridgeOutcome::Invalid(reason) => {
@@ -52,7 +53,7 @@ pub async fn try_login(
 )> {
     match BRIDGE.try_login(email, password).await {
         Ok(Some(pair)) => match check_token(&pair.access_token).await {
-            CentralCheck::Validated(ctx, name) => Some((pair, ctx, name)),
+            CentralCheck::Validated(ctx, Some(name)) => Some((pair, ctx, name)),
             _ => None,
         },
         Ok(None) => None,
@@ -86,7 +87,7 @@ mod tests {
         ) else {
             panic!("valid named principal was rejected");
         };
-        assert_eq!(name, "Renamed Human");
+        assert_eq!(name.as_deref(), Some("Renamed Human"));
         assert_eq!(ctx.user_id, "central-subject");
         assert!(ctx.allows_service("fleet-control", "GET"));
         assert!(!ctx.allows_service("fleet-control", "POST"));
@@ -94,11 +95,11 @@ mod tests {
     }
 
     #[test]
-    fn missing_verified_name_is_unavailable_not_an_email_fallback() {
+    fn missing_metadata_preserves_identity_without_an_email_name_fallback() {
         for name in [None, Some(String::new()), Some("  ".into())] {
             assert!(matches!(
                 bridge_check(BridgeOutcome::Validated(principal()), name),
-                CentralCheck::Unavailable
+                CentralCheck::Validated(_, None)
             ));
         }
     }
