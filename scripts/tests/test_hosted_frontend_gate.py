@@ -198,7 +198,7 @@ class SourceContracts(unittest.TestCase):
 
     def test_schema_pin_is_current(self):
         self.assertEqual(gate.digest((ROOT / "openapi/openapi.json").read_bytes()), gate.SCHEMA_SHA256)
-        self.assertEqual(gate.SCHEMA_SHA256, "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76")
+        self.assertEqual(gate.SCHEMA_SHA256, "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501")
         self.assertEqual(gate.digest(gate.git(ROOT, "show", "59d00fe3269d67ab09819f19c6b2b5703a6e2268:openapi/openapi.json")),
                          "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953")
 
@@ -239,7 +239,7 @@ class SourceContracts(unittest.TestCase):
         self.assertEqual(len(inventory), 835)
         self.assertEqual(gate.digest(gate.canonical(inventory)),
                          "bb4ee11daf691177c14abc7a408372a899be301ab96cd11af47ba0bddb162263")
-        runtime = (ROOT / "frontend/e2e/runtime-controls.spec.ts").read_text(encoding="utf-8")
+        runtime = gate.git(ROOT, "show", frozen + ":frontend/e2e/runtime-controls.spec.ts").decode()
         for assertion in (
             "expect(commands[1]).toEqual(commands[0])",
             "expect(commands[2]).toEqual(commands[0])",
@@ -254,7 +254,7 @@ class SourceContracts(unittest.TestCase):
         self.assertEqual(runtime.count("stored.push("), 1)
         self.assertNotIn("clarifications/q1/answers", runtime)
         self.assertNotIn("state: 'delivered'", runtime)
-        chats = (ROOT / "frontend/e2e/fleet-control.spec.ts").read_text(encoding="utf-8")
+        chats = gate.git(ROOT, "show", frozen + ":frontend/e2e/fleet-control.spec.ts").decode()
         self.assertIn("expect(fixture.commands).toEqual([original])", chats)
         self.assertIn("body: original.request", chats)
         self.assertIn("const retainedAnswer = page.getByRole('status').filter({ has: resume })", chats)
@@ -312,7 +312,7 @@ class SourceContracts(unittest.TestCase):
         self.assertNotRegex(native, r"\btest\.(skip|only|todo)\b")
         self.assertIn("assert.equal(unhandled.size, 0", native)
         self.assertIn("['POST', 'PUT', 'PATCH', 'DELETE']", native)
-        capture = (ROOT / "frontend/scripts/capture-screenshots.mjs").read_text(encoding="utf-8")
+        capture = gate.git(ROOT, "show", frozen + ":frontend/scripts/capture-screenshots.mjs").decode()
         original_capture = gate.git(ROOT, "show", previous + ":frontend/scripts/capture-screenshots.mjs").decode()
         start = capture.index("    const runtimeControlsMatch = pathName.match(")
         end = capture.index("    const sessionLeaderMatch =", start)
@@ -385,7 +385,7 @@ class SourceContracts(unittest.TestCase):
                 "['runtime_session_id', 'runtime_run_id'] as const"]),
             ("chats/index.test.tsx", 19, []),
         ):
-            body = (ROOT / "frontend/src/pages" / path).read_text(encoding="utf-8")
+            body = gate.git(ROOT, "show", frozen + ":frontend/src/pages/" + path).decode()
             self.assertEqual(len(re.findall(r"\bit\(", body)), plain)
             self.assertEqual(re.findall(r"\bit\.each\((.*?)\)\(", body, re.S), parameters)
             self.assertNotRegex(body, r"\b(?:it|test|describe)\.(?:skip|only|todo)\b")
@@ -521,21 +521,21 @@ class SourceContracts(unittest.TestCase):
                                   "--", "frontend/playwright.config.ts", "frontend/pnpm-lock.yaml",
                                   "frontend/src/previews/pm-draft", "frontend/e2e/pm-draft-preview.spec.ts"), b"")
 
-        self.assertEqual(gate.SOURCE_SHA, "3c900b00f15aeda2016a45d080d850fa028cdcfd")
-        self.assertEqual(gate.SOURCE_TREE, "b975beb628bb68c03fb5bce45e7c43085837e41f")
-        self.assertEqual(gate.SOURCE_PARENTS, ["ad2b6ac1a2d4f286edd00eeb1e1ecc137c1f3223"])
-        gate.qualify_source(ROOT)
-        final = git_blob_inventory(gate.SOURCE_SHA)
+        qualified_source = "3c900b00f15aeda2016a45d080d850fa028cdcfd"
+        historical_schema = "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76"
+        self.assertEqual(gate.git(ROOT, "show", "-s", "--format=%T %P", qualified_source).decode().strip(),
+                         "b975beb628bb68c03fb5bce45e7c43085837e41f ad2b6ac1a2d4f286edd00eeb1e1ecc137c1f3223")
+        final = git_blob_inventory(qualified_source)
         self.assertEqual(len(final), 895)
-        self.assertEqual(gate.digest(gate.canonical(final)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
-        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), final)
+        self.assertEqual(gate.digest(gate.canonical(final)),
+                         "500c6e9adfbb5b52ebca9edaea93261bdefcf36ca765d0691f28b8e272411447")
         self.assertEqual({p: final[p] for p in paths}, {p: inventory[p] for p in paths})
         history = "frontend/e2e/fleet-control.spec.ts"
         runtime_fixture = "frontend/e2e/runtime-controls.spec.ts"
-        self.assertEqual(gate.git(ROOT, "diff", "--name-only", source, gate.SOURCE_SHA,
+        self.assertEqual(gate.git(ROOT, "diff", "--name-only", source, qualified_source,
                                   "--", "frontend", "openapi").decode().splitlines(), [history, runtime_fixture])
         old_history = gate.git(ROOT, "show", source + ":" + history).decode()
-        final_history = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + history).decode()
+        final_history = gate.git(ROOT, "show", qualified_source + ":" + history).decode()
         self.assertEqual(final[history], "e08e845d51739a8bfbbe7c698649290cfb6f5cf9acece60f261866516b052707")
         start = old_history.index("test('chat history preserves server order after clock rollback and page overlap'")
         old_setup = "  const state = createState()\n  await installMocks(page, state)\n"
@@ -544,10 +544,10 @@ class SourceContracts(unittest.TestCase):
         self.assertEqual(final_history.count("expect("), old_history.count("expect("))
         fixture_fix = "8f53740e6102c2fc9c5547aa572a8f413c2d9d8b"
         self.assertEqual(final[runtime_fixture], "49264145bb9ebfef37a24e28ef37fd7c1711b4ead7b286e99aa7f9726ed68723")
-        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", fixture_fix, gate.SOURCE_SHA,
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", fixture_fix, qualified_source,
                                   "--", runtime_fixture), b"")
         old_runtime = gate.git(ROOT, "show", "c59dbea1ab73a782a28cf6106155c84d73e2e14d:" + runtime_fixture).decode()
-        new_runtime = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + runtime_fixture).decode()
+        new_runtime = gate.git(ROOT, "show", qualified_source + ":" + runtime_fixture).decode()
         clarification = "test('fixture: uncertain clarification"
         self.assertEqual(new_runtime[new_runtime.index(clarification):], old_runtime[old_runtime.index(clarification):])
         self.assertEqual(new_runtime.count("expect("), old_runtime.count("expect(") + 1)
@@ -559,7 +559,7 @@ class SourceContracts(unittest.TestCase):
         prior_source = "c59dbea1ab73a782a28cf6106155c84d73e2e14d"
         codegen_source = "4449a3b1cdd915e265543a24054506f15385393d"
         self.assertEqual(gate.digest(gate.git(ROOT, "show", codegen_source + ":openapi/openapi.json")),
-                         gate.SCHEMA_SHA256)
+                         historical_schema)
         self.assertEqual(gate.git(ROOT, "diff", "--name-only", codegen_source, prior_source,
                                   "--", "backend").decode().splitlines(),
                          ["backend/infra/src/runtime/pm_recovery_pg_tests.rs",
@@ -572,13 +572,49 @@ class SourceContracts(unittest.TestCase):
         # Provenance64cdd95b3631c573af4c991a601948caff30b62cee3491735880814d6b8b36e1;
         # canonical303 inputs4ab1c70324a3b184096a69ed1dbdd72bcbf5f993fbdc1ecc6b01fb643f650457.
         codegen_source = "3c900b00f15aeda2016a45d080d850fa028cdcfd"
-        self.assertEqual(codegen_source, gate.SOURCE_SHA)
+        self.assertEqual(codegen_source, qualified_source)
         self.assertEqual(gate.digest(gate.git(ROOT, "show", codegen_source + ":openapi/openapi.json")),
-                         gate.SCHEMA_SHA256)
+                         historical_schema)
         self.assertEqual(gate.git(ROOT, "rev-parse", codegen_source + ":backend/api/src/routes/task_chats.rs").decode().strip(),
                          "4db07a426b6f7d38e518bd2adc0e28b6067bbdbe")
 
     def test_current_unit_counts_expand_all_source_declarations(self):
+        self.assertEqual(gate.SOURCE_SHA, "ce4153f453e730dad1e315131d65ca030243264c")
+        self.assertEqual(gate.SOURCE_TREE, "67ea7aa66bf66f803226abbd4893be7517ca3317")
+        self.assertEqual(gate.SOURCE_PARENTS, ["32d096a8826275ebeef432e634ecb9b61c26547f"])
+        gate.qualify_source(ROOT)
+        inventory = git_blob_inventory(gate.SOURCE_SHA)
+        self.assertEqual(len(inventory), 903)
+        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
+        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
+        # Authentic Rust codegen38058114502/1, workflowe8fd29e4d45c749ac601d743a09400867f9635e6.
+        # Artifact11671964606 ZIPd209ef81e0f962dae8f1465852a0b06dcb6faacdd350ff85b5fda95a980c75cf.
+        # Provenancee3a535e094def852111cb63df3fc3ebb09c335121aed75b50ec3aa8959aa1276;
+        # canonical303 inputs95ab4d1ff7b20675b38dfdab686360ab6348bde52409b92849c60475b35a5546.
+        self.assertEqual(gate.digest(gate.git(ROOT, "show", gate.SOURCE_SHA + ":openapi/openapi.json")),
+                         gate.SCHEMA_SHA256)
+        for path, blob in {
+            ".base-revision": "1716308f859d23508a6ca0bae105434221c00419",
+            "backend/Cargo.lock": "1f2a6fee32bf3dabedafc3927c56c286e14c6daf",
+            "backend/api/src/bin/gen_openapi.rs": "254b94c98ee232763c040fb50629080e4282af3f",
+            "backend/api/src/lib.rs": "d5b488ca8ed99d4f7e1bddf8e0498e4490fce9f4",
+            "backend/api/src/routes/agents.rs": "f512a6f5e4a0fb2c5e86e9c64fca8d827bb828da",
+            "backend/api/src/routes/clarification_commands.rs": "51513bee1b4cf823bf48d4482a47f1729c33ca62",
+            "backend/api/src/routes/sdlc_configuration.rs": "a9478a23db4e6f9d7db35b8342f382d1fa50775b",
+            "backend/api/src/routes/sessions.rs": "faca62d5e4d75157f3abf080aa1a6631b1bc00d3",
+            "backend/api/src/routes/task_chats.rs": "a4a632956aacc9b80c1773c99e0d7a89522a361f",
+            "backend/domain/src/clarification_commands.rs": "0c5d1610f2cd649cf1754489df6bac556bb19686",
+            "backend/domain/src/lib.rs": "a0c51b3e6683463698db5b7596c7565a90ed7ae4",
+        }.items():
+            self.assertEqual(gate.git(ROOT, "rev-parse", gate.SOURCE_SHA + ":" + path).decode().strip(), blob)
+        index = "frontend/src/pages/chat-detail/index.test.tsx"
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code",
+                                  "9d7775cd1b871a0de5579a5047268b244ba8e395", gate.SOURCE_SHA,
+                                  "--", index), b"")
+        for removed in ("frontend/src/pages/chat-detail/run-controls.test.tsx",
+                        "frontend/src/shared/chat-control-recovery.test.ts"):
+            self.assertNotIn(removed, inventory)
+
         def rows(expression):
             # Count only top-level literal-array rows; do not execute TypeScript.
             stack, quote, escaped, count = [], None, False, 0
@@ -606,7 +642,7 @@ class SourceContracts(unittest.TestCase):
             self.fail("Unclosed source test array")
 
         totals = {}
-        for path in git_blob_inventory(gate.SOURCE_SHA):
+        for path in inventory:
             if not re.fullmatch(r"frontend/src/.+\.test\.(ts|tsx)", path):
                 continue
             text = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + path).decode()
@@ -616,8 +652,11 @@ class SourceContracts(unittest.TestCase):
             self.assertNotRegex(text, r"\b(?:it|test|describe)\.(?:skip|only|todo)\b")
             totals[path] = direct + sum(rows(array) for array in arrays)
         self.assertEqual(totals["frontend/src/api/task-chats.test.ts"], 20)
-        self.assertEqual(totals["frontend/src/pages/chat-detail/index.test.tsx"], 69)
-        self.assertEqual((len(totals), sum(totals.values())), (38, 411))
+        self.assertEqual(totals[index], 87)
+        self.assertEqual(totals["frontend/src/pages/chat-detail/control-journal.test.ts"], 20)
+        self.assertEqual(totals["frontend/src/pages/chat-detail/answer-payload.test.ts"], 2)
+        self.assertEqual(totals["frontend/src/pages/chat-detail/dispatch-recovery.test.tsx"], 16)
+        self.assertEqual((len(totals), sum(totals.values())), (41, 460))
         self.assertEqual(gate.QUALIFIED_UNIT_COUNTS,
                          dict(files_passed=len(totals), tests_passed=sum(totals.values()), files_skipped=0, tests_skipped=0))
 
@@ -634,7 +673,8 @@ class CompletionContracts(unittest.TestCase):
                          dict(files_passed=2, tests_passed=8, files_skipped=0, tests_skipped=1))
 
     def test_exact_frozen_baseline_counts(self):
-        self.assertEqual(gate.unit_counts(b"Test Files 38 passed (38)\nTests 411 passed (411)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertEqual(gate.unit_counts(b"Test Files 41 passed (41)\nTests 460 passed (460)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertNotEqual(gate.unit_counts(b"Test Files 38 passed (38)\nTests 411 passed (411)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 38 passed (38)\nTests 385 passed (385)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 38 passed (38)\nTests 382 passed (382)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 355 passed (355)"), gate.QUALIFIED_UNIT_COUNTS)
@@ -843,9 +883,21 @@ class WorkflowContracts(unittest.TestCase):
         accepted_runtime = gate.git(ROOT, "ls-tree", "-z", "8f53740e6102c2fc9c5547aa572a8f413c2d9d8b",
                                     runtime_fixture.decode()).rstrip(b"\0")
         accepted_fixtures = {history: accepted, runtime_fixture: accepted_runtime}
-        self.assertEqual(retained(gate.SOURCE_SHA),
+        qualified_source = "3c900b00f15aeda2016a45d080d850fa028cdcfd"
+        self.assertEqual(retained(qualified_source),
                          [accepted_fixtures.get(entry.split(b"\t", 1)[1], entry)
                           for entry in retained(previous)])
+        # Exact parent-reviewed fixture adaptations, not a different selector/budget.
+        final_fixtures = {
+            b"frontend/e2e/chats-core.spec.ts": b"100644 blob 621d19c380ea1f18c0ac6274692f4e2ac14f98e6\tfrontend/e2e/chats-core.spec.ts",
+            history: b"100644 blob 0dfd2f6cbdc8b6d1cee74300ba8ce7828081e140\tfrontend/e2e/fleet-control.spec.ts",
+            runtime_fixture: b"100644 blob 7c19a2d03b0d075bb55c719d2b668c693c3d08df\tfrontend/e2e/runtime-controls.spec.ts",
+        }
+        self.assertEqual(retained(gate.SOURCE_SHA),
+                         [final_fixtures.get(entry.split(b"\t", 1)[1], entry)
+                          for entry in retained(qualified_source)])
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", qualified_source, gate.SOURCE_SHA,
+                                  "--", "frontend/playwright.config.ts", "frontend/pnpm-lock.yaml"), b"")
         self.assertEqual(gate.GATES["fixtures"][0][:-1],
                          ["pnpm", "exec", "playwright", "test", "--reporter=list,json"])
         self.assertEqual(gate.GATES["fixtures"][0][-1], "--max-failures=1")
