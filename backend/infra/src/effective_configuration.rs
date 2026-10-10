@@ -195,8 +195,10 @@ mod tests {
     use super::*;
 
     async fn fixture() -> (std::path::PathBuf, std::path::PathBuf, BTreeSet<String>) {
+        // Leave room for the Unix socket pathname under nested CI TMPDIRs.
         let root =
-            std::env::temp_dir().join(format!("fleet-skill-readback-{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("fs-{:016x}", uuid::Uuid::new_v4().as_u64_pair().0));
+        tokio::fs::create_dir(&root).await.unwrap();
         let skills = root.join("agent1/config/skills");
         tokio::fs::create_dir_all(skills.join("allowed"))
             .await

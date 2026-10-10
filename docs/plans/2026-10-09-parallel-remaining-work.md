@@ -7,24 +7,68 @@ records work ownership, not completion or permission to deploy.
 
 ### Latest Assignment Checkpoint
 
+The following terminal-result update supersedes historical in-progress statements
+below. Backend38018281445 and frontend38019603974 both complete FAILURE.
+Parent authenticates backend artifact11657906403, ZIP SHA256
+62d8e61e25cb71f61e38f5f7a95316c8a8267bc6d18c367289ddd662a80a4fb4:
+approval_recovery fails at runtime_approval_recovery.rs1006, the completion wait
+in pinned_recovery_bad_or_nonterminal_readbacks_hold_capacity_until_exact_terminal.
+Scratch and synthetic DB cleanup pass; the underlying recovery cause is not yet
+established. Frontend fails its original three-browser fixture step.
+
+Parent source58facc60ea19c158e0dfc1a47a3cb4e5ec8d1c21 normally integrates
+Curie's two-file production patchc48d4fb94b6c1f6e122cd4e576bbdc8db350486b.
+With the real generated API client and Node22, focused chat-detail tests pass
+53/53; full TypeScript and scoped ESLint pass. Full new-source unit/browser/screens
+and live acceptance remain open. The broader worker126-test result is not the
+page-test count.
+
+Current independently dispatched work:
+
+| Owner | Write scope / deliverable | Completion criterion |
+| ----- | ------------------------- | -------------------- |
+| Curie | Own C11 successor checkout; credential regression tests | Browser patch8c2d3c is integrated normally atf2e8495, not browser-qualified. New task closes review-identified tests for replay child UUID/expiry and exact parent/child subject/scopes, without retargeting frozen994 controls. No local heavy jobs or push. |
+| Feynman | Own report; read-only recovery pacing counterreview | C11 controlsc5ee9bc are prepared with99 Linux pure passes, pending parent review/publication. New task reviews e369fed paging fairness/backpressure and101-record regression, without changing active81-stage run38021438217. |
+| Pascal | Own frontend-controls successor; only workflow/helper/helper tests | C11 read-only review complete with no P1/P2, not live acceptance. New task: bounded authenticated failure receipts exposing only fixed gates/codes and source-attested test locations/browser states, never private output. Preserve23 gates and source pins until parent integration. |
+| Parent | Integration, CI diagnosis, docs and publication | Correct concrete CI causes, integrate reviewed commits, qualify exact successors and publish narrow release units. Do not attribute older results to new source. |
+
+The previous assignment table is retained as history, not concurrent work.
+
+Parent separately corrects acceptance-readback scan pacing: nonempty keyset
+pages yield, while the end of a complete scan or queue-read error retains the
+five-second idle delay. The strengthened101-run PostgreSQL test preserves
+invalid-run holds and exact terminal proof. This addresses deterministic
+per-page scheduling latency; it is not yet the proven cause or resolution of
+38018281445. Rust1.88 formatting passes; fresh compiled/PG gates remain required.
+
+Reviewed backend controlseb214954 normally publish sourcee369fed and start
+actual run38021438217, confirmed active in full Linux/PG. Independent input
+verification preserves380/170 files, all167 ignored identities, all81 stages and
+migration registries. Linux110/110 pure passes; product acceptance remains open.
+After normal browser-fixture mergef2e8495, parent actually runs the complete
+frontend suite:348/348 tests in36 files, Node22/threads/one worker. No browser,
+live-PM or native-runtime acceptance is inferred from that result.
+
 These assignments supersede the historical table below. Workers use separate
 owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Diagnose recovered-activation authorization | Actual38011797295 fails at container_activation_pg62/74; parent authenticates receipt/cleanup. Add only read-only test precondition assertions at the two known positive authorize sites, preserving all13 cases/guards/leases. No local PG or public push; production fix needs proof. External refresh complete. |
-| Feynman | Update combined backend CI controls | Configuration integration is frozen at8c93f43 and normally integrated by parent at65b4f33. Own only the six backend build-only control files: preserve prior74 stages, add the six activation-intent cases and configuration/package/workflow scopes, and require the exact package checkout instead of silently skipping that branch. No product edits, push or dispatch until final source/API inputs are qualified. |
+| Pascal | Frontend control closure complete; frozen | Successor921 closes PNG/timeout findings. Independent review of parentba60890 validates exact Base19a CRLF attestation,2279 canonical blobs and materialized profile, with no P1/P2. No further edits or reruns before actual hosted result. |
+| Feynman | Narrow C11 credential release candidate | New owned checkout from the reviewed47/64 dependency baseline. Extract only credential modules/hunks, migration11 and related tests/docs/CI fromafc5bb4. Preserve configuration semantics; no migrations12..20, heavy jobs or publication before review. Backend controlsaa5ac3f remain frozen. |
+| Curie | Production Chats UX regression closure | New owned checkout at34858b3; write only chat-detail components and their focused tests. Verify draft retention, unsaved navigation, stale/conflict input, explicit choices and keyboard/focus behavior; fix reproduced defects or add missing regression coverage. No backend/schema/lock/control edits or live-PM claim. Frontend controls60eee4d remain frozen. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
-| Parent | API generation, integration and publication | Normal merge65b4f33 retains configuration candidate8c93f43 and earlier runtime history. Review Pascal's diagnostic patch; authenticate new Rust-generated API, regenerate the client, then bind and run Feynman's combined controls. Preserve every authority/ledger assertion; no qualified product publication before those gates. |
+| Parent | Critical path, integration and publication | Authenticate active backend38018281445 on controls9e/source1303 and frontend38019603974 on controlsba60890/sourceb0. Preserve terminal38017066472 and38018831265 failures. Integrate worker candidates after review and publish narrow release units after their own gates. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
 integrates the generated API/type alias. Final integrated Rust parity is still
 required; code generation is not runtime acceptance.
 
-Pascal may edit only backend/infra/tests/container_activation.rs in his owned
-checkout: read-only assertions, not production behavior. Feynman owns only the
-six backend build-only controls. Parent owns generated API/client files,
+The prior diagnostic and backend controls are frozen. The new assignments above
+are independent: Pascal's reviewed frontend controls are now frozen,
+Feynman uses a separate credential-release checkout, and Curie owns chat UX changes
+in a new checkout. Parent owns generated API/client files,
 integration and this ledger. Historical worker scopes below
 are complete, not concurrent assignments. Deliverables identify exact commits,
 commands, results and bounded blockers rather than repeat completed broad audits.
@@ -40,6 +84,47 @@ Client generation/typecheck/drift and compatibility with mainb750e7b pass;
 all earlier paths/DTOs remain unchanged. No schema/client is manually combined.
 Publishing this build-only
 bootstrap does not make the combined product merge-ready or certify runtime/PM.
+
+Actual backend [run38016562420](https://github.com/FerrPOINT/fleet-control/actions/runs/38016562420)
+completes FAILURE at Clippy on exactef3b474/sourceb0ad56c. Parent authenticates
+safe artifact11656123142/ZIP0ce97501fabd6d423035cfbc73b64e9adcbe41b14eeeb2cab7c7ceb09d5da525,
+two diagnostic source locations122/131 and successful scratch/synthetic DB cleanup.
+Normal sourceafc5bb4 fixes only those panic expression chains. Reviewed normal
+successoraa5ac3f starts [run38017066472](https://github.com/FerrPOINT/fleet-control/actions/runs/38017066472),
+now terminal FAILURE on exactafc at config_files_unit. Source-to-controls delta is exactly
+six additions; all prior ignored identities and migration registries remain.
+Controls pure evidence: Linux110/110; parent Windows108 PASS/two POSIX-only skips.
+These do not accept the product. The two run/source pairs remain distinct;
+neither Clippy result resolves historical recovered-activation PG62.
+
+Parent authenticates run38017066472 artifact11657125102/ZIP
+d00558cf68d03fec24bb1c43a13b478b040f4a75d9e50de9d1a24d27e3e2716e.
+The named failure occurs before the special-entry safety assertion, at Unix
+socket bind. A lightweight WSL probe reproduces overflow with the long fixture
+path and succeeds with the compact path. Source1303be6 changes only fixture
+directory naming/exclusive creation; formatting passes, product Rust execution
+remains pending. The next controls are prepared in a new parent-owned checkout,
+leaving Feynman's frozenaa5 checkout and ongoing C11 extraction independent.
+Normal successor9e838718 is independently verified against380 canonical compiled
+files,170 Rust files, all81 stages/167 ignored identities and unchanged migration
+registries. Windows108 PASS/two POSIX skips and Linux110/110 PASS qualify controls
+only. Public fast-forward starts actual run38018281445, confirmed in progress;
+do not restart or retarget it before terminal result and authenticated readback.
+
+Frontend source-to-controls delta remains exactly three additions.92124468 fixes
+the independently reproduced PNG/timeout P2s;47 pure tests and135 existing PNGs
+pass. Actual38018831265 fails preparation before frontend install/tests. Parent
+and reviewer identify the clean Base19a legacy SQL CRLF materialization contract;
+ba60890 attests its exact bytes and updates only that materialized input hash.
+All2279 canonical Base blobs remain verified; no migration is rewritten or SDK
+repinned. Windows49/49 and Linux49/49 controls tests pass, independent review has
+no P1/P2. Normal publication starts38019603974, currently in progress on all23
+standard frontend gates. Hosted frontend and live acceptance remain unproved.
+
+Current regenerated-client frontend suite passes337 tests/36 files using threads
+and one worker. The default local fork attempt was stopped without a test result
+after repeated worker-start waits; it is not counted as a pass. Curie's standard
+hosted frontend gate must still run. No live PM or physical runtime is inferred.
 
 Integration dependency: Pascal's diagnostic patch and the new API artifact can
 advance independently; parent reviews both before final control qualification.

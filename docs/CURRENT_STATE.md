@@ -2,18 +2,45 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current source candidate `8c93f43`, normally integrated at65b4f33, combines
+Newest source checkpoint: normal mergef2e8495 integrates8c2d3c's seven additional
+Chats browser fixtures. The real generated-client frontend suite passes348/348
+tests in36 files using Node22/threads/one worker. No browser pass is claimed.
+Backend producte369fed and reviewed controlseb214954 are normally published;
+[run38021438217](https://github.com/FerrPOINT/fleet-control/actions/runs/38021438217)
+is confirmed active in the full81-stage Linux/PG gate. All167 ignored identities,
+migration registries and input pins are retained. Control tests pass110/110 on
+Linux, not product acceptance. The scan-pacing correction and stronger101-record
+regression still require the actual hosted result.
+
+Latest terminal checkpoint supersedes historical in-progress text below:
+backend38018281445 (source1303be6, controls9e838718) fails approval_recovery;
+frontend38019603974 (sourceb0ad56c, controlsba60890) fails the original three-browser
+fixture step. Parent authenticates backend artifact11657906403, ZIP SHA256
+62d8e61e25cb71f61e38f5f7a95316c8a8267bc6d18c367289ddd662a80a4fb4,
+with successful scratch/synthetic DB cleanup. The completion wait fails at
+runtime_approval_recovery.rs1006; underlying cause remains unproved.
+
+Current integrated product58facc6 includes Curie's c48d4fb Chats UX correction.
+Parent verifies53/53 focused page tests using the real generated client,
+TypeScript and scoped ESLint. Full new-source/browser/screens and live acceptance
+remain open. Current independent worker scopes are recorded in the
+[parallel work ledger](plans/2026-10-09-parallel-remaining-work.md).
+
+Current source candidate `1303be6` retains8c93f43, normally integrated at65b4f33, and combines
 configuration PR64 with runtime corrections, durable clarification custody and
 private-approval ownership. Genuine union codegen is verified below. The last
-combined backend run targets6881c04 and fails; the newer assembly is **not
+completed81-stage run targetsafc5bb4 and fails config_files_unit. Its test-only
+socket fixture correction is prepared in1303be6; reviewed successor38018281445
+is in progress. The newer assembly is **not
 merge-ready or live SDLC accepted**. Historical evidence qualifies only its own head.
 
 | Current gate | Exact source / authority | State |
 | --- | --- | --- |
-| Combined backend | Source6881c04, controlsa7d7db2, run38011797295 | FAILURE at container_activation_pg, stage62/74; message_order passes |
+| Combined backend | Sourcee369fed, controlseb214954, run38021438217 |81-stage gate active; prior1303 approval_recovery failure authenticated, correction not yet product-qualified |
 | Config release PR64 | Head820a1af, normally merged into candidate8c93f43 | Separate five-job PASS; combined Rust/PG acceptance pending |
 | Union API/client | Source8c93f43, workflow5e57d5b, run38015043570 | Authenticated codegen PASS; typecheck/drift/compatibility PASS, not runtime acceptance |
-| Production Chats presentation | Frontend tree13ccbaba, correction6c022f3 |42 unit cases and six three-engine fixture cases pass; no live PM acceptance |
+| Production Chats presentation | Integratedf2e8495; earlier hostedba60890/sourceb0 fails38019603974 |348/348 unit tests in36 files pass with threads; new browser fixtures and full hosted successor pending, not live PM |
+| Narrow C11 credential candidate | Product994f29d, controlsc5ee9bc, run38021888246 | Published28-stage gate created; parent309-input verification and99 Linux control tests pass, actual backend/Auth/PG result pending |
 | PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
 | Forge full12 | Public-safe controls1dbedf8, maintenance pin commit null | Cannot start acceptance without published qualified Base inputs |
 | Physical runtimes | Reviewed Docker/config/recovery source | Exact images and actual native lifecycle remain unaccepted |
@@ -29,6 +56,59 @@ Both new configuration routes and DTOs are present, and all earlier paths/DTOs
 are unchanged. Client generation, typecheck, OpenAPI drift and compatibility
 against mainb750e7b pass; eight compatibility regressions pass. The separate
 all-target/Clippy/Rust/PG/native and live PM gates remain open.
+
+The diagnostic-onlyab222f0 is normally merged inb0ad56c; private fixed predicate
+hints have independent source/pure closure. Actual38016562420 fails at Clippy;
+parent authenticates artifact11656123142, ZIP0ce97501fabd6d423035cfbc73b64e9adcbe41b14eeeb2cab7c7ceb09d5da525.
+It names only the two probe source locations122/131; scratch/synthetic DB cleanup
+passes. Sourceafc5bb4 replaces their ok-expect chains with fixed panic closures,
+preserving assertions and redaction. Reviewed controlsaa5ac3f normally succeed
+ef3 and start38017066472 againstafc, with unchanged81 gates and distinct pins.
+Neither run diagnoses the earlier recovered-activation PG predicate yet.
+Current frontend threads337/36 PASS does not accept the stopped
+default-fork attempt. Frontend controls92124468 close the independently reproduced
+PNG pixel-stream and command-timeout P2 findings;47 pure tests and all135 existing
+source fixture PNGs pass. Its actual run38018831265 fails preparation before
+install/tests/build/browsers, with no success artifact or sole-cause diagnostic.
+
+The clean pinned Base19a checkout reveals a definite qualification defect: its
+attributes require CRLF for one legacy SQL migration while the first helper
+requires canonical Git bytes everywhere. Normal successorba60890 attests only
+that exact Base revision/path/blob/physical hash, without rewriting migration
+bytes or relaxing other files. Both parent and independent reviewer verify2279
+canonical blobs and the resulting materialized inventory437244f3;49 pure tests
+pass on Windows and Linux, with no P1/P2. Closed failure hints do not echo private
+errors. Public normal fast-forward starts
+[run38019603974](https://github.com/FerrPOINT/fleet-control/actions/runs/38019603974),
+currently in progress on unchanged frontend/schema/SDK and all23 standard gates.
+Neither source reasoning nor control tests establish frontend/live acceptance.
+
+Actual run38017066472 completes FAILURE at config_files_unit, exit101. Parent
+authenticates artifact11657125102, ZIP SHA256
+d00558cf68d03fec24bb1c43a13b478b040f4a75d9e50de9d1a24d27e3e2716e.
+The sole named failure is the linked/special-entry readback test at
+effective_configuration.rs294, the UnixListener bind before its safety assertion.
+A lightweight WSL socket probe reproduces pathname overflow at128 bytes and a
+successful bind at90 bytes. Source1303be6 shortens only the temporary fixture
+name and creates its directory exclusively; all four tests and production guards
+remain unchanged. Formatting passes; the product Rust test still requires Linux
+execution. This result does not resolve the older activation authorization failure.
+
+Normal controls9e838718 preserveaa5 history and bind exact source1303be6. Parent
+re-verifies380 canonical compiled Git files/170 Rust files, all prior74/total81
+stages,167 ignored identities, migration registries and22 package metadata entries.
+Only the workflow source pin, helper pins and inventory/hash/four line references
+change; parser/tests/gate/init remain unchanged. Pure controls pass110/110 on
+Linux and108 plus two POSIX-only skips on Windows. Public fast-forwardaa5 to9e
+starts [run38018281445](https://github.com/FerrPOINT/fleet-control/actions/runs/38018281445),
+confirmed in progress. None of these control checks accepts product Rust/native/PM.
+
+The requested Base source-status ledger is located at published branch
+feat/pdlc-source-implementation, commit331d1cd2c9b262a3a7770c0fa62bcc2856f8fcf5,
+path docs/plans/base-pdlc-source-status.md, bloba74c8e229b7ca376a49f8712c8bdab5d0c1b1c66.
+Its historical source/native evidence explicitly distinguishes remaining
+producer admission, PM continuation and Forge acceptance from installed readiness.
+It is not a current compatibility receipt or permission to change SDK/helper pins.
 
 Run38011797295 completes FAILURE at container_activation_pg, exit101. Parent
 authenticates safe artifact11654672637, ZIP SHA256

@@ -139,6 +139,10 @@ function ChatWorkspace({ id }: { id: string }) {
   })
   const [contextOpen, setContextOpen] = useState(false)
   const contextTrigger = useRef<HTMLButtonElement>(null)
+  const leaveTrigger = useRef<HTMLElement | null>(null)
+  const tabList = useRef<HTMLDivElement>(null)
+  const questionFieldset = useRef<HTMLFieldSetElement>(null)
+  const focusQuestion = useRef(false)
   const [drafts, setDrafts] = useState<
     Record<string, { selected: string[]; text: string; comment: string; key: string }>
   >({})
@@ -152,6 +156,7 @@ function ChatWorkspace({ id }: { id: string }) {
   const tab = ['dialogue', 'clarification', 'requirements'].includes(params.get('tab') ?? '')
     ? params.get('tab')!
     : 'dialogue'
+  const previousTab = useRef(tab)
   const owner = session.data?.user_id === userId
   const answerCommands = useQuery({
     queryKey: ['clarification-commands', id],
@@ -171,6 +176,23 @@ function ChatWorkspace({ id }: { id: string }) {
     questionList.find((question) => question.state === 'open') ??
     questionList[0]
   const questionKey = selectedQuestion ? `${selectedQuestion.id}:${selectedQuestion.version}` : ''
+  useEffect(() => {
+    if (focusQuestion.current && tab === 'clarification' && questionFieldset.current) {
+      focusQuestion.current = false
+      questionFieldset.current.focus()
+    }
+  }, [questionKey, tab])
+  useEffect(() => {
+    if (previousTab.current === tab) return
+    previousTab.current = tab
+    // Wait for the previous Base tab panel to unmount before restoring lost focus.
+    const frame = requestAnimationFrame(() => {
+      if (document.activeElement === document.body) {
+        tabList.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus()
+      }
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [tab])
   const draft = drafts[questionKey] ?? { selected: [], text: '', comment: '', key: '' }
   const dirty =
     Boolean(body.trim()) ||
@@ -335,6 +357,31 @@ function ChatWorkspace({ id }: { id: string }) {
       void task.refetch()
     },
   })
+  const recheckAnswer = useMutation({
+    mutationFn: async () => {
+      const results = await Promise.all([
+        questions.refetch(),
+        task.refetch(),
+        answerCommands.refetch(),
+      ])
+      for (const result of results) {
+        if (!result.isSuccess) throw result.error ?? new Error('Данные недоступны')
+      }
+    },
+    onSuccess: () => {
+      const command = answer.variables
+      setDrafts((current) => {
+        if (!command) return current
+        const previous = current[command.questionKey]
+        if (!previous || previous.key !== command.payload.idempotency_key) return current
+        return {
+          ...current,
+          [command.questionKey]: { ...previous, key: requestKey() },
+        }
+      })
+      answer.reset()
+    },
+  })
   const recoverAnswer = useMutation({
     mutationFn: (commandId: string) => deliverAnswerCommand(id, commandId),
     onSuccess: async (result) => {
@@ -376,6 +423,10 @@ function ChatWorkspace({ id }: { id: string }) {
   })
   const answerUncertain =
     answer.isError && (!(answer.error instanceof ApiError) || answer.error.status >= 500)
+  const answerConflict =
+    answer.isError &&
+    answer.error instanceof ApiError &&
+    (answer.error.status === 409 || answer.error.status === 412)
   const messageUncertain =
     (message.isError && (!(message.error instanceof ApiError) || message.error.status >= 500)) ||
     (message.isSuccess && 'accepted' in message.data && !message.data.accepted)
@@ -571,7 +622,7 @@ function ChatWorkspace({ id }: { id: string }) {
       <div className="fc-chat-grid">
         <div className="fc-chat-main">
           <Tabs value={tab} onValueChange={switchTab} className="fc-chat-tabs">
-            <TabsList className="fc-chat-tab-list" aria-label="Разделы задачи">
+            <TabsList ref={tabList} className="fc-chat-tab-list" aria-label="Разделы задачи">
               <TabsTrigger value="dialogue">
                 <MessageSquare size={15} />
                 Диалог
@@ -586,11 +637,15 @@ function ChatWorkspace({ id }: { id: string }) {
               </TabsTrigger>
             </TabsList>
             {task.isError && <ReadableError error={task.error} />}
-            {receipt && (
-              <p role="status" className="fc-chat-notice">
-                {receipt}
-              </p>
-            )}
+            <p
+              role="status"
+              aria-label="Статус команды"
+              aria-live="polite"
+              aria-atomic="true"
+              className={receipt ? 'fc-chat-notice' : 'sr-only'}
+            >
+              {receipt}
+            </p>
             <TabsContent value="dialogue" className="fc-chat-panel">
               <div
                 ref={transcript}
@@ -632,7 +687,16 @@ function ChatWorkspace({ id }: { id: string }) {
                       />
                       <strong>{item.author_display_name}</strong>
                       <time>{formatDate(item.created_at)}</time>
-                      {item.author_type === 'user' && <StatusBadge value={item.delivery_state} />}
+                      {item.author_type === 'user' && (
+                        <span
+                          role="status"
+                          aria-label="Доставка сообщения"
+                          aria-live="polite"
+                          aria-atomic="true"
+                        >
+                          <StatusBadge value={item.delivery_state} />
+                        </span>
+                      )}
                     </div>
                     <p>{item.body}</p>
                     {item.delivery_error && <p role="alert">{item.delivery_error}</p>}
@@ -792,13 +856,15 @@ function ChatWorkspace({ id }: { id: string }) {
                         <button
                           key={question.id}
                           aria-current={question.id === selectedQuestion?.id ? 'true' : undefined}
-                          onClick={() =>
+                          onClick={() => {
+                            focusQuestion.current = question.id !== selectedQuestion?.id
+                            if (!focusQuestion.current) questionFieldset.current?.focus()
                             setParams((current) => {
                               const next = new URLSearchParams(current)
                               next.set('question', question.id)
                               return next
                             })
-                          }
+                          }}
                         >
                           {index + 1}. {question.text}
                           <StatusBadge value={question.state} />
@@ -807,6 +873,8 @@ function ChatWorkspace({ id }: { id: string }) {
                     </nav>
                     {selectedQuestion && (
                       <fieldset
+                        ref={questionFieldset}
+                        tabIndex={-1}
                         className="fc-chat-question"
                         disabled={
                           !owner ||
@@ -935,6 +1003,17 @@ function ChatWorkspace({ id }: { id: string }) {
                   </>
                 )}
                 {answer.isError && <ReadableError error={answer.error} />}
+                {answerConflict && (
+                  <Button
+                    variant="outline"
+                    disabled={!owner || !bound || recheckAnswer.isPending}
+                    onClick={() => recheckAnswer.mutate()}
+                  >
+                    <RotateCw size={15} />
+                    Проверить актуальный вопрос
+                  </Button>
+                )}
+                {recheckAnswer.isError && <ReadableError error={recheckAnswer.error} />}
                 {owner && bound && answerCommands.isError && (
                   <ReadableError error={answerCommands.error} />
                 )}
@@ -1009,7 +1088,9 @@ function ChatWorkspace({ id }: { id: string }) {
                     !canSubmitAnswer(selectedQuestion, draft.selected, draft.text) ||
                     answer.isPending ||
                     answerCustodyHeld ||
-                    answerUncertain
+                    answerUncertain ||
+                    answerConflict ||
+                    recheckAnswer.isPending
                   }
                   onClick={() => {
                     if (!selectedQuestion) return
@@ -1075,7 +1156,16 @@ function ChatWorkspace({ id }: { id: string }) {
           if (!open && blocker.state === 'blocked') blocker.reset()
         }}
       >
-        <DialogContent>
+        <DialogContent
+          onOpenAutoFocus={() => {
+            leaveTrigger.current =
+              document.activeElement instanceof HTMLElement ? document.activeElement : null
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            if (leaveTrigger.current?.isConnected) leaveTrigger.current.focus()
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Остались несохранённые изменения</DialogTitle>
           </DialogHeader>
