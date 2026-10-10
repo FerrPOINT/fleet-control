@@ -744,10 +744,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "6768f6642ac5f08d2c77204f0e79ab356603e54f")
+        self.assertEqual(gate.SOURCE_SHA, "cb1f62ee86477d60242cc05222ec923dd3c74e37")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "a998c0636dac4b7e3275b48e585dd5abf4ab40e7")
+        self.assertEqual(tree, "bf6ef0f667527e33ab3dc29dc6a0ba02a04d01b2")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -815,6 +815,10 @@ class HostedBackendTests(unittest.TestCase):
         start = normalized.index(b"#[test]\n#[ignore")
         end = normalized.index(b"#[tokio::test]", start)
         normalized = normalized[:start] + normalized[end:]
+        normalized = normalized.replace(b"Box::pin(submit(&f.supervisor, &f.agent, &f.intent, authorize()))",
+                                        b"submit(&f.supervisor, &f.agent, &f.intent, authorize())")
+        normalized = normalized.replace(b"Box::pin(submit(&other, &f.agent, &f.intent, authorize()))",
+                                        b"submit(&other, &f.agent, &f.intent, authorize())")
         self.assertEqual(normalized, expected)
         expected_inventory = copy.deepcopy(prior)
         expected_inventory["source_commit"] = gate.SOURCE_SHA
@@ -1722,7 +1726,7 @@ class HostedBackendTests(unittest.TestCase):
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
             actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.GATE, gate.INVENTORY) else (ROOT / path).read_bytes()
             self.assertEqual(actual, expected, path)
-        self.assertEqual(gate.SOURCE_SHA, "6768f6642ac5f08d2c77204f0e79ab356603e54f")
+        self.assertEqual(gate.SOURCE_SHA, "cb1f62ee86477d60242cc05222ec923dd3c74e37")
         self.assertEqual(len(gate.GATES), 84)
 
     def test_hosted_six_gib_policy_is_exact_and_retains_three_gib_reserve(self):
@@ -2404,6 +2408,47 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(block.count("std::mem::size_of::<Fut>()"), 2)
         for unexpected in (".await", "fixture(", "bounded_submit(", "tokio::", "std::env::", "repository("):
             self.assertNotIn(unexpected, block)
+
+    def test_cb1_source_binding_is_exact_two_operand_allocation_changes_with_188_identities_preserved(self):
+        import ast
+        frozen = "c5ef8f64e7215659a3ec600846dab8e0e1c5fc93"
+        original_source = "6768f6642ac5f08d2c77204f0e79ab356603e54f"
+        path = "backend/infra/src/runtime/pm_recovery_pg_tests.rs"
+        old = self.source_blob(path, original_source)
+        expected = old
+        for call in (b"submit(&f.supervisor, &f.agent, &f.intent, authorize())",
+                     b"submit(&other, &f.agent, &f.intent, authorize())"):
+            self.assertEqual(expected.count(call), 1)
+            expected = expected.replace(call, b"Box::pin(" + call + b")")
+        actual = self.source_blob(path)
+        self.assertEqual(actual, expected)
+        inverse = actual
+        for call in (b"submit(&f.supervisor, &f.agent, &f.intent, authorize())",
+                     b"submit(&other, &f.agent, &f.intent, authorize())"):
+            inverse = inverse.replace(b"Box::pin(" + call + b")", call)
+        self.assertEqual(inverse, old)
+        previous = json.loads(self.source_blob(gate.INVENTORY, frozen))
+        updated = copy.deepcopy(previous)
+        updated["source_commit"] = updated["config_union_preparation"]["source_commit"] = gate.SOURCE_SHA
+        updated["compiled_source_sha256"]["fleet-control/" + path] = updated["rust_source_sha256"][path] = gate.digest(actual)
+        binding = updated["config_union_preparation"]["codegen_evidence"]
+        binding["artifact_bound_source_commit"] = gate.SOURCE_SHA
+        binding["source_delta"] = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
+            binding["source_commit"], gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+        self.assertEqual(REVIEWED, updated)
+        gate.require_codegen_binding(REVIEWED)
+        helper = self.source_blob(gate.HELPER, frozen).replace(original_source.encode(), gate.SOURCE_SHA.encode())
+        helper = helper.replace(gate.digest(gate.canonical(previous["compiled_source_sha256"])).encode(), gate.SOURCE_INVENTORY_SHA.encode())
+        self.assertEqual((ROOT / gate.HELPER).read_bytes(), helper)
+        self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(), self.source_blob(gate.WORKFLOW, frozen).replace(
+            original_source.encode(), gate.SOURCE_SHA.encode()))
+        for file in (gate.GATE, gate.INIT):
+            self.assertEqual((ROOT / file).read_bytes(), self.source_blob(file, frozen))
+        identities = lambda data: {node.name for node in ast.walk(ast.parse(data))
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        before = identities(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen))
+        self.assertEqual(len(before), 188)
+        self.assertTrue(before <= identities(Path(__file__).read_bytes()))
 
     def test_pm_recovery_nocapture_only_one_command_and_split_libtest_completions_are_exact(self):
         frozen = "a7a5ac7f9ada5878436b88eefd8e7cad2a42a6a1"

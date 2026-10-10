@@ -118,6 +118,20 @@ run. No particular test, future or source line causing overflow is identified.
 Prior78's stack-fatal evidence and8ce's SIGABRT-only unknown scope stay separate;
 this failure neither changes their receipts nor grants later-stage acceptance.
 
+Current diagnostic qualification update (11 October local date): published
+source `6768f6642ac5f08d2c77204f0e79ab356603e54f` adds a test-only future-layout
+reporter and nine fixed phases, not a production fix or stack-cause diagnosis.
+Controls normally mergeb9 with6768 asa7, followed by reviewed capture correction
+`c5ef8f64e7215659a3ec600846dab8e0e1c5fc93`: --nocapture only for the PM suite,
+with four required completions (three functional plus one metadata case).
+Parent and Planck review pass; parent reports188 pure selectors on Windows
+(185 PASS/three skips), Linux188 PASS, and seven focused checks PASS. These
+checks do not execute or qualify the PM PostgreSQL suite. Actual published
+push run [38086971343](https://github.com/FerrPOINT/fleet-control/actions/runs/38086971343)/1
+is in_progress on exactc5/source6768, job114315393768, created21:16:15Z.
+No terminal result, observed layout/phase, stack cause, real PM/full-SDLC or
+source acceptance is claimed; the precedingb9 failure remains unchanged.
+
 Earlier backend admission refusal
 [38078901349](https://github.com/FerrPOINT/fleet-control/actions/runs/38078901349),
 attempt1, is FAILURE on product `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`
@@ -278,9 +292,14 @@ no P1/P2. Parent published normal fast-forward294 to20e4 on the same build
 branch and verified the exact remote head. Actual push-triggered
 [38084941580](https://github.com/FerrPOINT/CI-CD/actions/runs/38084941580)/1
 on that exact20e4 head was created20:44:46Z and is in_progress as verified by
-parent API. Full12 qualification remains pending, not PASS. The backend
-successor's later terminal failure is recorded separately above; no Forge
-terminal result is claimed here.
+parent API. Current authenticated A readback verifies artifact11682820106,
+ZIP SHA256 `8a27896b822fd1e6ea34edf37d3f35e413101b90253872f9e798a4a5d1d67303`,
+report SHA256 `c14d8218ade2608d756c19884ce3158fff74700972eaffb45c2b742c09a9ed28`.
+A's five stages pass:78 Python tests (PG47/OCI31 declarations), row-smoke,
+smoke, check and Clippy. Cleanup complete, daemon stopped and delegation removed
+are true for A. B is still live, C/aggregate pending fresh B/C receipts;
+full12_accepted=false. This is an A partition PASS, not PostgreSQL/OCI execution,
+aggregate or source acceptance. No Forge terminal result is claimed here.
 Product5f is unchanged. Historicalabf/d744 first-six-stage PASS and its distinct
 OCI failure follow without retrospective attribution.
 
