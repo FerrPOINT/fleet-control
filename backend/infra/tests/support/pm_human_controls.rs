@@ -973,6 +973,11 @@ async fn legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_to
         "fence_mismatch",
         "run_custody_mismatch",
         "unfinished_tool",
+        "options_permuted",
+        "options_different",
+        "options_duplicate",
+        "malformed_answer_id",
+        "nil_answer_id",
     ] {
         let url =
             std::env::var("FLEET_TEST_DATABASE_URL").expect("isolated PostgreSQL is required");
@@ -1037,15 +1042,34 @@ async fn legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_to
         let request = ClarificationAnswerRequest {
             expected_question_version: 1,
             requirement_revision: 2,
-            selected_option_ids: vec![],
+            selected_option_ids: if case.starts_with("options_") {
+                vec![Uuid::from_u128(1), Uuid::from_u128(2)]
+            } else {
+                vec![]
+            },
             text: Some("Original A answer".into()),
             comment: None,
             idempotency_key: "original-a".into(),
         };
         let body = domain::canonical_answer_request(request.clone()).unwrap();
-        let answer = json!({"id":Uuid::new_v4(),"question_id":question,"question_version":1,
-            "requirement_revision":2,"selected_option_ids":[],"text":request.text,"comment":null,
+        let mut answer = json!({"id":Uuid::new_v4(),"question_id":question,"question_version":1,
+            "requirement_revision":2,"selected_option_ids":request.selected_option_ids,"text":request.text,"comment":null,
             "author_subject":subject,"created_at":"2026-10-10T00:00:00Z"});
+        match case {
+            "options_permuted" => {
+                answer["selected_option_ids"] = json!([Uuid::from_u128(2), Uuid::from_u128(1)]);
+            }
+            "options_different" => {
+                answer["selected_option_ids"] = json!([Uuid::from_u128(1), Uuid::from_u128(3)]);
+            }
+            "options_duplicate" => {
+                answer["selected_option_ids"] =
+                    json!([Uuid::from_u128(1), Uuid::from_u128(1), Uuid::from_u128(2)]);
+            }
+            "malformed_answer_id" => answer["id"] = json!("garbage"),
+            "nil_answer_id" => answer["id"] = json!(Uuid::nil()),
+            _ => {}
+        }
         db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "INSERT INTO clarification_answer_commands(id,session_id,question_id,actor_user_id,owner_subject,binding,idempotency_key,request_body,payload_sha256)
              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
@@ -1086,7 +1110,11 @@ async fn legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_to
         if case == "missing_source_answer" {
             original_answer = Value::Null;
         }
-        let (original_request, original_question) = legacy_question(
+        let corrupt_answer_id = matches!(case, "malformed_answer_id" | "nil_answer_id");
+        if corrupt_answer_id {
+            original_answer["id"] = json!(Uuid::new_v4());
+        }
+        let (original_request, mut original_question) = legacy_question(
             &original,
             question,
             if case == "checkpoint_mismatch" {
@@ -1096,6 +1124,10 @@ async fn legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_to
             },
             original_answer,
         );
+        // Corrupt legacy JSON after constructing the valid typed producer fixture.
+        if corrupt_answer_id {
+            original_question["answer"] = answer.clone();
+        }
         let original_key = original_request["idempotency_key"]
             .as_str()
             .unwrap()
@@ -1159,7 +1191,7 @@ async fn legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_to
             .into_iter()
             .map(|r| (r.version, r.applied_at))
             .collect::<Vec<_>>();
-        if case == "completed_a_then_checkpoint_b" {
+        if matches!(case, "completed_a_then_checkpoint_b" | "options_permuted") {
             migration::Migrator::up(&db, None).await.unwrap();
             assert_eq!(legacy_history_snapshot(&db).await, before);
             let saved = repo

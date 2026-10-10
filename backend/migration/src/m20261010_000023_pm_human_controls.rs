@@ -81,10 +81,18 @@ impl MigrationTrait for Migration {
                       AND r.runtime_run_id=b.hermes_run_ref AND r.runtime_session_id=b.runtime_session_id
                       AND (j.intent->>'request_body')::jsonb->>'session_id'=b.runtime_session_id
                       AND c.answer->>'question_id'=c.question_id::text AND c.answer->>'author_subject'=c.owner_subject
+                      AND jsonb_typeof(c.answer->'id')='string'
+                      AND c.answer->>'id' ~ '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$'
                       AND c.answer->>'id' <> '00000000-0000-0000-0000-000000000000'
                       AND c.answer->'question_version'=c.request_body::jsonb->'expected_question_version'
                       AND c.answer->'requirement_revision'=c.request_body::jsonb->'requirement_revision'
-                      AND c.answer->'selected_option_ids'=c.request_body::jsonb->'selected_option_ids'
+                      -- Canonical request IDs are unique; containment and cardinality reject duplicate answers.
+                      AND (c.answer->'selected_option_ids') @> (c.request_body::jsonb->'selected_option_ids')
+                      AND (c.request_body::jsonb->'selected_option_ids') @> (c.answer->'selected_option_ids')
+                      AND CASE WHEN jsonb_typeof(c.answer->'selected_option_ids')='array'
+                          THEN jsonb_array_length(c.answer->'selected_option_ids') ELSE -1 END
+                        = CASE WHEN jsonb_typeof(c.request_body::jsonb->'selected_option_ids')='array'
+                          THEN jsonb_array_length(c.request_body::jsonb->'selected_option_ids') ELSE -2 END
                       AND c.answer->'text'=c.request_body::jsonb->'text'
                       AND c.answer->'comment'=c.request_body::jsonb->'comment'
                       AND EXISTS(SELECT 1 FROM pm_tool_commands q JOIN pm_run_bindings old ON old.session_run_id=q.session_run_id

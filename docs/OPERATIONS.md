@@ -1,5 +1,20 @@
 # Operations
 
+## PM Human Controls Migration Gate
+
+Migration023 requires a clean and historical-data PostgreSQL rehearsal for both
+supported lineages before changing accepted runtime. A historical delivered PM
+answer is marked continued only from exact durable source-answer, checkpoint,
+execution/fence, native custody and subsequent Workflow-gated evidence.
+
+Unprovable history raises `legacy PM answer continuation requires authoritative
+reconciliation before migration`. Treat this as a deployment blocker: preserve
+the022 database and original receipts, obtain authoritative reconciliation and
+repeat the isolated rehearsal. Do not edit answers, delete history, bypass the
+guard or manually mark continuation confirmed. A clean synthetic migration is
+not proof that an existing database can upgrade. Current-source PG rehearsal
+and installed-runtime acceptance remain pending.
+
 ## PM Credential Reconciliation
 
 Credential preparation is disabled by default. Enable only with approved Base

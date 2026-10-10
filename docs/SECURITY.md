@@ -1,5 +1,19 @@
 # Security
 
+## PM Human Control And Continuation Candidate
+
+Original-key replay still requires fresh human ownership/project authority and
+matching session/run/operation/payload; it is not a reason to repeat the native
+effect. Dispatch-only liveness checks must not prevent readback of an existing
+acknowledged or uncertain command. The UI disables bound controls after revoked
+authority even if cached capabilities remain, while backend checks stay
+authoritative. Receipt state enums accept primitive strings only.
+
+Tracker delivery is not PM continuation. Only positive original-answer,
+checkpoint/rebind and accepted native custody can settle continuation; missing
+legacy proof blocks upgrade rather than inventing business or runtime success.
+Operators do not answer or confirm requirements on behalf of the owner.
+
 ## Original-Key Recovery Boundary
 
 Recovery uses the original authenticated origin and credential fingerprint, exact
