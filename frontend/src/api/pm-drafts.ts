@@ -36,18 +36,37 @@ function readCreation(
     !uuid(result.agent_id) ||
     (result.task_id !== null && !uuid(result.task_id)) ||
     (result.session_id !== null && !uuid(result.session_id)) ||
-    result.dispatch_allowed !== false ||
     (expected.projectId !== undefined && result.project_id !== expected.projectId) ||
     (expected.agentId !== undefined && result.agent_id !== expected.agentId) ||
-    (expected.operationId !== undefined && result.operation_id !== expected.operationId) ||
-    (result.state === 'awaiting_admission'
-      ? result.next_step !== 'admission' || result.task_id === null || result.session_id === null
-      : result.state !== 'incomplete' ||
-        !['draft', 'input', 'reservation', 'chat'].includes(result.next_step) ||
-        result.session_id !== null ||
-        (result.next_step === 'draft' ? result.task_id !== null : result.task_id === null))
+    (expected.operationId !== undefined && result.operation_id !== expected.operationId)
   )
     throw new ApiError(502, 'Invalid PM Draft operation response')
+  let validProgress = false
+  switch (result.state) {
+    case 'incomplete':
+      validProgress =
+        result.dispatch_allowed === false &&
+        ['draft', 'input', 'reservation', 'chat'].includes(result.next_step) &&
+        result.session_id === null &&
+        (result.next_step === 'draft' ? result.task_id === null : result.task_id !== null)
+      break
+    case 'awaiting_admission':
+      validProgress =
+        result.dispatch_allowed === false &&
+        result.next_step === 'admission' &&
+        result.task_id !== null &&
+        result.session_id !== null
+      break
+    case 'awaiting_runtime_acceptance':
+    case 'runtime_accepted':
+      validProgress =
+        result.dispatch_allowed === (result.state === 'runtime_accepted') &&
+        result.next_step === 'runtime' &&
+        result.task_id !== null &&
+        result.session_id !== null
+      break
+  }
+  if (!validProgress) throw new ApiError(502, 'Invalid PM Draft operation response')
   return result
 }
 
