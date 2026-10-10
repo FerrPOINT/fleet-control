@@ -133,7 +133,7 @@ describe('verified free-chat boundary', () => {
     fireEvent.change(screen.getByLabelText('Сообщение'), { target: { value: 'Newest command' } })
     await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
     fireEvent.click(screen.getByRole('button', { name: 'Отправить' }))
-    await screen.findByText('Newest command')
+    await screen.findByText('Newest command', { selector: '.fc-chat-message > p' })
     expect(
       [...document.querySelectorAll('.fc-chat-message > p')].map((node) => node.textContent),
     ).toEqual(['Oldest', 'Latest', 'Newest command'])
@@ -162,10 +162,10 @@ describe('verified free-chat boundary', () => {
     expect(chats.listPendingAnswerCommands).not.toHaveBeenCalled()
   })
 
-  it('does not treat a pending binding read as permission to enter standalone chat', () => {
+  it('does not treat a pending binding read as permission to enter standalone chat', async () => {
     vi.mocked(chats.getTaskContext).mockReturnValue(new Promise(() => {}))
     renderPage()
-    expect(screen.getByText('Загрузка чата')).toBeVisible()
+    expect(await screen.findByText('Загрузка чата')).toBeVisible()
     expect(screen.queryByLabelText('Сообщение')).not.toBeInTheDocument()
     expect(fleet.listSessionMessages).not.toHaveBeenCalled()
     expect(fleet.createSessionMessage).not.toHaveBeenCalled()
