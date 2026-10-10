@@ -167,6 +167,7 @@ pub(super) async fn accept(
         return Err(AppError::validation("invalid Hermes run reference"));
     }
     let txn = repo.db.begin().await.map_err(AppError::database)?;
+    runtime_acceptance::locked_primary_run(&txn, id).await?;
     let record = load(&txn, id, true).await?;
     if record.hermes_run_ref.as_ref().is_some_and(|v| v != &hermes)
         || record
@@ -218,6 +219,7 @@ pub(super) async fn observe(
     status: PmRuntimeStatus,
 ) -> Result<(), AppError> {
     let txn = repo.db.begin().await.map_err(AppError::database)?;
+    runtime_acceptance::locked_primary_run(&txn, id).await?;
     let record = load(&txn, id, true).await?;
     if record.hermes_run_ref.is_none() {
         return Err(AppError::Unavailable(
@@ -231,6 +233,10 @@ pub(super) async fn observe(
         return Err(AppError::conflict(
             "Hermes contradicted immutable PM terminal proof",
         ));
+    }
+    if record.terminal_status == Some(status) {
+        txn.commit().await.map_err(AppError::database)?;
+        return Ok(());
     }
     let terminal = status
         .terminal()
@@ -281,6 +287,126 @@ async fn audit<C: ConnectionTrait>(
         "INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,payload,created_at) VALUES($1,NULL,$2,'session_run',$3,$4,now())",
         [Uuid::new_v4().into(), action.into(), id.to_string().into(), payload.into()])).await.map_err(AppError::database)?;
     Ok(())
+}
+
+pub(super) async fn stream_context<C: ConnectionTrait>(
+    db: &C,
+    id: Uuid,
+) -> Result<(PmRunRecord, bool), AppError> {
+    let row = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT j.terminal_committed FROM pm_run_bindings b
+         JOIN pm_dispatch_journal j ON j.session_run_id=b.session_run_id
+         JOIN session_agent_runs r ON r.id=b.session_run_id AND r.agent_id=b.agent_id AND r.session_id=b.session_id
+         JOIN agent_sessions s ON s.id=b.session_id AND s.agent_id=b.agent_id
+         JOIN users u ON u.id=s.user_id AND u.is_active
+         JOIN task_chat_bindings t ON t.session_id=s.id AND t.agent_id=b.agent_id AND t.owner_subject=u.central_sub
+         JOIN agents a ON a.id=b.agent_id AND a.kind='hermes' AND a.sdlc_role='project_manager' AND a.archived_at IS NULL
+         WHERE b.session_run_id=$1 AND j.submitted AND j.hermes_run_ref IS NOT NULL
+           AND s.state IN ('draft','active') AND r.run_role='primary'
+           AND r.runtime_session_id=b.runtime_session_id
+           AND (b.hermes_run_ref IS NULL OR b.hermes_run_ref=j.hermes_run_ref)
+           AND (r.runtime_run_id IS NULL OR r.runtime_run_id=j.hermes_run_ref)
+           AND b.reservation->>'session_id'=s.id::text
+           AND b.reservation->'identity'->>'agent_ref'=b.agent_id::text
+           AND b.reservation->'identity'->>'tracker_instance_ref'=t.tracker_instance_id
+           AND b.reservation->'identity'->>'tracker_project_ref'=t.project_id::text
+           AND b.reservation->'identity'->>'task_ref'=t.task_id::text
+           AND b.reservation->'identity'->>'root_ref'=t.root_task_id::text",
+        [id.into()])).await.map_err(dispatch_error_db)?
+        .ok_or_else(|| AppError::conflict("PM original stream custody or owner binding changed"))?;
+    let record = load(db, id, false).await?;
+    record.reservation.validate()?;
+    Ok((
+        record,
+        row.try_get("", "terminal_committed")
+            .map_err(dispatch_error_db)?,
+    ))
+}
+
+pub(super) async fn stream_queue(
+    repo: &PostgresFleetRepository,
+    after: Option<Uuid>,
+) -> Result<Vec<Uuid>, AppError> {
+    let rows = repo
+        .db
+        .query_all(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT j.session_run_id FROM pm_dispatch_journal j
+         JOIN session_agent_runs r ON r.id=j.session_run_id
+         WHERE j.submitted AND j.hermes_run_ref IS NOT NULL AND NOT j.terminal_committed
+           AND ($1::uuid IS NULL OR j.session_run_id>$1) ORDER BY j.session_run_id LIMIT 20",
+            [after.into()],
+        ))
+        .await
+        .map_err(dispatch_error_db)?;
+    rows.into_iter()
+        .map(|r| r.try_get("", "session_run_id").map_err(dispatch_error_db))
+        .collect()
+}
+
+pub(super) async fn terminal(
+    repo: &PostgresFleetRepository,
+    command: app::HermesTerminalCommit,
+    status: PmRuntimeStatus,
+) -> Result<(SessionAgentRun, Option<SessionMessage>, bool), AppError> {
+    if command.run_id.is_nil()
+        || command.message_id != command.run_id
+        || !status.terminal()
+        || command.state.as_str() != visible_terminal(status)
+        || !valid_hermes_ref(&command.runtime_run_id)
+        || !domain::valid_ref(&command.runtime_session_id, 512)
+        || (command.state != SessionRunState::Completed && command.body.is_some())
+    {
+        return Err(AppError::validation("invalid PM terminal packet"));
+    }
+    let txn = repo.db.begin().await.map_err(dispatch_error_db)?;
+    let run = runtime_acceptance::locked_primary_run(&txn, command.run_id).await?;
+    load(&txn, run.id, true).await?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT session_run_id FROM pm_dispatch_journal WHERE session_run_id=$1 FOR UPDATE",
+        [run.id.into()],
+    ))
+    .await
+    .map_err(dispatch_error_db)?
+    .ok_or_else(|| AppError::conflict("PM terminal requires original dispatch custody"))?;
+    let (record, replay) = stream_context(&txn, run.id).await?;
+    if record.hermes_run_ref.as_deref() != Some(command.runtime_run_id.as_str())
+        || record.hermes_session_ref.as_deref() != Some(command.runtime_session_id.as_str())
+        || run.runtime_run_id.as_deref() != Some(command.runtime_run_id.as_str())
+        || run.runtime_session_id.as_deref()
+            != Some(record.reservation.runtime_session_id().as_str())
+        || record
+            .terminal_status
+            .is_some_and(|previous| previous != status)
+    {
+        return Err(AppError::conflict(
+            "PM terminal packet contradicts original custody",
+        ));
+    }
+    if !replay {
+        let terminal = serde_json::to_value(status).map_err(AppError::internal)?;
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "UPDATE pm_run_bindings SET terminal_status=$2,observed_at=now() WHERE session_run_id=$1",
+            [run.id.into(),terminal.as_str().unwrap().into()])).await.map_err(dispatch_error_db)?;
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE pm_dispatch_journal SET terminal_committed=true WHERE session_run_id=$1",
+            [run.id.into()],
+        ))
+        .await
+        .map_err(dispatch_error_db)?;
+        if record.terminal_status.is_none() {
+            audit(
+                &txn,
+                run.id,
+                "pm.run.terminal_verified",
+                json!({"session_id":run.session_id,"status":status}),
+            )
+            .await?;
+        }
+    }
+    runtime_acceptance::terminal_packet(txn, run, None, command, replay).await
 }
 
 pub(super) async fn prepare_dispatch(
@@ -347,7 +473,10 @@ pub(super) async fn prepare_tool(
     domain::pm_tool_key(&command.key)?;
     if command.attempted
         || command.result.is_some()
-        || !matches!(command.kind.as_str(), "question" | "revision" | "stop")
+        || !matches!(
+            command.kind.as_str(),
+            "question" | "revision" | "stop" | "workflow_step"
+        )
         || !command.request.is_object()
         || command.request.to_string().len() > 262144
     {
@@ -377,6 +506,25 @@ pub(super) async fn prepare_tool(
         result: row.try_get("", "result").map_err(dispatch_error_db)?,
         ..command
     })
+}
+
+pub(super) async fn get_tool(
+    repo: &PostgresFleetRepository,
+    run: Uuid,
+    key: &str,
+) -> Result<Option<domain::PmToolCommand>, AppError> {
+    domain::pm_tool_key(key)?;
+    let row = repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT jsonb_build_object('session_run_id',session_run_id,'key',operation_key,'kind',kind,'request',request,'attempted',attempted,'result',result) AS command
+         FROM pm_tool_commands WHERE session_run_id=$1 AND operation_key=$2", [run.into(),key.into()])).await.map_err(dispatch_error_db)?;
+    row.map(|row| {
+        serde_json::from_value(
+            row.try_get::<Value>("", "command")
+                .map_err(dispatch_error_db)?,
+        )
+        .map_err(|_| AppError::conflict("invalid PM tool custody"))
+    })
+    .transpose()
 }
 
 pub(super) async fn claim_tool(

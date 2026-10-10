@@ -34,6 +34,17 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
         fixture.prepare().await.unwrap();
         let op = fixture.operation().await;
         let reservation = initial_pm_reservation(&op).unwrap();
+        let mut assigned = super::pm_dispatch::workflow_assignment(
+            &initial_pm_assignment(&op, Value::Null).unwrap(),
+        );
+        assigned["binding_state"] = json!("bound");
+        assigned["binding_ref"] = json!(reservation.binding_ref);
+        assigned["hermes_run_ref"] = json!("run_old");
+        assigned["concrete_agent_ref"] = json!(reservation.identity.agent_ref);
+        assigned["bind_operation_key"] = json!(format!("fleet-pm-runtime-bind:{}", op.id));
+        let phase_state = Arc::new(Mutex::new(
+            json!({"phase":"PM-DRAFT-01","status":"active","blocked_body":null}),
+        ));
         let ledger = Arc::new(Mutex::new(
             json!({"contract_version":1,"identity":reservation.identity,"state":"active","version":1,"fence":1,
             "session_run_id":op.id,"binding_ref":reservation.binding_ref,"hermes_run_ref":"run_old","checkpoint":null,
@@ -49,16 +60,57 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             stopped.clone(),
             reservation.clone(),
             expected_native,
+            assigned,
+            phase_state.clone(),
         );
         let router=Router::new().fallback(move |method:Method,uri:axum::http::Uri,headers:HeaderMap,bytes:axum::body::Bytes|{
-            let (ledger,calls,stopped,reservation,expected_native)=state.clone();
+            let (ledger,calls,stopped,reservation,expected_native,assigned,phase_state)=state.clone();
             async move {
                 let path=uri.path(); calls.lock().await.push(format!("{method} {path}"));
                 let body:Value=if bytes.is_empty(){Value::Null}else{serde_json::from_slice(&bytes).unwrap()};
                 if path.starts_with("/internal/") {
                     assert_eq!(method,Method::POST);
                     let checkpoint=path.ends_with("/checkpoint");
-                    assert_eq!(headers["authorization"],format!("Bearer {}",if checkpoint{"r"}else{"a"}.repeat(40)));
+                    let step=path=="/internal/runtime/step";
+                    assert_eq!(headers["authorization"],format!("Bearer {}",if checkpoint||step{"r"}else{"a"}.repeat(40)));
+                    if path=="/internal/runtime/assign" || path=="/internal/runtime/bind" {
+                        let mut result=assigned.clone();
+                        let phase=phase_state.lock().await;
+                        // Match the producer: only bind replay reads the actual advanced task phase.
+                        if path.ends_with("/bind") {
+                            assert_eq!(body["bind_operation_key"],assigned["bind_operation_key"]);
+                            assert_eq!(body["hermes_run_ref"],"run_old");
+                            result["current_phase_code"]=phase["phase"].clone();
+                        }
+                        result["status"]=phase["status"].clone();
+                        return Json(json!({"ok":true,"exit_code":0,"result":result})).into_response();
+                    }
+                    if step {
+                        assert_eq!(headers["x-workflow-execution-token"],"b".repeat(64));
+                        let current=ledger.lock().await.clone();
+                        assert_eq!(body["session_run_id"],current["session_run_id"]);
+                        assert_eq!(body["binding_ref"],current["binding_ref"]);
+                        assert_eq!(body["hermes_run_ref"],current["hermes_run_ref"]);
+                        let mut phase=phase_state.lock().await;
+                        if body["report"]=="blocked" && !phase["blocked_body"].is_null() {
+                            assert_eq!(body,phase["blocked_body"],"BLOCKED lost-ACK replay must retain the original active-status body");
+                            return Json(json!({"ok":false,"exit_code":1,"output":"blocked","result":{"verdict":"BLOCKED"}})).into_response();
+                        }
+                        assert_eq!(body["expected_phase_code"],phase["phase"]);
+                        assert_eq!(body["expected_status"],phase["status"]);
+                        if body["report"]=="advance" {
+                            assert_eq!(phase["phase"],"PM-DRAFT-01");phase["phase"]=json!("PM-DRAFT-02");
+                            return Json(json!({"ok":true,"exit_code":0,"output":"advance","result":{"verdict":"PASS"}})).into_response();
+                        }
+                        if body["report"]=="blocked" {
+                            phase["status"]=json!("blocked");phase["blocked_body"]=body;
+                            return (StatusCode::SERVICE_UNAVAILABLE,Json(json!({"error":"committed response lost"}))).into_response();
+                        }
+                        assert!(body.get("report").is_none());
+                        return Json(json!({"ok":true,"exit_code":0,"output":"Current phase instructions","result":{"ok":true,
+                            "task_key":reservation.identity.task,"phase_code":phase["phase"],"status":phase["status"],
+                            "instructions":"Current phase instructions","phase_contract":{},"workflow_id":1,"mode_id":2,"mode_key":"draft","cycle_number":0}})).into_response();
+                    }
                     let mut snapshot=ledger.lock().await;
                     if path.ends_with("/readback") {
                         let mut result=snapshot.clone();result["operation"]=Value::Null;
@@ -109,6 +161,10 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                         else {(StatusCode::ACCEPTED,Json(json!({"run_id":"run_new","status":"started","replayed":false}))).into_response()}
                     }
                     "/v1/runs/run_new"=>Json(json!({"object":"hermes.run","run_id":"run_new","session_id":"native-session","status":"running"})).into_response(),
+                    "/v1/runs/run_old/events" | "/v1/runs/run_new/events" => {
+                        assert_eq!(method, Method::GET);
+                        ([("content-type", "text/event-stream")], "").into_response()
+                    }
                     _=>panic!("unexpected production PM endpoint"),
                 }
             }
@@ -136,7 +192,7 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             .unwrap();
         db.execute(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            "UPDATE agents SET api_port=$2 WHERE id=$1",
+            "UPDATE agents SET api_port=$2,workflow_id='1' WHERE id=$1",
             [op.request.agent_id.into(), i32::from(port).into()],
         ))
         .await
@@ -348,6 +404,99 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             assert_eq!(response["result"]["isError"], false);
         }
         assert_eq!(fixture.remote.revisions.lock().await.len(), 1);
+        if fault == "none" {
+            let step = |key: &str, report: Option<&str>| PmToolCall {
+                operation_id: op.id,
+                session_run_id: op.id,
+                command: json!({"step_operation_key":key,"report":report}),
+            };
+            assert_eq!(
+                runtime
+                    .call_pm_tool(
+                        op.request.agent_id,
+                        "workflow_step",
+                        step("advance", Some("advance"))
+                    )
+                    .await
+                    .unwrap()["supervisor_accepted"],
+                true
+            );
+            let instructions = runtime
+                .call_pm_tool(
+                    op.request.agent_id,
+                    "workflow_step",
+                    step("instructions-after-advance", None),
+                )
+                .await
+                .unwrap();
+            assert_eq!(instructions["result"]["phase_code"], "PM-DRAFT-02");
+            assert!(
+                runtime
+                    .call_pm_tool(
+                        op.request.agent_id,
+                        "workflow_step",
+                        step("blocked", Some("blocked"))
+                    )
+                    .await
+                    .is_err()
+            );
+            assert_eq!(phase_state.lock().await["status"], "blocked");
+            for _ in 0..2 {
+                assert_eq!(
+                    runtime
+                        .call_pm_tool(
+                            op.request.agent_id,
+                            "workflow_step",
+                            step("blocked", Some("blocked"))
+                        )
+                        .await
+                        .unwrap(),
+                    json!({"supervisor_accepted":false,"exit_code":1})
+                );
+            }
+            let before = calls
+                .lock()
+                .await
+                .iter()
+                .filter(|c| c.as_str() == "POST /internal/runtime/step")
+                .count();
+            assert!(
+                runtime
+                    .call_pm_tool(
+                        op.request.agent_id,
+                        "workflow_step",
+                        step("blocked", Some("changed report"))
+                    )
+                    .await
+                    .is_err()
+            );
+            assert_eq!(
+                calls
+                    .lock()
+                    .await
+                    .iter()
+                    .filter(|c| c.as_str() == "POST /internal/runtime/step")
+                    .count(),
+                before
+            );
+            assert_eq!(
+                before, 4,
+                "advance + instructions + lost ACK + exact replay; cached replay is local"
+            );
+            let saved = fixture
+                .remote
+                .repo
+                .get_pm_tool(op.id, "blocked")
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                saved.request["body"],
+                phase_state.lock().await["blocked_body"]
+            );
+            assert_eq!(saved.request["body"]["expected_phase_code"], "PM-DRAFT-02");
+            assert_eq!(saved.request["body"]["expected_status"], "active");
+        }
         let question_id = Uuid::new_v4();
         let checkpoint = Uuid::new_v4();
         let request_id = Uuid::new_v4();
@@ -383,7 +532,10 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             )
             .await
             .unwrap();
-        runtime.resume_pm_answer(&actor, &saved).await.unwrap();
+        assert_eq!(
+            runtime.resume_pm_answer(&actor, &saved).await.unwrap(),
+            PmContinuationOutcome::Pending
+        );
         assert!(!stopped.load(Ordering::SeqCst));
         let permit = fixture
             .remote
@@ -411,9 +563,40 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
         }
         for _ in 0..2 {
             assert_eq!(
-                runtime.resume_pm_answer(&actor, &delivered).await.is_ok(),
-                fault == "none"
+                runtime.resume_pm_answer(&actor, &delivered).await.unwrap(),
+                if fault == "none" {
+                    PmContinuationOutcome::Confirmed
+                } else {
+                    PmContinuationOutcome::Pending
+                }
             );
+        }
+        if fault == "none" {
+            let resumed = fixture
+                .remote
+                .repo
+                .read_pm_operation_for_session(actor.session_id, actor.user_id)
+                .await
+                .unwrap();
+            let current = ledger.lock().await["session_run_id"]
+                .as_str()
+                .unwrap()
+                .parse()
+                .unwrap();
+            let instructions = runtime
+                .call_pm_tool(
+                    op.request.agent_id,
+                    "workflow_step",
+                    PmToolCall {
+                        operation_id: resumed.id,
+                        session_run_id: current,
+                        command: json!({"step_operation_key":"instructions-after-rebind","report":null}),
+                    },
+                )
+                .await
+                .unwrap();
+            assert_eq!(instructions["result"]["phase_code"], "PM-DRAFT-02");
+            assert_ne!(current, op.id, "PM rebind must use the new native run");
         }
         let requests = calls.lock().await;
         assert_eq!(

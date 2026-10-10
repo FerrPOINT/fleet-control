@@ -118,7 +118,7 @@ class CodegenTests(unittest.TestCase):
         schema = codegen.canonical(self.schema_fixture())
         provenance = dict(version=1, repository=codegen.REPOSITORY, branch=codegen.BRANCH,
                           source_sha=codegen.SOURCE_SHA, base_sha=codegen.BASE_SHA, workflow_sha=workflow_sha,
-                          source_parent=codegen.SOURCE_PARENT, source_tree=codegen.SOURCE_TREE,
+                          source_parents=codegen.SOURCE_PARENTS, source_tree=codegen.SOURCE_TREE,
                           qualified_source_blobs=codegen.SOURCE_BLOBS,
                           workflow_path=codegen.WORKFLOW, run_id=123, run_attempt=1, rust="1.88.0",
                           swagger_sha256=codegen.SWAGGER_SHA, schema_generator_success=True,
@@ -160,10 +160,16 @@ class CodegenTests(unittest.TestCase):
 
     def test_readback_rejects_forged_source_acceptance_and_unsafe_zip(self):
         for changes in ({"source_sha": "b" * 40}, {"source_sha": "32b9f063f9b5099ff61bca24ecdfeb9952889034"},
+                        {"source_sha": "212d07391b83b8a5081c946b87b4215053c4a153"},
                         {"source_inventory_sha256": "6105d3c5d660201536c9f06e91c7622d8ebabd54b83f5440f5cddd204bcdfceb"},
+                        {"source_inventory_sha256": "c94d72c164e26e7cab2e9810f99cdcf8a960e9716c27cc2f63632df83337dec6"},
+                        {"source_file_count": 292},
                         {"source_file_count": 283}, {"base_sha": "b" * 40}, {"all_quality_gate": True},
                         {"sdlc_acceptance": True}, {"schema_generator_success": 1}, {"helper_sha256": "b" * 64},
-                        {"source_parent": "b" * 40}, {"source_tree": "b" * 40}, {"qualified_source_blobs": {}},
+                        {"source_parents": "b" * 40}, {"source_parents": []},
+                        {"source_parents": codegen.SOURCE_PARENTS[::-1]},
+                        {"source_parents": codegen.SOURCE_PARENTS[:1]},
+                        {"source_tree": "b" * 40}, {"qualified_source_blobs": {}},
                         {"source_inventory_sha256": "b" * 64}, {"base_tree": "b" * 40},
                         {"source_file_count": 0}, {"fleet_lock_sha256": "b" * 64}, {"base_lock_sha256": "b" * 64}):
             run, artifact, payload, args = self.fixture(provenance_changes=changes)
@@ -184,10 +190,10 @@ class CodegenTests(unittest.TestCase):
         return value
 
     def test_exact_journal_source_parent_tree_and_blobs(self):
-        self.assertEqual(codegen.SOURCE_SHA, "212d07391b83b8a5081c946b87b4215053c4a153")
+        self.assertEqual(codegen.SOURCE_SHA, "83091f055e3b34fcfe6a6d59b1703c117261c027")
         self.assertEqual(codegen.BASE_SHA, "19a7a381ae6dbea61a643bb96189e483fa64df5c")
         codegen.qualify_source(ROOT)
-        results = [f"{codegen.SOURCE_SHA} {codegen.SOURCE_PARENT}".encode(), codegen.SOURCE_TREE.encode()]
+        results = [" ".join([codegen.SOURCE_SHA, *codegen.SOURCE_PARENTS]).encode(), codegen.SOURCE_TREE.encode()]
         results += [blob.encode() for blob in codegen.SOURCE_BLOBS.values()]
         with patch.object(codegen, "git", side_effect=results) as git:
             codegen.qualify_source(ROOT)
@@ -196,6 +202,12 @@ class CodegenTests(unittest.TestCase):
             changed = list(results)
             changed[index] = b"0" * 40
             with self.subTest(index=index), patch.object(codegen, "git", side_effect=changed), self.assertRaises(ValueError):
+                codegen.qualify_source(ROOT)
+
+        for parents in ([], codegen.SOURCE_PARENTS[:1], codegen.SOURCE_PARENTS[::-1],
+                        [*codegen.SOURCE_PARENTS, "b" * 40]):
+            changed = [" ".join([codegen.SOURCE_SHA, *parents]).encode(), *results[1:]]
+            with self.subTest(parents=parents), patch.object(codegen, "git", side_effect=changed), self.assertRaises(ValueError):
                 codegen.qualify_source(ROOT)
 
     def test_workflow_summary_and_artifact_match_new_union(self):

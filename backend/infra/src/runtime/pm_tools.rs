@@ -350,10 +350,7 @@ pub(super) async fn call(
             serde_json::to_value(question).map_err(|_| unavailable())
         }
         "workflow_step" => {
-            if snapshot.state != "active" || !snapshot.workflow_step_allowed {
-                return Err(AppError::conflict("PM Workflow is waiting"));
-            }
-            let request: PmWorkflowStep = decode(call.command)?;
+            let request: PmWorkflowStep = decode(call.command.clone())?;
             domain::pm_tool_key(&request.step_operation_key)?;
             if request
                 .report
@@ -362,23 +359,97 @@ pub(super) async fn call(
             {
                 return Err(AppError::validation("PM report exceeds its bound"));
             }
-            let (workflow_id, mode_id, phase, status) =
-                workflow.cursor(&scope.intent, &snapshot.identity).await?;
-            if scope.agent.workflow_id.as_deref() != Some(workflow_id.to_string().as_str()) {
-                return Err(AppError::conflict("PM Workflow binding changed"));
-            }
-            let mut body = json!({"task":snapshot.identity.task,"step_operation_key":request.step_operation_key,
+            crate::pm_tool_config::reject_server_secrets(
+                &call.command.to_string(),
+                &supervisor.config,
+            )?;
+            let mut journal = supervisor
+                .repo
+                .get_pm_tool(call.session_run_id, &request.step_operation_key)
+                .await?;
+            let frozen: StoredWorkflowStep = if let Some(saved) = &journal {
+                let frozen: StoredWorkflowStep = decode(saved.request.clone())?;
+                if saved.kind != "workflow_step"
+                    || frozen.caller != call.command
+                    || scope.agent.workflow_id.as_deref()
+                        != Some(frozen.workflow_id.to_string().as_str())
+                {
+                    return Err(AppError::conflict(
+                        "PM step key has a different original report",
+                    ));
+                }
+                if let Some(result) = &saved.result {
+                    validate_step_receipt(result)?;
+                    return Ok(result.clone());
+                }
+                frozen
+            } else {
+                if snapshot.state != "active" || !snapshot.workflow_step_allowed {
+                    return Err(AppError::conflict("PM Workflow is waiting"));
+                }
+                let (workflow_id, mode_id, phase, status) =
+                    workflow.cursor(&scope.intent, &scope.operation).await?;
+                let mut body = json!({"task":snapshot.identity.task,"step_operation_key":request.step_operation_key,
                 "assignment_revision":snapshot.identity.assignment_revision,"assignment_ref":snapshot.identity.assignment_ref,
                 "binding_ref":snapshot.binding_ref,"hermes_run_ref":snapshot.hermes_run_ref,"mode_key":"draft",
                 "cycle_number":0,"attempt_number":1,"expected_phase_code":phase,"expected_status":status,"session_run_id":snapshot.session_run_id});
-            if let Some(report) = &request.report {
-                body["report"] = json!(report);
+                if let Some(report) = &request.report {
+                    body["report"] = json!(report);
+                }
+                let frozen = StoredWorkflowStep {
+                    caller: call.command,
+                    body,
+                    workflow_id,
+                    mode_id,
+                };
+                if request.report.is_some() {
+                    journal = Some(
+                        prepare(
+                            supervisor,
+                            &scope,
+                            "workflow_step",
+                            &request.step_operation_key,
+                            serde_json::to_value(&frozen).map_err(|_| unavailable())?,
+                        )
+                        .await?,
+                    );
+                }
+                frozen
+            };
+            let workflow_id = frozen.workflow_id;
+            let mode_id = frozen.mode_id;
+            let phase = frozen.body["expected_phase_code"]
+                .as_str()
+                .ok_or_else(unavailable)?;
+            let status = frozen.body["expected_status"]
+                .as_str()
+                .ok_or_else(unavailable)?;
+            if scope.agent.workflow_id.as_deref() != Some(workflow_id.to_string().as_str()) {
+                return Err(AppError::conflict("PM Workflow binding changed"));
             }
+            if let Some(saved) = &journal {
+                if !saved.attempted
+                    && !supervisor
+                        .repo
+                        .claim_pm_tool(saved.session_run_id, &saved.key)
+                        .await?
+                {
+                    let current = supervisor
+                        .repo
+                        .get_pm_tool(saved.session_run_id, &saved.key)
+                        .await?
+                        .ok_or_else(unavailable)?;
+                    if !current.attempted || current.request != saved.request {
+                        return Err(unavailable());
+                    }
+                }
+            }
+            // Workflow durably replays this exact report/key before validating its changed task cursor.
             let value = workflow
                 .call(
                     "/internal/runtime/step",
                     workflow.runtime,
-                    Some(body),
+                    Some(frozen.body.clone()),
                     token.as_deref(),
                 )
                 .await?;
@@ -410,11 +481,37 @@ pub(super) async fn call(
                     return Err(unavailable());
                 }
                 // A transport receipt is not a business completion claim. Supervisor owns its verdict.
-                Ok(json!({"supervisor_accepted":result.ok,"exit_code":result.exit_code}))
+                let receipt = json!({"supervisor_accepted":result.ok,"exit_code":result.exit_code});
+                let saved = journal.ok_or_else(unavailable)?;
+                supervisor
+                    .repo
+                    .finish_pm_tool(saved.session_run_id, &saved.key, receipt.clone())
+                    .await?;
+                Ok(receipt)
             }
         }
         _ => Err(AppError::validation("unknown PM tool")),
     }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct StoredWorkflowStep {
+    caller: Value,
+    body: Value,
+    workflow_id: i64,
+    mode_id: i64,
+}
+
+fn validate_step_receipt(value: &Value) -> Result<(), AppError> {
+    let exit = value["exit_code"].as_i64().ok_or_else(unavailable)?;
+    if value.as_object().is_none_or(|v| v.len() != 2)
+        || !matches!(exit, 0 | 1)
+        || value["supervisor_accepted"] != (exit == 0)
+    {
+        return Err(unavailable());
+    }
+    Ok(())
 }
 
 #[derive(Deserialize, Serialize)]

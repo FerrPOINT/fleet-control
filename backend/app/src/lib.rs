@@ -587,6 +587,20 @@ pub trait FleetRepository: Send + Sync {
             "PM operation lookup is unavailable".into(),
         ))
     }
+    async fn has_pm_run_custody(&self, _session: Uuid) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "PM custody lookup is unavailable".into(),
+        ))
+    }
+    async fn get_pm_tool(
+        &self,
+        _run: Uuid,
+        _key: &str,
+    ) -> Result<Option<domain::PmToolCommand>, AppError> {
+        Err(AppError::Unavailable(
+            "PM tool custody lookup is unavailable".into(),
+        ))
+    }
     async fn prepare_pm_tool(
         &self,
         _command: domain::PmToolCommand,
@@ -1031,6 +1045,32 @@ pub trait FleetRepository: Send + Sync {
             "Hermes terminal commit is unavailable".into(),
         ))
     }
+    /// PM custody is separate; the terminal mirror writer is shared with ordinary runs.
+    async fn commit_pm_terminal(
+        &self,
+        _command: HermesTerminalCommit,
+        _status: domain::PmRuntimeStatus,
+    ) -> Result<(SessionAgentRun, Option<SessionMessage>, bool), AppError> {
+        Err(AppError::Unavailable(
+            "PM terminal commit is unavailable".into(),
+        ))
+    }
+    async fn pm_stream_context(
+        &self,
+        _run_id: Uuid,
+    ) -> Result<(domain::PmRunRecord, bool), AppError> {
+        Err(AppError::Unavailable(
+            "PM stream context is unavailable".into(),
+        ))
+    }
+    async fn list_recoverable_pm_streams(
+        &self,
+        _after: Option<Uuid>,
+    ) -> Result<Vec<Uuid>, AppError> {
+        Err(AppError::Unavailable(
+            "PM stream recovery is unavailable".into(),
+        ))
+    }
     async fn list_recoverable_hermes_acceptances(
         &self,
         _after: Option<Uuid>,
@@ -1271,7 +1311,7 @@ pub trait RuntimeSupervisor: Send + Sync {
         &self,
         _actor: &domain::ClarificationCommandActor,
         _command: &domain::ClarificationAnswerCommand,
-    ) -> Result<(), AppError> {
+    ) -> Result<domain::PmContinuationOutcome, AppError> {
         Err(AppError::Unavailable(
             "PM continuation is unavailable".into(),
         ))

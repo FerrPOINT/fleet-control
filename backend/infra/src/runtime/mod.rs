@@ -38,6 +38,7 @@ mod hermes_wire;
 mod native_context;
 mod pm_continuation;
 mod pm_dispatch;
+mod pm_events;
 mod pm_readback;
 mod pm_tools;
 pub(crate) mod recovery_wire;
@@ -1326,7 +1327,7 @@ impl LocalRuntimeSupervisor {
                 .follow_hermes_events(
                     agent.clone(),
                     session.clone(),
-                    message.clone(),
+                    Some(message.clone()),
                     run.clone(),
                     runtime_run_id.clone(),
                 )
@@ -1371,32 +1372,47 @@ impl LocalRuntimeSupervisor {
         &self,
         agent: Agent,
         session: AgentSession,
-        message: SessionMessage,
+        message: Option<SessionMessage>,
         run: SessionAgentRun,
         runtime_run_id: String,
     ) -> Result<(), AppError> {
-        let base = self.run_base_url(&agent, &run).await?;
+        let base;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
-        let intent = self
-            .repo
-            .get_hermes_dispatch_intent(message.id)
-            .await?
-            .ok_or_else(|| {
-                AppError::Unavailable("Hermes stream has no original dispatch context".into())
-            })?;
-        if intent.state != "accepted"
-            || intent.run.id != run.id
-            || intent.run.runtime_run_id.as_deref() != Some(runtime_run_id.as_str())
-            || intent.run.runtime_session_id != run.runtime_session_id
-        {
-            return Err(AppError::conflict("Hermes stream identity changed"));
-        }
-        hermes_wire::verify_intent(&intent, &base, &token)?;
-        if matches!(
-            intent.run.state,
-            SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled
-        ) {
-            return Ok(());
+        if let Some(message) = &message {
+            base = self.run_base_url(&agent, &run).await?;
+            let intent = self
+                .repo
+                .get_hermes_dispatch_intent(message.id)
+                .await?
+                .ok_or_else(|| {
+                    AppError::Unavailable("Hermes stream has no original dispatch context".into())
+                })?;
+            if intent.state != "accepted"
+                || intent.run.id != run.id
+                || intent.run.runtime_run_id.as_deref() != Some(runtime_run_id.as_str())
+                || intent.run.runtime_session_id != run.runtime_session_id
+            {
+                return Err(AppError::conflict("Hermes stream identity changed"));
+            }
+            hermes_wire::verify_intent(&intent, &base, &token)?;
+            if matches!(
+                intent.run.state,
+                SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled
+            ) {
+                return Ok(());
+            }
+        } else {
+            let (record, committed) = self.repo.pm_stream_context(run.id).await?;
+            pm_events::verify_stream_pin(&record, &run, &runtime_run_id)?;
+            let intent = self
+                .repo
+                .get_pm_dispatch(run.id)
+                .await?
+                .ok_or_else(pm_dispatch::unavailable)?;
+            base = pm_dispatch::verify_context(self, &agent, &intent).await?;
+            if committed {
+                return Ok(());
+            }
         }
         let response = tokio::time::timeout(
             Duration::from_secs(10),
@@ -1427,7 +1443,9 @@ impl LocalRuntimeSupervisor {
                 _ = terminal_watch.tick() => {
                     let current = self.repo.get_session_agent_run(run.id).await?;
                     if matches!(current.state, SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled) {
-                        return Ok(());
+                        if message.is_some() || self.repo.pm_stream_context(run.id).await?.1 {
+                            return Ok(());
+                        }
                     }
                     continue;
                 }
@@ -1448,7 +1466,7 @@ impl LocalRuntimeSupervisor {
                         .handle_hermes_event(
                             &agent,
                             &session,
-                            &message,
+                            message.as_ref(),
                             &run,
                             &runtime_run_id,
                             event.name,
@@ -1486,7 +1504,7 @@ impl LocalRuntimeSupervisor {
         self.handle_hermes_event(
             &agent,
             &session,
-            &message,
+            message.as_ref(),
             &run,
             &runtime_run_id,
             Some(event.to_string()),
@@ -1502,7 +1520,7 @@ impl LocalRuntimeSupervisor {
         &self,
         agent: &Agent,
         session: &AgentSession,
-        message: &SessionMessage,
+        message: Option<&SessionMessage>,
         run: &SessionAgentRun,
         runtime_run_id: &str,
         event_name: Option<String>,
@@ -1536,16 +1554,33 @@ impl LocalRuntimeSupervisor {
             })
             .unwrap_or_else(|| "message".to_string());
         let terminal_state = hermes_wire::terminal_event(&event_type, &payload, runtime_run_id)?;
+        if message.is_none() {
+            let (record, committed) = self.repo.pm_stream_context(run.id).await?;
+            pm_events::verify_stream_pin(&record, run, runtime_run_id)?;
+            let intent = self
+                .repo
+                .get_pm_dispatch(run.id)
+                .await?
+                .ok_or_else(pm_dispatch::unavailable)?;
+            pm_dispatch::verify_context(self, agent, &intent).await?;
+            if committed && terminal_state.is_none() {
+                return Ok(true);
+            }
+        }
         if terminal_state.is_none() {
             let current = self.repo.get_session_agent_run(run.id).await?;
             if matches!(
                 current.state,
                 SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled
             ) {
-                return Ok(true);
+                return if message.is_none() && !self.repo.pm_stream_context(run.id).await?.1 {
+                    Ok(false)
+                } else {
+                    Ok(true)
+                };
             }
         }
-        if terminal_state.is_some() && self.container_mode(agent).await? {
+        if message.is_some() && terminal_state.is_some() && self.container_mode(agent).await? {
             self.container_run_origin(agent, run).await?;
         }
 
@@ -1658,20 +1693,28 @@ impl LocalRuntimeSupervisor {
             let error = (state == SessionRunState::Failed).then(|| {
                 pick_error(&payload).unwrap_or_else(|| format!("Hermes event {event_type}"))
             });
-            let (updated, assistant, first) = self
-                .repo
-                .commit_hermes_terminal(app::HermesTerminalCommit {
-                    message_id: message.id,
-                    run_id: run.id,
-                    runtime_run_id: runtime_run_id.to_owned(),
-                    runtime_session_id: run.runtime_session_id.clone().ok_or_else(|| {
-                        AppError::Unavailable("Hermes effective session is not pinned".into())
-                    })?,
-                    state,
-                    body,
-                    error,
-                })
-                .await?;
+            let command = app::HermesTerminalCommit {
+                message_id: message.map(|m| m.id).unwrap_or(run.id),
+                run_id: run.id,
+                runtime_run_id: runtime_run_id.to_owned(),
+                runtime_session_id: run.runtime_session_id.clone().ok_or_else(|| {
+                    AppError::Unavailable("Hermes effective session is not pinned".into())
+                })?,
+                state,
+                body: body
+                    .map(|text| self.redact_hermes_text(agent.id, &text))
+                    .transpose()?,
+                error: error
+                    .map(|text| self.redact_hermes_text(agent.id, &text))
+                    .transpose()?,
+            };
+            let (updated, assistant, first) = if message.is_some() {
+                self.repo.commit_hermes_terminal(command).await?
+            } else {
+                let record = self.repo.get_pm_run(run.id).await?;
+                let status = self.probe_pm_run(agent, &record).await?;
+                self.repo.commit_pm_terminal(command, status).await?
+            };
             if first {
                 self.emit_run(&updated);
                 if let Some(assistant) = assistant {
@@ -1686,6 +1729,21 @@ impl LocalRuntimeSupervisor {
         }
 
         Ok(false)
+    }
+
+    fn redact_hermes_text(&self, agent: Uuid, text: &str) -> Result<String, AppError> {
+        let mut secrets: Vec<String> = std::env::vars()
+            .filter(|(name, _)| name.starts_with("FLEET_CONTROL_SECRET__"))
+            .map(|(_, value)| value)
+            .collect();
+        secrets.push(crate::agent_runtime_token(&self.config, agent)?);
+        let mut redacted = crate::redact_text(text);
+        for secret in secrets {
+            if !secret.is_empty() {
+                redacted = redacted.replace(&secret, "redacted");
+            }
+        }
+        Ok(redacted)
     }
 
     fn emit_run(&self, run: &SessionAgentRun) {
@@ -1933,8 +1991,11 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         &self,
         actor: &domain::ClarificationCommandActor,
         command: &domain::ClarificationAnswerCommand,
-    ) -> Result<(), AppError> {
-        pm_continuation::resume(self, actor, command).await
+    ) -> Result<domain::PmContinuationOutcome, AppError> {
+        match pm_continuation::resume(self, actor, command).await {
+            Err(AppError::Unavailable(_)) => Ok(domain::PmContinuationOutcome::Pending),
+            result => result,
+        }
     }
 
     async fn dispatch_pm_draft(

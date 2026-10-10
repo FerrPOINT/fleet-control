@@ -40,30 +40,27 @@ pub(super) async fn resume(
     supervisor: &LocalRuntimeSupervisor,
     actor: &ClarificationCommandActor,
     receipt: &ClarificationAnswerCommand,
-) -> Result<(), AppError> {
-    if !supervisor.config.pm.dispatch.enabled {
-        return Ok(());
-    }
+) -> Result<PmContinuationOutcome, AppError> {
     // Reload custody; neither HTTP caller nor a model can supply the delivery proof.
     let saved = supervisor
         .repo
         .get_clarification_command(actor, receipt.id)
         .await?;
-    if saved.state != ClarificationDeliveryState::Delivered {
-        return Ok(());
-    }
-    let answer = saved
-        .answer
-        .as_ref()
-        .filter(|a| answer_matches_command(&saved, a, &actor.subject))
-        .ok_or_else(unavailable)?;
     let operation = match supervisor
         .repo
         .read_pm_operation_for_session(actor.session_id, actor.user_id)
         .await
     {
         Ok(operation) => operation,
-        Err(AppError::NotFound { .. }) => return Ok(()),
+        Err(AppError::NotFound { .. }) => {
+            return Ok(
+                if supervisor.repo.has_pm_run_custody(actor.session_id).await? {
+                    PmContinuationOutcome::Pending
+                } else {
+                    PmContinuationOutcome::NotRequired
+                },
+            );
+        }
         Err(error) => return Err(error),
     };
     if operation.identity()? != actor.binding
@@ -72,6 +69,16 @@ pub(super) async fn resume(
     {
         return Err(AppError::Forbidden);
     }
+    if !supervisor.config.pm.dispatch.enabled
+        || saved.state != ClarificationDeliveryState::Delivered
+    {
+        return Ok(PmContinuationOutcome::Pending);
+    }
+    let answer = saved
+        .answer
+        .as_ref()
+        .filter(|a| answer_matches_command(&saved, a, &actor.subject))
+        .ok_or_else(unavailable)?;
     let session = supervisor.repo.get_session(actor.session_id).await?;
     if session.user_id != actor.user_id
         || session.primary_agent_id != operation.request.agent_id
@@ -141,10 +148,28 @@ pub(super) async fn resume(
         if current.reservation.identity != snapshot.identity
             || current.reservation.fence != snapshot.fence
             || current.hermes_run_ref.as_deref() != Some(&snapshot.hermes_run_ref)
+            || current.reservation.session_id != actor.session_id
+            || current.reservation.session_run_id != saved.id
+            || current.reservation.binding_ref != snapshot.binding_ref
+            || current.reservation.dispatch_operation_key != key
+            || current.reservation.checkpoint_ref.as_deref()
+                != Some(question.checkpoint_id.to_string().as_str())
+            || current.hermes_session_ref.is_none()
+            || !snapshot.workflow_step_allowed
         {
             return Err(unavailable());
         }
-        return Ok(());
+        let intent = supervisor
+            .repo
+            .get_pm_dispatch(saved.id)
+            .await?
+            .ok_or_else(unavailable)?;
+        if !intent.submitted || intent.hermes_run_ref != current.hermes_run_ref {
+            return Err(unavailable());
+        }
+        workflow.verify_intent(&intent)?;
+        pm_dispatch::verify_context(supervisor, &agent, &intent).await?;
+        return Ok(PmContinuationOutcome::Confirmed);
     }
     if !matches!(snapshot.state.as_str(), "waiting" | "resume_pending") {
         return Err(AppError::conflict(
@@ -352,7 +377,7 @@ pub(super) async fn resume(
         return Err(unavailable());
     }
     checkpoint_matches(&bound, &question)?;
-    Ok(())
+    Ok(PmContinuationOutcome::Confirmed)
 }
 
 async fn stop_once(

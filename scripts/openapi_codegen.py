@@ -15,9 +15,9 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/fleet-openapi-pm-union-20261010"
-SOURCE_SHA = "212d07391b83b8a5081c946b87b4215053c4a153"
-SOURCE_PARENT = "3b234a198073fc33d2c5ca16d835397ca113691e"
-SOURCE_TREE = "adb0e0856362989d12f5e6527ec44204c046b98f"
+SOURCE_SHA = "83091f055e3b34fcfe6a6d59b1703c117261c027"
+SOURCE_PARENTS = ["af0a9d14360bc91875e54602c3340d5fcd8dbd59", "8e6c25b9f77ed5f43d52661d8fdd6b2019a93804"]
+SOURCE_TREE = "12f57611eae3d7b9bf73e3ebca41afd60cd36a1a"
 SOURCE_BLOBS = {
     ".base-revision": "1716308f859d23508a6ca0bae105434221c00419",
     "backend/Cargo.lock": "1f2a6fee32bf3dabedafc3927c56c286e14c6daf",
@@ -35,8 +35,8 @@ QUALIFIED_EXPORT = {
     "base_lock_sha256": "9712da389d3bdc3224fb5185011814b14993a5341250ffd93a6bd8d2cdc1c235",
     "base_tree": "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc",
     "fleet_lock_sha256": "7ca269c7cd50cd0e9f0ca9173630353a231bf718004181e6f08bd97f495edb78",
-    "source_file_count": 292,
-    "source_inventory_sha256": "c94d72c164e26e7cab2e9810f99cdcf8a960e9716c27cc2f63632df83337dec6"
+    "source_file_count": 294,
+    "source_inventory_sha256": "2f9240f7c8c5ca1da152aed05a50d6748122490463332e7b41fb1e17da4bf842"
 }
 WORKFLOW = ".github/workflows/openapi-codegen-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/openapi_codegen.py", "scripts/tests/test_openapi_codegen.py"}
@@ -89,7 +89,7 @@ def clean_head(root, expected):
 
 def qualify_source(root):
     require(git(root, "rev-list", "--parents", "-n", "1", SOURCE_SHA).decode().strip()
-            == SOURCE_SHA + " " + SOURCE_PARENT, "Source parent mismatch")
+            == " ".join([SOURCE_SHA, *SOURCE_PARENTS]), "Source parent mismatch")
     require(git(root, "rev-parse", SOURCE_SHA + "^{tree}").decode().strip() == SOURCE_TREE,
             "Source tree mismatch")
     for path, blob in SOURCE_BLOBS.items():
@@ -223,7 +223,7 @@ def generate():
         clean_head(base, BASE_SHA)
         clean_head(controls, workflow_sha)
         provenance = dict(version=1, repository=REPOSITORY, branch=BRANCH, source_sha=SOURCE_SHA, base_sha=BASE_SHA,
-                          source_parent=SOURCE_PARENT, qualified_source_blobs=SOURCE_BLOBS,
+                          source_parents=SOURCE_PARENTS, qualified_source_blobs=SOURCE_BLOBS,
                           workflow_sha=workflow_sha, workflow_path=WORKFLOW,
                           run_id=int(os.environ["GITHUB_RUN_ID"]), run_attempt=int(os.environ["GITHUB_RUN_ATTEMPT"]),
                           rust="1.88.0", command=["cargo", "run", "--locked", "-p", "api", "--bin", "gen-openapi"],
@@ -266,7 +266,7 @@ def validate_readback(run, artifact, payload, *, run_id, attempt, workflow_sha, 
         files = {item.filename: archive.read(item) for item in members}
     provenance = json.loads(files["provenance.json"])
     expected = dict(version=1, repository=REPOSITORY, branch=BRANCH, source_sha=SOURCE_SHA, base_sha=BASE_SHA,
-                    source_parent=SOURCE_PARENT, source_tree=SOURCE_TREE, qualified_source_blobs=SOURCE_BLOBS,
+                    source_parents=SOURCE_PARENTS, source_tree=SOURCE_TREE, qualified_source_blobs=SOURCE_BLOBS,
                     workflow_sha=workflow_sha, workflow_path=WORKFLOW, run_id=run_id, run_attempt=attempt,
                     rust="1.88.0", swagger_sha256=SWAGGER_SHA, schema_generator_success=True,
                     all_quality_gate=False, sdlc_acceptance=False,
