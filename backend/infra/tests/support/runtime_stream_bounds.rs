@@ -149,9 +149,9 @@ async fn runtime_stream_bounds_truncated_terminal_is_not_dispatched_at_eof() {
     }
 }
 
-#[tokio::test]
+#[test]
 #[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
-async fn runtime_stream_bounds_invalid_json_utf8_and_foreign_control_payloads_never_mirror() {
+fn runtime_stream_bounds_invalid_json_utf8_and_foreign_control_payloads_never_mirror() {
     let mut cases = vec![
         b"event: approval.request\ndata: not-json\n\n".to_vec(),
         b"event: approval.request\ndata: []\n\n".to_vec(),
@@ -171,7 +171,11 @@ async fn runtime_stream_bounds_invalid_json_utf8_and_foreign_control_payloads_ne
         cases.push(format!("event: approval.request\ndata: {payload}\n\n").into_bytes());
     }
     for frame in cases {
-        rejected(EventResponse::body(vec![frame])).await;
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("isolated runtime stream fixture");
+        runtime.block_on(rejected(EventResponse::body(vec![frame])));
     }
 }
 
