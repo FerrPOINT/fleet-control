@@ -1137,8 +1137,8 @@ async fn legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_to
             .to_owned();
         complete_legacy_tool(
             &repo,
+            &db,
             original.session_run_id,
-            "question",
             &original_key,
             original_request,
             Some(original_question),
@@ -1178,8 +1178,8 @@ async fn legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_to
             let next_key = next_request["idempotency_key"].as_str().unwrap().to_owned();
             complete_legacy_tool(
                 &repo,
+                &db,
                 command,
-                "question",
                 &next_key,
                 next_request,
                 (case != "unfinished_tool").then_some(next_result),
@@ -1316,8 +1316,8 @@ async fn accepted_legacy_run(
 
 async fn complete_legacy_tool(
     repo: &PostgresFleetRepository,
+    db: &sea_orm::DatabaseConnection,
     run: Uuid,
-    kind: &str,
     key: &str,
     request: Value,
     result: Option<Value>,
@@ -1325,14 +1325,18 @@ async fn complete_legacy_tool(
     repo.prepare_pm_tool(domain::PmToolCommand {
         session_run_id: run,
         key: key.into(),
-        kind: kind.into(),
+        kind: "question".into(),
         request,
         result: None,
         attempted: false,
     })
     .await
     .unwrap();
-    assert!(repo.claim_pm_tool(run, key).await.unwrap());
+    // Historical pre-023 publication custody predates instruction admission. Do not fabricate
+    // an instruction receipt or use today's claim path to manufacture that old history.
+    assert_eq!(db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE pm_tool_commands SET attempted=true WHERE session_run_id=$1 AND operation_key=$2 AND NOT attempted",
+        [run.into(),key.into()])).await.unwrap().rows_affected(),1);
     if let Some(result) = result {
         repo.finish_pm_tool(run, key, result).await.unwrap();
     }

@@ -1,5 +1,13 @@
 # Data Model
 
+PM instruction receipts reuse `pm_tool_commands(kind='workflow_step')`: the
+immutable request retains caller/body and Workflow/mode identity; `result`
+retains the actual validated bounded instruction response. New question/revision
+claims require matching same-run/native/binding/assignment proof. No migration,
+new ledger or backfill is involved. `pm_dispatch_journal.guidance_delivered`
+still means only native steer acknowledgement, not instruction readership or
+business completion; continuation needs its own instruction receipt.
+
 ## PM Human Controls Integration Candidate
 
 Additive migration023 follows authority021 and PM022 in both supported

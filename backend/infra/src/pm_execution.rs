@@ -549,6 +549,38 @@ pub(super) async fn claim_tool(
          AND s.id=b.session_id AND s.agent_id=b.agent_id AND s.state='active'
          AND u.id=s.user_id AND u.is_active AND t.session_id=s.id AND t.agent_id=b.agent_id AND t.owner_subject=u.central_sub
          AND a.id=b.agent_id AND a.kind='hermes' AND a.status='running' AND a.sdlc_role='project_manager'
+          AND (c.kind NOT IN ('question','revision') OR EXISTS(
+             SELECT 1 FROM pm_tool_commands proof
+             WHERE proof.session_run_id=c.session_run_id AND proof.kind='workflow_step' AND proof.attempted
+               AND proof.operation_key=proof.request->'body'->>'step_operation_key'
+               AND proof.request->'caller'->>'step_operation_key'=proof.operation_key
+               AND ((proof.request->'caller') - 'step_operation_key' - 'report')='{}'::jsonb
+               AND (NOT (proof.request->'caller' ? 'report') OR proof.request->'caller'->'report'='null'::jsonb)
+               AND NOT (proof.request->'body' ? 'report')
+               AND proof.request->'body'->>'session_run_id'=b.session_run_id::text
+               AND proof.request->'body'->>'hermes_run_ref'=b.hermes_run_ref
+               AND proof.request->'body'->>'binding_ref'=b.reservation->>'binding_ref'
+               AND proof.request->'body'->>'task'=b.reservation->'identity'->>'task'
+               AND proof.request->'body'->>'assignment_ref'=b.reservation->'identity'->>'assignment_ref'
+               AND proof.request->'body'->'assignment_revision'=b.reservation->'identity'->'assignment_revision'
+               AND proof.request->'body'->>'mode_key'='draft'
+               AND proof.request->'body'->'cycle_number'='0'::jsonb
+               AND proof.request->'body'->'attempt_number'='1'::jsonb
+               AND proof.request->>'workflow_id'=a.workflow_id
+               AND proof.result->'ok'='true'::jsonb AND proof.result->'exit_code'='0'::jsonb
+               AND proof.result->'result'->'ok'='true'::jsonb
+               AND proof.result->'result'->>'task_key'=b.reservation->'identity'->>'task'
+               AND proof.result->'result'->'workflow_id'=proof.request->'workflow_id'
+               AND proof.result->'result'->'mode_id'=proof.request->'mode_id'
+               AND proof.result->'result'->>'phase_code'=proof.request->'body'->>'expected_phase_code'
+               AND proof.result->'result'->>'phase_code' LIKE 'PM-DRAFT-%'
+               AND proof.result->'result'->>'status'=proof.request->'body'->>'expected_status'
+               AND proof.result->'result'->>'status' IN ('active','blocked')
+               AND proof.result->'result'->>'mode_key'='draft'
+               AND proof.result->'result'->'cycle_number'='0'::jsonb
+               AND proof.result->>'output'=proof.result->'result'->>'instructions'
+               AND octet_length(proof.result->'result'->>'instructions')>0
+               AND jsonb_typeof(proof.result->'result'->'phase_contract')='object'))
          AND NOT EXISTS(SELECT 1 FROM runtime_control_commands human
             WHERE human.session_run_id=c.session_run_id
               AND (human.state IN ('reserved','submitted','uncertain')

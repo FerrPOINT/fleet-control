@@ -433,7 +433,9 @@ pub(super) async fn call(
                         "PM step key has a different original report",
                     ));
                 }
-                if let Some(result) = &saved.result {
+                if let Some(result) = &saved.result
+                    && request.report.is_some()
+                {
                     validate_step_receipt(result)?;
                     return Ok(result.clone());
                 }
@@ -472,13 +474,21 @@ pub(super) async fn call(
                 frozen
             };
             let workflow_id = frozen.workflow_id;
-            let mode_id = frozen.mode_id;
-            let phase = frozen.body["expected_phase_code"]
-                .as_str()
-                .ok_or_else(unavailable)?;
-            let status = frozen.body["expected_status"]
-                .as_str()
-                .ok_or_else(unavailable)?;
+            if request.report.is_none() {
+                return instruction_step(
+                    supervisor,
+                    &workflow,
+                    &scope.record.reservation,
+                    token.as_deref(),
+                    frozen,
+                )
+                .await;
+            }
+            if frozen.body["expected_phase_code"].as_str().is_none()
+                || frozen.body["expected_status"].as_str().is_none()
+            {
+                return Err(unavailable());
+            }
             if scope.agent.workflow_id.as_deref() != Some(workflow_id.to_string().as_str()) {
                 return Err(AppError::conflict("PM Workflow binding changed"));
             }
@@ -508,42 +518,21 @@ pub(super) async fn call(
                     token.as_deref(),
                 )
                 .await?;
-            if request.report.is_none() {
-                let result: Instructions = decode(value)?;
-                if !result.ok
-                    || result.exit_code != 0
-                    || !result.result.ok
-                    || result.result.task_key != snapshot.identity.task
-                    || result.result.phase_code != phase
-                    || result.result.status != status
-                    || result.result.workflow_id != workflow_id
-                    || result.result.mode_id != mode_id
-                    || result.result.mode_key != "draft"
-                    || result.result.cycle_number != 0
-                    || result.output != result.result.instructions
-                    || result.result.instructions.is_empty()
-                    || !result.result.phase_contract.is_object()
-                {
-                    return Err(unavailable());
-                }
-                serde_json::to_value(result).map_err(|_| unavailable())
-            } else {
-                let result: Evaluation = decode(value)?;
-                if !matches!(result.exit_code, 0 | 1)
-                    || result.ok != (result.exit_code == 0)
-                    || !result.result.is_object()
-                {
-                    return Err(unavailable());
-                }
-                // A transport receipt is not a business completion claim. Supervisor owns its verdict.
-                let receipt = json!({"supervisor_accepted":result.ok,"exit_code":result.exit_code});
-                let saved = journal.ok_or_else(unavailable)?;
-                supervisor
-                    .repo
-                    .finish_pm_tool(saved.session_run_id, &saved.key, receipt.clone())
-                    .await?;
-                Ok(receipt)
+            let result: Evaluation = decode(value)?;
+            if !matches!(result.exit_code, 0 | 1)
+                || result.ok != (result.exit_code == 0)
+                || !result.result.is_object()
+            {
+                return Err(unavailable());
             }
+            // A transport receipt is not a business completion claim. Supervisor owns its verdict.
+            let receipt = json!({"supervisor_accepted":result.ok,"exit_code":result.exit_code});
+            let saved = journal.ok_or_else(unavailable)?;
+            supervisor
+                .repo
+                .finish_pm_tool(saved.session_run_id, &saved.key, receipt.clone())
+                .await?;
+            Ok(receipt)
         }
         _ => Err(AppError::validation("unknown PM tool")),
     }
@@ -551,11 +540,123 @@ pub(super) async fn call(
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct StoredWorkflowStep {
-    caller: Value,
-    body: Value,
-    workflow_id: i64,
-    mode_id: i64,
+pub(super) struct StoredWorkflowStep {
+    pub(super) caller: Value,
+    pub(super) body: Value,
+    pub(super) workflow_id: i64,
+    pub(super) mode_id: i64,
+}
+
+pub(super) async fn instruction_step(
+    supervisor: &LocalRuntimeSupervisor,
+    workflow: &Workflow<'_>,
+    reservation: &PmRunReservation,
+    token: Option<&str>,
+    frozen: StoredWorkflowStep,
+) -> Result<Value, AppError> {
+    let key = frozen.body["step_operation_key"]
+        .as_str()
+        .ok_or_else(unavailable)?;
+    let caller: PmWorkflowStep = decode(frozen.caller.clone())?;
+    let record = supervisor
+        .repo
+        .get_pm_run(reservation.session_run_id)
+        .await?;
+    let run_ref = record.hermes_run_ref.as_deref().ok_or_else(unavailable)?;
+    let phase = frozen.body["expected_phase_code"]
+        .as_str()
+        .ok_or_else(unavailable)?;
+    let status = frozen.body["expected_status"]
+        .as_str()
+        .ok_or_else(unavailable)?;
+    let body = json!({"task":reservation.identity.task,"step_operation_key":key,
+        "assignment_revision":reservation.identity.assignment_revision,"assignment_ref":reservation.identity.assignment_ref,
+        "binding_ref":reservation.binding_ref,"hermes_run_ref":run_ref,"mode_key":"draft","cycle_number":0,"attempt_number":1,
+        "expected_phase_code":phase,"expected_status":status,"session_run_id":reservation.session_run_id});
+    if record.reservation != *reservation
+        || record.terminal_status.is_some()
+        || frozen.body != body
+        || caller.step_operation_key != key
+        || caller.report.is_some()
+        || !phase.starts_with("PM-DRAFT-")
+        || !matches!(status, "active" | "blocked")
+    {
+        return Err(AppError::conflict("PM instruction identity changed"));
+    }
+    let agent = supervisor
+        .repo
+        .get_agent(reservation.identity.agent_id()?)
+        .await?;
+    if agent.workflow_id.as_deref() != Some(frozen.workflow_id.to_string().as_str()) {
+        return Err(AppError::conflict("PM Workflow binding changed"));
+    }
+    let saved = supervisor
+        .repo
+        .prepare_pm_tool(PmToolCommand {
+            session_run_id: reservation.session_run_id,
+            key: key.into(),
+            kind: "workflow_step".into(),
+            request: serde_json::to_value(&frozen).map_err(|_| unavailable())?,
+            attempted: false,
+            result: None,
+        })
+        .await?;
+    let value = if let Some(result) = saved.result {
+        result
+    } else {
+        let intent = supervisor
+            .repo
+            .get_pm_dispatch(reservation.session_run_id)
+            .await?
+            .ok_or_else(unavailable)?;
+        pm_dispatch::verify_context(supervisor, &agent, &intent).await?;
+        crate::pm_tool_config::verify(supervisor.repo.as_ref(), &agent, &supervisor.config).await?;
+        if supervisor.probe_pm_run(&agent, &record).await? != PmRuntimeStatus::Running {
+            return Err(AppError::conflict(
+                "PM instructions require the current running run",
+            ));
+        }
+        if !saved.attempted
+            && !supervisor
+                .repo
+                .claim_pm_tool(saved.session_run_id, &saved.key)
+                .await?
+        {
+            return Err(unavailable());
+        }
+        // No-report step is a safe instruction READ, not Workflow's durable report replay.
+        // A lost response may repeat only this frozen body under current authority/token.
+        workflow
+            .call(
+                "/internal/runtime/step",
+                workflow.runtime,
+                Some(frozen.body.clone()),
+                token,
+            )
+            .await?
+    };
+    let result: Instructions = decode(value.clone())?;
+    if !result.ok
+        || result.exit_code != 0
+        || !result.result.ok
+        || result.result.task_key != reservation.identity.task
+        || result.result.phase_code != phase
+        || result.result.status != status
+        || result.result.workflow_id != frozen.workflow_id
+        || result.result.mode_id != frozen.mode_id
+        || result.result.mode_key != "draft"
+        || result.result.cycle_number != 0
+        || result.output != result.result.instructions
+        || result.result.instructions.is_empty()
+        || !result.result.phase_contract.is_object()
+    {
+        return Err(unavailable());
+    }
+    supervisor
+        .repo
+        .finish_pm_tool(reservation.session_run_id, key, value.clone())
+        .await?;
+    Ok(value)
 }
 
 fn validate_step_receipt(value: &Value) -> Result<(), AppError> {
