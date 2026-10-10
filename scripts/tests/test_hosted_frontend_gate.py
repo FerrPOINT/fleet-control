@@ -555,7 +555,7 @@ class SourceContracts(unittest.TestCase):
         self.assertIn("data-runtime-controls-owner=\"true\"", new_runtime)
         for route in ("/messages", "/stream"):
             self.assertIn("path.endsWith('" + route + "')", new_runtime[:new_runtime.index(clarification)])
-        # Historical receipt 38048577514 qualifies c59 only; new source receipt remains pending.
+        # Historical receipt 38048577514 remains scoped to c59.
         prior_source = "c59dbea1ab73a782a28cf6106155c84d73e2e14d"
         codegen_source = "4449a3b1cdd915e265543a24054506f15385393d"
         self.assertEqual(gate.digest(gate.git(ROOT, "show", codegen_source + ":openapi/openapi.json")),
@@ -567,6 +567,16 @@ class SourceContracts(unittest.TestCase):
         self.assertEqual(gate.git(ROOT, "diff", "--exit-code", codegen_source, prior_source,
                                   "--", "backend/api", "backend/app", "backend/domain", "backend/shared",
                                   "backend/Cargo.toml", "backend/Cargo.lock", ".base-revision", "openapi"), b"")
+        # New authenticated Rust codegen: run38052082418/1, workflow91a1c48c7a3f0cfad33586fb55c45f47ff864bc2.
+        # Artifact11669374937 ZIP8283b599e66dc66d5a05e961ae2b59bc5dffc1c408f7d2f35352608198730701.
+        # Provenance64cdd95b3631c573af4c991a601948caff30b62cee3491735880814d6b8b36e1;
+        # canonical303 inputs4ab1c70324a3b184096a69ed1dbdd72bcbf5f993fbdc1ecc6b01fb643f650457.
+        codegen_source = "3c900b00f15aeda2016a45d080d850fa028cdcfd"
+        self.assertEqual(codegen_source, gate.SOURCE_SHA)
+        self.assertEqual(gate.digest(gate.git(ROOT, "show", codegen_source + ":openapi/openapi.json")),
+                         gate.SCHEMA_SHA256)
+        self.assertEqual(gate.git(ROOT, "rev-parse", codegen_source + ":backend/api/src/routes/task_chats.rs").decode().strip(),
+                         "4db07a426b6f7d38e518bd2adc0e28b6067bbdbe")
 
     def test_current_unit_counts_expand_all_source_declarations(self):
         def rows(expression):
