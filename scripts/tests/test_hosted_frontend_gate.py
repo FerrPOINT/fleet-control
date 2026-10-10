@@ -1,5 +1,6 @@
 """Pure/static regressions. Never start frontend, browsers, containers, or Cargo."""
 import io
+from contextlib import redirect_stdout
 import json
 import os
 from pathlib import Path
@@ -593,6 +594,333 @@ class EvidenceContracts(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, "^Control response exceeds size limit$"):
             gate.bounded_command(["gh", "api", "fixture"])
         process.kill.assert_called_once()
+
+
+class FailureContracts(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.locations = gate.attested_test_locations(ROOT)
+
+    def browser_report(self):
+        return dict(errors=[dict(message="PRIVATE_SENTINEL")], suites=[dict(title="PRIVATE_SENTINEL", specs=[dict(
+            title="PRIVATE_SENTINEL", file="runtime-controls.spec.ts", line=83, tests=[dict(
+                projectName="webkit", status="unexpected", results=[dict(status="failed",
+                    error=dict(message="PRIVATE_SENTINEL"), stdout=["PRIVATE_SENTINEL"],
+                    attachments=[dict(path="PRIVATE_SENTINEL")])])])])])
+
+    def browser(self, value=None):
+        return gate.safe_browser_failure(gate.canonical(value or self.browser_report()), self.locations)
+
+    def receipt(self):
+        return dict(version=1, kind="safe_frontend_failure", status="failure", repository=gate.REPOSITORY,
+            branch=gate.BRANCH, workflow_path=gate.WORKFLOW, workflow_sha="a" * 40, run_id=123, run_attempt=2,
+            source_sha=gate.SOURCE_SHA, source_tree=gate.SOURCE_TREE, source_parents=gate.SOURCE_PARENTS,
+            base_sha=gate.BASE_SHA, base_tree=gate.BASE_TREE, schema_sha256=gate.SCHEMA_SHA256,
+            test_inventory_sha256=gate.digest(gate.canonical(self.locations)),
+            control_sha256={name: gate.digest((ROOT / name).read_text(encoding="utf-8").encode())
+                            for name in sorted(gate.WRITE_SET)},
+            gate="fixtures", completed_gates=list(gate.GATES)[:list(gate.GATES).index("fixtures")],
+            category="exit", exit_code=1, browser=self.browser(), cleanup=dict(private_absent=True),
+            **gate.QUALIFIED_INPUTS, **gate.FAILURE_SCOPE)
+
+    def verify(self, value):
+        return gate.validate_failure(value, workflow_sha="a" * 40, run_id=123, attempt=2, locations=self.locations)
+
+    def files(self, value=None):
+        data = gate.canonical(value or self.receipt())
+        return {gate.FAILURE_FILE: data, "SHA256SUMS": (gate.digest(data) + "  " + gate.FAILURE_FILE + "\n").encode()}
+
+    def metadata(self, payload):
+        run, artifact = readback_metadata(payload)
+        run["conclusion"] = "failure"
+        artifact["name"] = "fleet-frontend-failure-b0ad56c-123-2"
+        return run, artifact
+
+    def readback(self, payload, run=None, artifact=None):
+        actual_run, actual_artifact = self.metadata(payload)
+        return gate.validate_failure_readback(run or actual_run, artifact or actual_artifact, payload,
+            run_id=123, attempt=2, workflow_sha="a" * 40, artifact_id=456, artifact_digest=gate.digest(payload))
+
+    def test_fixture_parser_never_serializes_private_fields_or_runtime_titles(self):
+        result = self.browser()
+        self.assertEqual(result["report"], "valid")
+        self.assertEqual(result["diagnostics"], [dict(file="frontend/e2e/runtime-controls.spec.ts", line=83,
+            project="webkit", status="unexpected", results=["failed"])])
+        self.assertEqual(result["browsers"]["webkit"]["unexpected"], 1)
+        self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+        self.verify(self.receipt())
+
+    def test_file_and_line_are_canonical_source_declarations_only(self):
+        self.assertIn(83, self.locations["frontend/e2e/runtime-controls.spec.ts"])
+        self.assertNotIn(86, self.locations["frontend/e2e/runtime-controls.spec.ts"])
+        for file, line in (("../runtime-controls.spec.ts", 83), ("services-base/private.spec.ts", 83),
+                           ("/tmp/e2e/runtime-controls.spec.ts", 83), ("runtime-controls.spec.tsPRIVATE_SENTINEL", 83),
+                           ("runtime-controls.spec.ts", 86), ("runtime-controls.spec.ts", True),
+                           ("runtime-controls.spec.ts", "83")):
+            report = self.browser_report()
+            report["suites"][0]["specs"][0].update(file=file, line=line)
+            self.assertEqual(self.browser(report)["report"], "rejected")
+        for file in ("runtime-controls.spec.ts", "e2e/runtime-controls.spec.ts", "frontend/e2e/runtime-controls.spec.ts"):
+            report = self.browser_report()
+            report["suites"][0]["specs"][0]["file"] = file
+            self.assertEqual(self.browser(report)["report"], "valid")
+
+    def test_unknown_browser_status_project_attempt_and_partial_data_rejected(self):
+        for change in (dict(projectName="PRIVATE_SENTINEL"), dict(status="PRIVATE_SENTINEL"),
+                       dict(results=[dict(status="PRIVATE_SENTINEL")]), dict(results=[dict(status="failed")] * 4)):
+            report = self.browser_report()
+            test = report["suites"][0]["specs"][0]["tests"][0]
+            report["suites"][0]["specs"][0]["tests"].append(dict(test, **change))
+            result = self.browser(report)
+            self.assertEqual(result["report"], "rejected")
+            self.assertEqual(result["diagnostics"], [])
+            self.assertTrue(all(not any(p.values()) for p in result["browsers"].values()))
+
+    def test_browser_report_bounds_missing_invalid_and_recursive_input(self):
+        for raw, expected in ((None, "unavailable"), (b"PRIVATE_SENTINEL", "rejected"),
+                              (b"x" * (4 * 1024 ** 2 + 1), "truncated"), (b"[]", "rejected")):
+            self.assertEqual(gate.safe_browser_failure(raw, self.locations)["report"], expected)
+        report = self.browser_report()
+        leaf = report["suites"][0]
+        for _ in range(18):
+            leaf["suites"] = [dict()]
+            leaf = leaf["suites"][0]
+        self.assertEqual(self.browser(report)["report"], "rejected")
+        self.assertEqual(self.browser(dict(suites=[dict()] * 4097))["report"], "rejected")
+
+    def test_failure_receipt_rejects_private_fields_pins_and_acceptance_claims(self):
+        for change in (dict(message="PRIVATE_SENTINEL"), dict(source_sha="f" * 40), dict(workflow_sha="f" * 40),
+                       dict(schema_sha256="0" * 64), dict(test_inventory_sha256="0" * 64),
+                       dict(control_sha256={}), dict(live_pm_acceptance=True), dict(frontend_unit_build_fixture=True),
+                       dict(cleanup=dict(private_absent=1)), dict(exit_code=True), dict(exit_code=0),
+                       dict(category="PRIVATE_SENTINEL"), dict(category="timeout"), dict(gate="PRIVATE_SENTINEL"),
+                       dict(completed_gates=["fixtures"]), dict(completed_gates=list(gate.GATES))):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                self.verify(dict(self.receipt(), **change))
+        self.verify(dict(self.receipt(), category="timeout", exit_code=None))
+
+    def test_failure_browser_schema_cannot_smuggle_raw_values(self):
+        for kind in ("extra", "title", "line", "file", "project", "status", "results", "count", "duplicate", "unavailable"):
+            value = self.receipt()
+            browser, row = value["browser"], value["browser"]["diagnostics"][0]
+            if kind == "extra":
+                browser["raw"] = "PRIVATE_SENTINEL"
+            elif kind == "title":
+                row["title"] = "PRIVATE_SENTINEL"
+            elif kind in ("file", "project", "status"):
+                row[kind] = "PRIVATE_SENTINEL"
+            elif kind == "line":
+                row[kind] = 84
+            elif kind == "results":
+                row[kind] = ["PRIVATE_SENTINEL"]
+            elif kind == "count":
+                browser["browsers"]["webkit"]["unexpected"] = True
+            elif kind == "duplicate":
+                browser["diagnostics"].append(dict(row))
+            else:
+                browser["report"] = "unavailable"
+            with self.subTest(kind=kind), self.assertRaises(ValueError):
+                self.verify(value)
+
+    def test_full_authenticated_failure_readback_is_distinct_from_success(self):
+        files = self.files()
+        payload = zipped(files)
+        self.assertEqual(self.readback(payload), files)
+        self.assertNotIn("PRIVATE_SENTINEL", files[gate.FAILURE_FILE].decode())
+        with self.assertRaises(ValueError):
+            validate(payload)
+        with self.assertRaises(ValueError):
+            self.readback(zipped(fixture_files()))
+
+    def test_failure_readback_requires_exact_run_artifact_digest_and_cleanup_schema(self):
+        payload = zipped(self.files())
+        for key, value in (("conclusion", "success"), ("run_attempt", 1), ("head_sha", "f" * 40),
+                           ("event", "workflow_dispatch"), ("status", "in_progress"), ("head_branch", "main"),
+                           ("path", ".github/workflows/ci.yml"), ("repository", dict(full_name="other/repo"))):
+            run, _ = self.metadata(payload)
+            run[key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                self.readback(payload, run=run)
+        for key, value in (("id", 1), ("expired", True), ("digest", "sha256:" + "0" * 64), ("name", "other"),
+                           ("workflow_run", dict(id=123, head_sha="a" * 40, head_branch="other"))):
+            _, artifact = self.metadata(payload)
+            artifact[key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                self.readback(payload, artifact=artifact)
+        value = self.receipt()
+        value["browser"]["diagnostics"][0]["line"] = 84
+        with self.assertRaises(ValueError):
+            self.readback(zipped(self.files(value)))
+
+    def test_failure_zip_member_checksum_size_and_canonical_json_bounds(self):
+        files = self.files()
+        for name in ("../failure.json", "PRIVATE_SENTINEL.log", "source.ts", "fixtures/image.png"):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                self.readback(zipped(files, (name, b"PRIVATE_SENTINEL")))
+        with self.assertWarns(UserWarning):
+            payload = zipped(files, (gate.FAILURE_FILE, files[gate.FAILURE_FILE]))
+        with self.assertRaises(ValueError):
+            self.readback(payload)
+        with self.assertRaises(ValueError):
+            self.readback(zipped(dict(files, SHA256SUMS=b"0" * 64)))
+        with patch.object(gate, "FAILURE_LIMIT", 100), self.assertRaises(ValueError):
+            self.readback(zipped(files))
+        files[gate.FAILURE_FILE] = b" " + files[gate.FAILURE_FILE]
+        files["SHA256SUMS"] = (gate.digest(files[gate.FAILURE_FILE]) + "  failure.json\n").encode()
+        with self.assertRaises(ValueError):
+            self.readback(zipped(files))
+
+    def cleanup_fixture(self, root, value):
+        private = root / "fleet-frontend-private"
+        private.mkdir()
+        (private / "private.log").write_bytes(b"PRIVATE_SENTINEL")
+        (private / "failure-pending.json").write_bytes(gate.canonical(value))
+        return private
+
+    def test_finally_cleanup_seals_absence_and_only_safe_receipt(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            private = self.cleanup_fixture(root, dict(self.receipt(), cleanup=dict(private_absent=False)))
+            with patch.object(gate, "hosted_identity", return_value=(ROOT.parent, "a" * 40)), \
+                    patch.object(gate, "workspace_temp", return_value=root), \
+                    patch.object(gate, "attested_test_locations", return_value=self.locations), \
+                    patch.dict(os.environ, GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="2"):
+                gate.cleanup()
+            self.assertFalse(private.exists())
+            files = {p.name: p.read_bytes() for p in (root / "fleet-frontend-failure").iterdir()}
+            self.assertEqual(self.readback(zipped(files)), files)
+            self.assertTrue(json.loads(files[gate.FAILURE_FILE])["cleanup"]["private_absent"])
+
+    def test_cleanup_error_retains_failure_not_false_absence(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            self.cleanup_fixture(root, dict(self.receipt(), cleanup=dict(private_absent=False)))
+            with patch.object(gate, "hosted_identity", return_value=(ROOT.parent, "a" * 40)), \
+                    patch.object(gate, "workspace_temp", return_value=root), \
+                    patch.object(gate, "attested_test_locations", return_value=self.locations), \
+                    patch.dict(os.environ, GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="2"), \
+                    patch.object(gate.shutil, "rmtree", side_effect=OSError("PRIVATE_SENTINEL")), self.assertRaises(OSError):
+                gate.cleanup()
+            value = json.loads((root / "fleet-frontend-failure/failure.json").read_bytes())
+            self.assertFalse(value["cleanup"]["private_absent"])
+            self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(value).decode())
+
+    def test_invalid_pending_receipt_still_cleans_private_and_cannot_publish(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            private = self.cleanup_fixture(root, dict(self.receipt(), raw="PRIVATE_SENTINEL"))
+            with patch.object(gate, "hosted_identity", return_value=(ROOT.parent, "a" * 40)), \
+                    patch.object(gate, "workspace_temp", return_value=root), \
+                    patch.object(gate, "attested_test_locations", return_value=self.locations), \
+                    patch.dict(os.environ, GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="2"), self.assertRaises(ValueError):
+                gate.cleanup()
+            self.assertFalse(private.exists())
+            self.assertFalse((root / "fleet-frontend-failure").exists())
+
+    def test_gate_command_exit_and_timeout_are_numeric_or_fixed_only(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            for error in (subprocess.CompletedProcess(["pnpm"], 17), subprocess.TimeoutExpired(["PRIVATE_SENTINEL"], 1200)):
+                state = dict(gates=[])
+                with patch.object(gate, "load_state", return_value=(ROOT, root, state)), \
+                        patch.object(gate, "verify_parity", return_value=(ROOT, ROOT)), \
+                        patch.object(gate.subprocess, "run", side_effect=error if isinstance(error, Exception) else None,
+                                     return_value=error), self.assertRaises(gate.GateFailure) as caught:
+                    gate.gate("base")
+                self.assertNotIn("PRIVATE_SENTINEL", str(caught.exception))
+                self.assertEqual(caught.exception.category, "timeout" if isinstance(error, Exception) else "exit")
+                self.assertEqual(caught.exception.code, None if isinstance(error, Exception) else 17)
+                self.assertEqual(state["gates"], [])
+                (root / "base.log").unlink()
+
+    def test_record_failure_reads_only_json_and_retains_original_numeric_exit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            private, controls = root / "fleet-frontend-private", root / "controls"
+            private.mkdir()
+            for name in gate.WRITE_SET:
+                path = controls / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes((ROOT / name).read_text(encoding="utf-8").encode())
+            (private / "preflight.json").write_bytes(gate.canonical(dict(
+                workflow_sha="a" * 40, run_id="123", attempt="2", public=True)))
+            (private / "state.json").write_bytes(gate.canonical(dict(workflow_sha="a" * 40,
+                gates=self.receipt()["completed_gates"])))
+            (private / "fixtures.log").write_bytes(b"PRIVATE_SENTINEL")
+            (private / "browser.json").write_bytes(gate.canonical(self.browser_report()))
+            with patch.object(gate, "controls_preflight", return_value=(root, "a" * 40)), \
+                    patch.object(gate, "workspace_temp", return_value=root), \
+                    patch.object(gate, "attested_test_locations", return_value=self.locations), \
+                    patch.object(gate, "qualified_inputs", return_value=gate.QUALIFIED_INPUTS), \
+                    patch.dict(os.environ, GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="2"), \
+                    patch.object(gate, "bounded_file", wraps=gate.bounded_file) as read:
+                gate.record_failure("fixtures", gate.GateFailure("exit", 17))
+                self.assertFalse(any(call.args[1].endswith(".log") for call in read.call_args_list))
+                value = json.loads((private / "failure-pending.json").read_bytes())
+                self.assertEqual(value["exit_code"], 17)
+                self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(value).decode())
+                self.assertFalse(value["cleanup"]["private_absent"])
+                self.assertEqual(value["browser"]["report"], "valid")
+                with self.assertRaises(FileExistsError):
+                    gate.record_failure("fixtures", gate.GateFailure("timeout"))
+                self.assertEqual(json.loads((private / "failure-pending.json").read_bytes()), value)
+                (private / "failure-pending.json").unlink()
+                (private / "browser.json").write_bytes(b"x" * (4 * 1024 ** 2 + 1))
+                gate.record_failure("fixtures", OSError("PRIVATE_SENTINEL"))
+                value = json.loads((private / "failure-pending.json").read_bytes())
+                self.assertEqual(value["category"], "control_error")
+                self.assertIsNone(value["exit_code"])
+                self.assertEqual(value["browser"]["report"], "truncated")
+                self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(value).decode())
+                (private / "failure-pending.json").unlink()
+                gate.record_failure("fixtures", TimeoutError("PRIVATE_SENTINEL"))
+                value = json.loads((private / "failure-pending.json").read_bytes())
+                self.assertEqual(value["category"], "timeout")
+                self.assertIsNone(value["exit_code"])
+
+    def test_record_failure_error_cannot_replace_original_failure_or_echo_details(self):
+        error = gate.GateFailure("exit", 17)
+        stream = io.StringIO()
+        with patch("sys.argv", ["helper", "gate", "fixtures"]), \
+                patch.object(gate, "gate", side_effect=error), \
+                patch.object(gate, "record_failure", side_effect=OSError("PRIVATE_SENTINEL")) as record, \
+                redirect_stdout(stream), self.assertRaises(gate.GateFailure) as caught:
+            gate.main()
+        self.assertIs(caught.exception, error)
+        record.assert_called_once_with("fixtures", error)
+        self.assertNotIn("PRIVATE_SENTINEL", stream.getvalue())
+
+    def test_attested_test_inventory_refuses_worktree_line_drift(self):
+        actual_git = gate.git
+        def changed(root, name, limit=gate.MAX_FILE):
+            return b"test('PRIVATE_SENTINEL', async () => {})\n"
+        with patch.object(gate, "bounded_file", side_effect=changed), self.assertRaisesRegex(ValueError, "canonical Git blob"):
+            gate.attested_test_locations(ROOT)
+        self.assertIs(gate.git, actual_git)
+
+    def test_failure_readback_rejects_zip_symlink_and_true_claim_even_with_rehashed_receipt(self):
+        files = self.files(dict(self.receipt(), live_runtime_acceptance=True))
+        with self.assertRaises(ValueError):
+            self.readback(zipped(files))
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w") as archive:
+            info = zipfile.ZipInfo(gate.FAILURE_FILE)
+            info.create_system = 3
+            info.external_attr = 0o120777 << 16
+            archive.writestr(info, self.files()[gate.FAILURE_FILE])
+            archive.writestr("SHA256SUMS", self.files()["SHA256SUMS"])
+        with self.assertRaises(ValueError):
+            self.readback(output.getvalue())
+
+    def test_workflow_failure_upload_is_separate_after_always_cleanup(self):
+        workflow = (ROOT / gate.WORKFLOW).read_text()
+        self.assertLess(workflow.index("hosted_frontend_gate.py cleanup"), workflow.index("Upload bounded safe failure"))
+        block = workflow.split("- name: Upload bounded safe failure", 1)[1]
+        self.assertIn("if: failure()", block)
+        self.assertIn("path: ${{ runner.temp }}/fleet-frontend-failure", block)
+        self.assertNotIn("fleet-frontend-private", block)
+        self.assertNotIn("continue-on-error", workflow)
+        self.assertEqual(len(gate.GATES), 23)
 
 
 if __name__ == "__main__":
