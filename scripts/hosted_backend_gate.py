@@ -713,6 +713,7 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
     cargo_blank = False
     termination = None
     conflicting_termination = False
+    stack_header = stack_overflow = False
     signals = {"6, SIGABRT: process abort signal": "SIGABRT",
                "9, SIGKILL: kill": "SIGKILL", "11, SIGSEGV: invalid memory reference": "SIGSEGV"}
     remaining = DIAGNOSTIC_INPUT_LIMIT
@@ -725,6 +726,7 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
             truncated = True
             panic_detail = False
             activation_detail = False
+            stack_header = False
             cargo_failure = cargo_cause = False
             while not line.endswith(b"\n") and remaining > 0:
                 line = stream.readline(min(DIAGNOSTIC_LINE_LIMIT + 1, remaining + 1))
@@ -733,6 +735,14 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
                 remaining -= len(line)
             continue
         text = line.decode("utf-8", errors="replace").rstrip("\r\n")
+        # Rust 1.88's adjacent complete headers attest only a closed category.
+        complete = line.endswith(b"\n")
+        fatal_text = line.removesuffix(b"\n").removesuffix(b"\r").decode("utf-8", errors="replace")
+        if complete:
+            if stack_header and fatal_text == "fatal runtime error: stack overflow, aborting":
+                stack_overflow = True
+        stack = re.fullmatch(r"thread '([^'\r\n]{1,256})' has overflowed its stack", fatal_text) if complete else None
+        stack_header = bool(stack and stack[1] in names)
         # Cargo's closed trailer projects termination metadata, never its command.
         if cargo_cause:
             process = re.fullmatch(r"  process didn't exit successfully: `[^`\r\n]{1,4096}` \((exit status: [0-9]{1,3}|signal: [^\r\n]{1,80})\)", text)
@@ -801,6 +811,8 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
         truncated = True
     if truncated or conflicting_termination:
         termination = None
+    if stack_overflow and termination == (None, "SIGABRT"):
+        hints.add("runtime_stack_overflow")
     return dict(diagnostics=diagnostics, failed_tests=sorted(failed),
                 categories=sorted(hints | {"test_failure" if diagnostics or failed else "unknown"}), truncated=truncated,
                 stage_log=dict(state="empty" if remaining == DIAGNOSTIC_INPUT_LIMIT else "readable",
@@ -868,9 +880,12 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
     require(all(value[key] is None or type(value[key]) is int and 0 <= value[key] <= 255
                 for key in ("gate_exit_code", "command_exit_code")), "Invalid exit code")
     require(type(value["truncated"]) is bool and isinstance(value["categories"], list)
-            and all(isinstance(item, str) and item in ({"test_failure", "unknown", *TEST_CUSTOM_HINTS, *TEST_NULL_HINTS, *TEST_ACTIVATION_HINTS, *TEST_AUTHORIZE_HINTS}
+            and all(isinstance(item, str) and item in ({"test_failure", "unknown", "runtime_stack_overflow", *TEST_CUSTOM_HINTS, *TEST_NULL_HINTS, *TEST_ACTIVATION_HINTS, *TEST_AUTHORIZE_HINTS}
                                                        if test_failure else {*CATEGORY_PATTERNS, "unknown"}) for item in value["categories"])
             and value["categories"] == sorted(set(value["categories"])), "Invalid fixed failure categories")
+    if test_failure and "runtime_stack_overflow" in value["categories"]:
+        require(value.get("stage_log", {}).get("harness_signal") == "SIGABRT"
+                and not value["truncated"], "Unanchored Rust stack overflow")
     if test_failure and set(value["categories"]) & (TEST_CUSTOM_HINTS.keys() | TEST_NULL_HINTS.keys() | TEST_ACTIVATION_HINTS | TEST_AUTHORIZE_HINTS.keys()):
         require("test_failure" in value["categories"] and bool(value["diagnostics"]), "Unanchored test failure hint")
     if test_failure and set(value["categories"]) & (TEST_ACTIVATION_HINTS | TEST_AUTHORIZE_HINTS.keys()):
