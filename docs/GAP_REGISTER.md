@@ -39,6 +39,12 @@ the existing pending primary placeholder from session creation. The next
 test-only correction checks the undispatched baseline and full post-operation
 record equality, preserving all earlier assertions. Exact-source PG rerun remains
 open; no actual full backend PASS is claimed.
+The reviewed correction is now source5d91b13; published controlsf34ed9b preserve
+all74 gates/9 journal cases and exact pins. Actual38008974895 is in progress.
+Separate PR64 source conflicts are closed by normal dependency merge820a1af;
+its new CI38008810511 is in progress. It remains Draft, with PR47/live configuration
+acceptance dependencies unchanged. No native or live PM gap is closed by either
+source publication.
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
 compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failure

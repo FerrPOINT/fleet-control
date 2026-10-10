@@ -12,10 +12,10 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | CI failure readback complete; review the clarification baseline correction | Actual38006625294 fails clarification_pg, safe artifact authenticated. Independently review the parent's test-only baseline oracle, then retarget only after its final SHA. Preserve every gate; no raw logs or blind rerun. |
-| Feynman | Prepare normal PR64 dependency refresh | Exact60ff01e/11f97aa/b750e7b merge analysis preserves all32 config paths/patch-id and has a clean ordered merge. Create candidate commits only in own checkout; no public push or broad runtime import. |
+| Pascal | Observe actual corrected backend run38008974895 | Baseline correction independently reviewed; controlsf34ed9b/source5d91b13 published with74/9/21/24/167/294 unchanged. Authenticate terminal safe artifact without raw logs or blind retry. |
+| Feynman | Observe fresh PR64 CI38008810511 | Normal dependency refresh820a1af is published, main-based/Draft/MERGEABLE. Check all five exact-head jobs and review status; no source/body/merge/ready changes or duplicate backend watch. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
-| Parent | Fix the actual clarification PG failure and integrate releases | UI d5f18d0 is fixture-qualified; hosted38006625294 passes foundation but exposes two incorrect empty-run assertions. Preserve pending run identity with full-record comparison, authenticate evidence and publish reviewed exact-head successors. |
+| Parent | Integrate reviewed fixes and qualify release evidence | Clarification baseline correction5d91b13 and controlsf34ed9b are published. Preserve pending run identity and every authority assertion; integrate terminal evidence only after independent verification. Maintain docs and release boundaries without duplicating the two CI watches. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
@@ -195,6 +195,25 @@ unit remains exactly32 paths with stable patch-idd1c3391; pins/migrations/locks
 are unchanged. Feynman prepares only a normal candidate in his own clone. PR47
 is still OPEN and remains a release dependency; old PR64 CI cannot accept a new
 head. No combined Docker/native/admission tail is imported into this config unit.
+
+Publication checkpoint: parent independently authenticates380066 failure and
+reviews the corrected baseline; source5d91b13 is normally pushed. Pascal creates
+normal controlsf34ed9b, parents4a8f71f+5d91b13. Only the clarification test and
+TESTING compiled fingerprints, one declaration location, aggregate and source
+refs change. Exact six controls additions,90 Linux/88 Windows+two skips and all
+74/9/21/24/167/294 counts remain. Parent reviews the delta, independently verifies
+all163 Rust Git blobs and codegen binding, normally publishesf34 and confirms
+actual38008974895 is in progress. No actual full backend/native PASS is claimed.
+
+PR64 dependency refresh820a1af is also normally published after parent tree,
+patch-id and no-migration/UI/pin/lock checks. Metadata is main-based, Draft,
+MERGEABLE, with zero reviews/threads. The remote body preserves the existing
+three headings/comments/checklist and clearly distinguishes historical18-gate
+evidence from current source/light checks. Fresh exact-head CI38008810511 is
+confirmed live; docs and minimum-rust pass, three other jobs remain pending at
+this checkpoint. Feynman owns only this outcome watch, Pascal owns only the
+separate full backend run. PR47 remains OPEN and a release dependency. No force,
+rebase, main merge or unrelated PR update is performed.
 
 These tasks have disjoint write sets. Reviewers do not modify frozen owner
 checkouts. Shared runtime/admission, live PM and native acceptance remain explicit

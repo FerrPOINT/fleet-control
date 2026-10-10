@@ -54,6 +54,20 @@ runtime IDs and compares every serialized run field after expiry/HTTP recovery.
 Existing authority/lease/body/replay assertions remain; actual corrected PG
 execution is pending. No production code or schema is changed by that correction.
 
+Reviewed test-only successor5d91b13 and controlsf34ed9b are normally published.
+Both independent reviewers preserve the baseline/authority invariants; parent
+verifies all163 Rust Git blobs and changed compiled inputs. Linux90/Windows88
+PASS plus two Linux-only skips qualify controls only. Actual74-stage run38008974895
+is confirmed in progress atf34ed9b/source5d91b13, with all counts/dependency pins
+unchanged. Neither the earlier failure nor source review accepts this new run.
+
+Separate config PR64 is normally refreshed to820a1af with latest dependencyPR47
+11f97aa, which contains actualmainb750e7b. Source merge conflicts are closed:
+GitHub reports MERGEABLE and zero reviews/threads. The owned config delta remains
+32 paths/identical patch-id, with no migration/UI/SDK/lock change. Fresh CI38008810511
+is in progress on820a1af; PR64 remains Draft and PR47 remains a release dependency.
+This does not import or accept the combined Docker/native/admission tail.
+
 Current-client visual follow-up6c022f3 is normally merged asd5f18d0. Its two-file
 delta adds local semantic styling/native color-scheme to the requirements select
 and assertions in the existing confirmation test. Worker lint/format/typecheck,
