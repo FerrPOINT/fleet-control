@@ -372,7 +372,7 @@ class DiagnosticTests(unittest.TestCase):
                 self.assertIn(args[3], ("container", "network", "volume"))
                 return b"SECRET leftover" if case == "cleanup" else b""
 
-            def logged(args, path, timeout=1800, *, parent_kind=None):
+            def logged(args, path, timeout=1800, *, parent_kind=None, candidate_kind=None):
                 observations.append("pull" if "pull" in args else "build" if "build" in args else "cleanup")
                 if case == "pull" and "pull" in args or case == "build" and "build" in args:
                     raise build.BuildFailure("command_nonzero")
@@ -631,6 +631,183 @@ class ParentPullDiagnosticTests(unittest.TestCase):
         report = {}
         build.remember_failure(report, raised.exception, "parent_pull")
         self.assertEqual(build.failure_projection(report)["parent_pull"], dict(kind="postgres", exit_code=23, category="unknown"))
+
+
+class CandidateBuildDiagnosticTests(unittest.TestCase):
+    def test_source_candidate_enum_and_single_callsite_preserve_build_flags(self):
+        import ast
+        spec = build.compose(Path("/owned/synthetic"))
+        self.assertEqual(build.CANDIDATE_KINDS, {name.removesuffix("-image") for name in spec["services"]})
+        execute = next(node for node in ast.parse((HERE / "build.py").read_text()).body
+                       if isinstance(node, ast.FunctionDef) and node.name == "execute")
+        calls = [node for node in ast.walk(execute) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name) and node.func.id == "logged"
+                 and any(key.arg == "candidate_kind" for key in node.keywords)]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(ast.unparse(calls[0].keywords[0].value), "kind")
+        self.assertIn("['build', '--builder', builder, '--pull=false', '--no-cache', '--provenance=mode=max', kind + '-image']", ast.unparse(calls[0]))
+
+    def test_complete_anchored_rust_frames_only_with_actual_buildkit_prefixes(self):
+        for prefix in (b"", b"#16 35.89 ", b"35.89 "):
+            value = build.candidate_build_diagnostic(prefix + b"error[E0432]: SECRET import/body\n")
+            self.assertEqual(value, dict(category="rust_compile", log_scope="full", rust_codes=["E0432"]))
+            self.assertNotIn("SECRET", json.dumps(value))
+        for raw in (b'RUN echo "error[E0432]: SECRET"\n', b"   | error[E0432]: SECRET\n",
+                    b"some text error[E0432]: SECRET\n", b"warning[E0432]: SECRET\n",
+                    b"error[E0432]: SECRET", b"error[E12345]: SECRET\n", b"error[Eabcd]: SECRET\n"):
+            self.assertEqual(build.candidate_build_diagnostic(raw), dict(category="unknown", log_scope="full"))
+
+    def test_rust_codes_deduplicated_at_most_eight_and_no_messages(self):
+        raw = b"".join(f"#16 1.0 error[E{i:04}]: SECRET URL/path/argv/token\n".encode() for i in range(12) for _ in range(2))
+        value = build.candidate_build_diagnostic(raw)
+        self.assertEqual(value["rust_codes"], [f"E{i:04}" for i in range(8)])
+        self.assertNotIn("SECRET", json.dumps(value))
+        self.assertLessEqual(len(json.dumps(value)), 1024)
+
+    def test_source_known_cli_compose_fetch_checksum_apt_refusals_full_or_tail(self):
+        samples = {
+            "docker_cli_refused": b"unknown flag: --provenance",
+            "compose_config_refused": b"validating /SECRET/build-compose.json: services.controller-image.build Additional property SECRET is not allowed",
+            "pinned_fetch_refused": b'{"state": "withheld", "failure_class": "ValueError"}',
+            "pinned_hash_refused": b"sha256sum: WARNING: 1 computed checksum did NOT match",
+            "apt_refused": b"E: The repository 'https://SECRET SECRET' is not signed.",
+            "account_refused": b"groupadd: GID '999' already exists",
+        }
+        for expected, line in samples.items():
+            for tail in (False, True):
+                with self.subTest(expected=expected, tail=tail):
+                    raw = (b"discarded partial SECRET\n" if tail else b"") + b"#12 3.14 " + line + b"\n"
+                    value = build.candidate_build_diagnostic(raw, tail=tail)
+                    self.assertEqual(value, dict(category=expected, log_scope="tail" if tail else "full"))
+                    self.assertNotIn("SECRET", json.dumps(value))
+        # The existing fetch contract does NOT expose whether ValueError was a hash/size/origin refusal.
+        self.assertNotEqual(samples["pinned_fetch_refused"], samples["pinned_hash_refused"])
+
+    def test_ambiguous_refusals_and_generic_summary_do_not_establish_cause(self):
+        for raw in (b"unknown flag: --SECRET\n", b"ERROR: process /bin/sh SECRET did not complete successfully: exit code: 1\n",
+                    b"ValueError: SECRET hash mismatch\n", b"HTTP Error 403: Forbidden\n",
+                    b'{"state": "withheld", "failure_class": "SECRET"}\n',
+                    b"unknown flag: --provenance\nE: Unable to locate package python3\n"):
+            self.assertEqual(build.candidate_build_diagnostic(raw), dict(category="unknown", log_scope="full"))
+        value = build.candidate_build_diagnostic(b"error[E0432]: SECRET\nunknown flag: --provenance\n")
+        self.assertEqual(value, dict(category="unknown", log_scope="full", rust_codes=["E0432"]))
+
+    def test_full_network_disk_dependency_symptoms_are_not_promoted_from_tail(self):
+        for category, line in (("dns", b"lookup registry.example: no such host"),
+                               ("no_space", b"write SECRET: no space left on device"),
+                               ("dependency_resolution", b"error: failed to select a version for SECRET")):
+            self.assertEqual(build.candidate_build_diagnostic(line + b"\n")["category"], category)
+            self.assertEqual(build.candidate_build_diagnostic(b"partial\n" + line + b"\n", tail=True),
+                             dict(category="unknown", log_scope="tail"))
+
+    def test_tail_discards_partial_first_and_incomplete_last_frames(self):
+        raw = b"error[E0001]: partial SECRET\n#9 1.2 error[E0432]: complete SECRET\nerror[E0002]: incomplete"
+        self.assertEqual(build.candidate_build_diagnostic(raw, tail=True),
+                         dict(category="rust_compile", log_scope="tail", rust_codes=["E0432"]))
+        for raw in (b"error[E0001]: partial SECRET", b"unknown flag: --provenance\n", b"partial\nerror[E0001]: incomplete"):
+            self.assertEqual(build.candidate_build_diagnostic(raw, tail=True), dict(category="unknown", log_scope="tail"))
+        for raw in (b"x" * (build.BUILD_LOG_LIMIT + 1), "SECRET", None):
+            self.assertEqual(build.candidate_build_diagnostic(raw), dict(category="unknown", log_scope="unavailable"))
+
+    def failed_build(self, raw, kind="controller", code=23):
+        with tempfile.TemporaryDirectory() as folder:
+            def run(args, **kwargs):
+                self.assertEqual(args, ["SECRET", kind])
+                self.assertEqual(kwargs["stderr"], build.subprocess.STDOUT)
+                self.assertEqual(kwargs["timeout"], 1800)
+                kwargs["stdout"].write(raw)
+                kwargs["stdout"].flush()
+                return types.SimpleNamespace(returncode=code)
+            with patch.object(build.subprocess, "run", side_effect=run), self.assertRaises(build.BuildFailure) as raised:
+                build.logged(["SECRET", kind], Path(folder) / "SECRET-build.log", candidate_kind=kind)
+            report = {}
+            build.remember_failure(report, raised.exception, "candidate_build")
+            return report, build.failure_projection(report)
+
+    def test_logged_retains_exact_role_actual_exit_no_private_fields(self):
+        for kind in build.CANDIDATE_KINDS:
+            report, public = self.failed_build(b"#3 1.0 error[E0432]: SECRET\n", kind=kind)
+            self.assertEqual(public["candidate_build"], dict(kind=kind, exit_code=23, category="rust_compile",
+                                                           log_scope="full", rust_codes=["E0432"]))
+            self.assertEqual(public["failure_reason"], "command_nonzero")
+            self.assertNotIn("SECRET", json.dumps(report))
+            self.assertNotIn("SECRET", json.dumps(public))
+
+    def test_long_owned_log_reads_at_most_64k_tail_and_not_the_whole_log(self):
+        raw = b"SECRET" * 20000 + b"\n#8 9.1 error[E0308]: SECRET\n"
+        with patch.object(build, "candidate_build_diagnostic", wraps=build.candidate_build_diagnostic) as classify:
+            _, public = self.failed_build(raw)
+        self.assertEqual(len(classify.call_args.args[0]), build.BUILD_LOG_LIMIT)
+        self.assertEqual(classify.call_args.kwargs, {"tail": True})
+        self.assertEqual(public["candidate_build"], dict(kind="controller", exit_code=23, category="rust_compile",
+                                                       log_scope="tail", rust_codes=["E0308"]))
+
+    def test_success_parent_and_other_logs_never_read_candidate_diagnostics(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for code, parent, candidate in ((0, None, "controller"), (1, "rust", None), (1, None, None)):
+                with patch.object(build.subprocess, "run", return_value=types.SimpleNamespace(returncode=code)), \
+                     patch.object(build, "candidate_build_diagnostic", side_effect=AssertionError("No candidate read")):
+                    path = Path(folder) / (str(code) + str(parent))
+                    if code:
+                        with self.assertRaises(build.BuildFailure):
+                            build.logged(["SECRET"], path, parent_kind=parent)
+                    else:
+                        build.logged(["SECRET"], path, candidate_kind=candidate)
+
+    def test_timeout_has_null_actual_exit_and_no_exception_payload(self):
+        with tempfile.TemporaryDirectory() as folder:
+            error = build.subprocess.TimeoutExpired(["SECRET"], 1800, output=b"SECRET")
+            with patch.object(build.subprocess, "run", side_effect=error), self.assertRaises(build.subprocess.TimeoutExpired):
+                build.logged(["SECRET"], Path(folder) / "owned.log", candidate_kind="hermes")
+            report = {}
+            build.remember_failure(report, error, "candidate_build")
+            public = build.failure_projection(report)
+            self.assertEqual(public["candidate_build"], dict(kind="hermes", exit_code=None, category="timeout", log_scope="unavailable"))
+            self.assertNotIn("SECRET", json.dumps(public))
+
+    def test_invalid_metadata_and_oversized_code_lists_are_closed(self):
+        class Private:
+            def __str__(self):
+                raise AssertionError("No private formatting")
+        for value in ("SECRET" * 10000, Private(), True, ["SECRET"], None):
+            public = build.failure_projection(dict(failure_operation="candidate_build", candidate_build={
+                key: value for key in ("kind", "exit_code", "category", "log_scope", "rust_codes", "SECRET")}))
+            self.assertEqual(public["candidate_build"], dict(kind="unknown", exit_code=None, category="unknown", log_scope="unavailable"))
+            self.assertNotIn("SECRET", json.dumps(public))
+        public = build.failure_projection(dict(failure_operation="candidate_build", candidate_build=dict(
+            kind="controller", exit_code=4294967295, category="dependency_resolution", log_scope="tail",
+            rust_codes=[f"E{i:04}" for i in range(1000)])))
+        self.assertEqual(public["candidate_build"]["rust_codes"], [f"E{i:04}" for i in range(8)])
+        self.assertLessEqual(len(json.dumps(public).encode()), 1024)
+
+    def test_invalid_or_dual_kind_refused_before_process_and_file_io(self):
+        for candidate, parent in (("SECRET", None), (True, None), (["controller"], None), ("controller", "rust")):
+            with patch.object(Path, "open") as opened, patch.object(build.subprocess, "run") as run, self.assertRaises(ValueError):
+                build.logged(["SECRET"], Path("unused"), candidate_kind=candidate, parent_kind=parent)
+            opened.assert_not_called()
+            run.assert_not_called()
+
+    def test_first_failure_preserves_original_role_exit_codes_and_frames(self):
+        report, expected = self.failed_build(b"error[E0432]: SECRET\n", code=-9)
+        second, _ = self.failed_build(b"unknown flag: --provenance\n", kind="hermes", code=1)
+        error = build.BuildFailure("command_nonzero")
+        error.candidate_build = second["candidate_build"]
+        build.remember_failure(report, error, "candidate_build")
+        build.remember_failure(report, ValueError("SECRET cleanup"), "parity_resources")
+        self.assertEqual(build.failure_projection(report), expected)
+
+    def test_read_error_preserves_actual_failure_with_unknown_unavailable_log(self):
+        class Unreadable(io.BytesIO):
+            def seek(self, *args):
+                raise OSError("SECRET")
+        with patch.object(Path, "open", return_value=Unreadable()), \
+             patch.object(build.subprocess, "run", return_value=types.SimpleNamespace(returncode=42)), \
+             self.assertRaises(build.BuildFailure) as raised:
+            build.logged(["SECRET"], Path("unused"), candidate_kind="controller")
+        report = {}
+        build.remember_failure(report, raised.exception, "candidate_build")
+        self.assertEqual(build.failure_projection(report)["candidate_build"],
+                         dict(kind="controller", exit_code=42, category="unknown", log_scope="unavailable"))
 
 
 class ContextTests(unittest.TestCase):

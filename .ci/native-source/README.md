@@ -95,8 +95,8 @@ prevents success output; terminal VM teardown is not cleanup evidence.
 The authored caller requires parent/independent review before publication. Its
 public preflight verifies the exact source tuple and additions before any private
 Base token use. All35 copied QA/image files match component
-`0567f9a0b722d9ea58d5df997db035413244a970`; their compact path/SHA256 map digest is
-`b44db400eaf9ddf51e51a4bcf68adc8b7dfec562bad6018fa23638e520e5a202`.
+`72e20098026c207fc91a39d9e3e12c88d6616f23`; their compact path/SHA256 map digest is
+`f8b89add449bb286d2d34e34316adae2c8336f16a934648277145793062aa8da`.
 Only this README and the workflow are caller-specific. No cache, Git donor,
 credentials or prepared packet is included. In that one host job, set absolute
 exact Git input directories (no dependency copies):
@@ -182,11 +182,37 @@ repository-missing/login denial stay `unknown`. A plain401/Bearer challenge is
 not denial proof. Categories are rate_limit/registry_denied/manifest_unavailable/
 dns/tls/timeout/unknown; they do not establish registry visibility or root cause.
 No log text, URL, args, env, token or exception text enters the projection.
-Successful pulls, candidate build and other private logs are never read.
+Successful pulls and unrelated private logs are never read.
 Success console shape and all receipt validators are unchanged; no new step,
 artifact or reader. Prior617 run38074207531 had no cause retained; d4dd
 run38075925575 proved only parent_pull/BuildFailure/command_nonzero, not a
 specific parent or registry cause. Neither past report is retroactively changed.
+
+A failed candidate build now optionally adds `candidate_build`: exact source
+role controller/hermes, actual numeric return code (null on real process
+timeout), fixed symptom category and `log_scope=full|tail|unavailable`. Only its
+same exclusively created build-log handle is read, at most64KiB. Long logs use
+the tail, discard its first line conservatively and ignore an unterminated last
+line. This is not whole-log diagnosis. Up to8 distinct complete anchored Rust
+`error[E####]:` frames are retained as codes only, with existing BuildKit
+prefixes; the list is a bounded subset, not a complete compiler inventory.
+
+Complete anchored existing CLI/recipe refusals can also establish
+docker_cli_refused, compose_config_refused, pinned_fetch_refused,
+pinned_hash_refused, apt_refused or account_refused in either a full log or tail.
+Only the exact current build flags, Compose build shape and UID/GID999 are
+recognized. The existing fetch script's closed ValueError proves a fetch
+refusal, not a hash mismatch; only the explicit checksum-check diagnostic maps
+to pinned_hash_refused. Generic summaries, incomplete lines or conflicting
+symptoms stay unknown. Full logs may additionally expose fixed network,
+no_space or dependency_resolution symptoms; a tail alone never promotes those
+fragmentary clues. No text, path, URL, body, argv, env or token is projected.
+The combined extension remains within1KiB, preserves first failure and does not
+read success/qualification/cleanup logs. Controller image construction installs
+tools and does not compile Fleet: a Rust cause is never assumed from the role.
+Actual1fa run38077155580 proved candidate_build/command_nonzero with all parent
+parity passed, but retained no candidate role, child exit or build cause. This
+change does not retroactively diagnose it or qualify any native scenario.
 
 The direct qualified source would be5db only. Later UI-only aca/152 commits and
 the subsequent infra test-only fixture repair require explicit source parity

@@ -29,6 +29,10 @@ PARITY_KEYS = ("sources", "parents", "daemon", "permanent", "resources")
 PARENT_KINDS = frozenset(("rust", "postgres", "uv", "docker", "debian"))
 PULL_LOG_LIMIT = 65536
 PULL_CATEGORIES = frozenset(("rate_limit", "registry_denied", "manifest_unavailable", "dns", "tls", "timeout", "unknown"))
+CANDIDATE_KINDS = frozenset(("controller", "hermes"))
+BUILD_LOG_LIMIT = 65536
+BUILD_CATEGORIES = PULL_CATEGORIES | {"rust_compile", "no_space", "dependency_resolution",
+    "docker_cli_refused", "compose_config_refused", "pinned_fetch_refused", "pinned_hash_refused", "apt_refused", "account_refused"}
 OPERATIONS = frozenset(("unknown", "parent_resources", "parent_pull", "parent_identity",
     "candidate_source", "candidate_resources", "candidate_daemon", "candidate_tag",
     "controller_input", "candidate_build", "candidate_metadata", "offline_qualification",
@@ -59,10 +63,10 @@ def remember_failure(report, error, operation):
         report["failure_operation"] = operation
         report["failure_reason"] = (error.reason if type(error) is BuildFailure else
                                     "process_timeout" if type(error) is subprocess.TimeoutExpired else "unspecified")
-        if operation == "parent_pull" and type(error) in (BuildFailure, subprocess.TimeoutExpired):
-            value = getattr(error, "parent_pull", None)
+        if operation in ("parent_pull", "candidate_build") and type(error) in (BuildFailure, subprocess.TimeoutExpired):
+            value = getattr(error, operation, None)
             if type(value) is dict:
-                report["parent_pull"] = value
+                report[operation] = value
 
 
 def failure_projection(report):
@@ -83,6 +87,19 @@ def failure_projection(report):
             kind=kind if type(kind) is str and kind in PARENT_KINDS else "unknown",
             exit_code=code if type(code) is int and -2147483648 <= code <= 4294967295 and code != 0 else None,
             category=category if type(category) is str and category in PULL_CATEGORIES else "unknown")
+    candidate = report.get("candidate_build")
+    if result["failure_operation"] == "candidate_build" and type(candidate) is dict:
+        kind, code, category, scope = (candidate.get(key) for key in ("kind", "exit_code", "category", "log_scope"))
+        value = dict(kind=kind if type(kind) is str and kind in CANDIDATE_KINDS else "unknown",
+            exit_code=code if type(code) is int and -2147483648 <= code <= 4294967295 and code != 0 else None,
+            category=category if type(category) is str and category in BUILD_CATEGORIES else "unknown",
+            log_scope=scope if type(scope) is str and scope in ("full", "tail", "unavailable") else "unavailable")
+        codes = candidate.get("rust_codes")
+        if type(codes) is list:
+            codes = list(dict.fromkeys(code for code in codes[:8] if type(code) is str and re.fullmatch(r"E[0-9]{4}", code)))
+            if codes:
+                value["rust_codes"] = codes
+        result["candidate_build"] = value
     if len(json.dumps(result).encode("ascii")) > 1024:
         raise ValueError("Closed failure projection exceeds bound")
     return result
@@ -114,15 +131,66 @@ def parent_pull_category(raw):
     return matches[0] if len(matches) == 1 else "unknown"
 
 
-def logged(args, path, timeout=1800, *, parent_kind=None):
+def candidate_build_diagnostic(raw, *, tail=False):
+    """A tail proves only complete anchored frames/refusals, never an inferred whole-log cause."""
+    if type(raw) is not bytes or len(raw) > BUILD_LOG_LIMIT or type(tail) is not bool:
+        return dict(category="unknown", log_scope="unavailable")
+    if tail:
+        raw = raw.partition(b"\n")[2]
+    prefix = rb"^(?:#[0-9]{1,6} )?[0-9]{1,8}(?:\.[0-9]{1,6})? "
+    lines = [re.sub(prefix, b"", line.removesuffix(b"\r")) for line in raw.split(b"\n")[:-1]]
+    codes = []
+    for line in lines:
+        frame = re.fullmatch(rb"error\[(E[0-9]{4})\]:[^\r\n]*", line)
+        if frame:
+            code = frame[1].decode("ascii")
+            if code not in codes and len(codes) < 8:
+                codes.append(code)
+    result = dict(category="unknown", log_scope="tail" if tail else "full")
+    if codes:
+        result["rust_codes"] = codes
+    matches = {"rust_compile"} if codes else set()
+    # These are exact existing CLI/recipe diagnostic shapes, not arbitrary messages.
+    refusals = {
+        "docker_cli_refused": rb"(?:ERROR: )?unknown flag: --(?:builder|pull|no-cache|provenance)",
+        "compose_config_refused": rb"validating [^\r\n]{1,1024}build-compose\.json: services\.(?:controller|hermes)-image\.build Additional property [a-zA-Z0-9_]{1,64} is not allowed",
+        "pinned_fetch_refused": rb'\{"state": "withheld", "failure_class": "(?:ValueError|HTTPError|URLError|TimeoutError|SSLError|OSError|FileNotFoundError)"\}',
+        "pinned_hash_refused": rb"sha256sum: WARNING: [1-9][0-9]{0,5} computed checksums? did NOT match",
+        "apt_refused": rb"E: (?:Unable to locate package [a-zA-Z0-9.+:-]{1,256}|Unable to correct problems, you have held broken packages\.|Sub-process /usr/bin/dpkg returned an error code \([1-9][0-9]{0,2}\)|The repository '[^\r\n]{1,1024}' (?:is not signed\.|does not have a Release file\.))",
+        "account_refused": rb"groupadd: GID '999' already exists|useradd: UID 999 is not unique|useradd: group '999' does not exist",
+    }
+    for category, pattern in refusals.items():
+        if any(re.fullmatch(pattern, line) for line in lines):
+            matches.add(category)
+    if not tail:
+        network = parent_pull_category(raw)
+        if network != "unknown":
+            matches.add(network)
+    patterns = {
+        "no_space": rb"no space left on device",
+        "dependency_resolution": rb"error: failed to select a version for|no solution found when resolving dependencies",
+    }
+    for category, pattern in patterns.items():
+        if not tail and re.search(pattern, raw.lower()):
+            matches.add(category)
+    if len(matches) == 1:
+        result["category"] = next(iter(matches))
+    return result
+
+
+def logged(args, path, timeout=1800, *, parent_kind=None, candidate_kind=None):
     if parent_kind is not None and (type(parent_kind) is not str or parent_kind not in PARENT_KINDS):
         raise ValueError("Closed source parent kind required")
-    with path.open("x+b" if parent_kind is not None else "xb") as output:
+    if candidate_kind is not None and (parent_kind is not None or type(candidate_kind) is not str or candidate_kind not in CANDIDATE_KINDS):
+        raise ValueError("Closed source candidate kind required")
+    with path.open("x+b" if parent_kind is not None or candidate_kind is not None else "xb") as output:
         try:
             result = subprocess.run(args, stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
         except subprocess.TimeoutExpired as error:
             if parent_kind is not None:
                 error.parent_pull = dict(kind=parent_kind, exit_code=None, category="timeout")
+            if candidate_kind is not None:
+                error.candidate_build = dict(kind=candidate_kind, exit_code=None, category="timeout", log_scope="unavailable")
             raise
         if result.returncode:
             error = BuildFailure("command_nonzero")
@@ -134,6 +202,16 @@ def logged(args, path, timeout=1800, *, parent_kind=None):
                 except OSError:
                     pass
                 error.parent_pull = dict(kind=parent_kind, exit_code=result.returncode, category=category)
+            if candidate_kind is not None:
+                diagnostic = dict(category="unknown", log_scope="unavailable")
+                try:
+                    output.seek(0, os.SEEK_END)
+                    size = output.tell()
+                    output.seek(max(0, size - BUILD_LOG_LIMIT))
+                    diagnostic = candidate_build_diagnostic(output.read(BUILD_LOG_LIMIT), tail=size > BUILD_LOG_LIMIT)
+                except OSError:
+                    pass
+                error.candidate_build = dict(kind=candidate_kind, exit_code=result.returncode, **diagnostic)
             raise error
 
 
@@ -442,7 +520,7 @@ def execute(root, ack, context, builder):
                 raise BuildFailure("controller_input_changed")
             operation = "candidate_build"
             logged(command + ["build", "--builder", builder, "--pull=false", "--no-cache", "--provenance=mode=max", kind + "-image"],
-                   root / "evidence" / (kind + "-build.log"))
+                   root / "evidence" / (kind + "-build.log"), candidate_kind=kind)
             operation = "candidate_metadata"
             value = image(docker, spec["services"][kind + "-image"]["image"])
             if value["os"] != "linux" or value["architecture"] != "amd64" or value["volumes"]:
