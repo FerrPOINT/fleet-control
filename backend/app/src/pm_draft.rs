@@ -148,7 +148,8 @@ pub async fn continue_creation_with_credentials(
         )
         .await?;
     if let Some(credentials) = credentials {
-        // This remains pre-admission. No model, lease claim or workflow mutation is issued.
+        // The opt-in coordinator may prepare owner lease/Workflow facts. Native
+        // admission and dispatch remain the supervisor's separate authority.
         credentials.prepare(repo, &operation).await?;
     }
     // There is deliberately no Hermes dispatch here: admission is a separate authority.

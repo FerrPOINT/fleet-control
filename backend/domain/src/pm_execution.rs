@@ -125,6 +125,10 @@ pub struct PmRunReservation {
     pub fence: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_binding: Option<PmRuntimeBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_session_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_message_id: Option<Uuid>,
 }
 
 impl PmRunReservation {
@@ -132,6 +136,21 @@ impl PmRunReservation {
         self.identity.validate()?;
         if let Some(binding) = &self.runtime_binding {
             binding.validate()?;
+        }
+        if let Some(key) = &self.native_session_key {
+            let message_id = match self.native_message_id {
+                Some(id) if !id.is_nil() => id,
+                Some(_) => return Err(AppError::validation("PM native message identity is nil")),
+                None => canonical_uuid(&self.dispatch_operation_key)?,
+            };
+            if self.runtime_binding.is_none()
+                || *key
+                    != pm_native_session_key(self.session_id, self.identity.agent_id()?, message_id)
+            {
+                return Err(AppError::validation(
+                    "PM native session must belong to this dispatch",
+                ));
+            }
         }
         if self.session_id.is_nil()
             || self.session_run_id.is_nil()
@@ -148,8 +167,14 @@ impl PmRunReservation {
         Ok(())
     }
     pub fn runtime_session_id(&self) -> String {
-        format!("fleet:{}:{}", self.session_id, self.identity.agent_ref)
+        self.native_session_key
+            .clone()
+            .unwrap_or_else(|| format!("fleet:{}:{}", self.session_id, self.identity.agent_ref))
     }
+}
+
+pub fn pm_native_session_key(session: Uuid, agent: Uuid, message: Uuid) -> String {
+    format!("fleet-pm:{session}:{agent}:{message}")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -276,11 +301,57 @@ mod tests {
             checkpoint_ref: None,
             fence: 1,
             runtime_binding: None,
+            native_session_key: None,
+            native_message_id: None,
         };
         let wire = serde_json::to_value(&reservation).unwrap();
         assert!(wire.get("runtime_binding").is_none());
         let historical: PmRunReservation = serde_json::from_value(wire).unwrap();
         assert!(historical.runtime_binding.is_none());
         assert_eq!(historical, reservation);
+    }
+
+    #[test]
+    fn native_dispatch_sessions_are_distinct_with_the_same_task_execution_and_chat() {
+        let mut reservation = PmRunReservation {
+            session_id: Uuid::new_v4(),
+            session_run_id: Uuid::new_v4(),
+            identity: identity(),
+            binding_ref: "binding".into(),
+            dispatch_operation_key: Uuid::new_v4().to_string(),
+            checkpoint_ref: None,
+            fence: 1,
+            runtime_binding: Some(PmRuntimeBinding {
+                launch_id: Uuid::new_v4(),
+                controller_id: Uuid::new_v4(),
+                origin: "http://127.0.0.1:29002".into(),
+                credential_fingerprint: "a".repeat(64),
+            }),
+            native_session_key: None,
+            native_message_id: None,
+        };
+        let message = Uuid::parse_str(&reservation.dispatch_operation_key).unwrap();
+        reservation.native_session_key = Some(pm_native_session_key(
+            reservation.session_id,
+            reservation.identity.agent_id().unwrap(),
+            message,
+        ));
+        reservation.validate().unwrap();
+        let mut resumed = reservation.clone();
+        let next_message = Uuid::new_v4();
+        resumed.dispatch_operation_key = next_message.to_string();
+        assert!(resumed.validate().is_err()); // A late old-session call cannot adopt the new dispatch.
+        resumed.native_session_key = Some(pm_native_session_key(
+            resumed.session_id,
+            resumed.identity.agent_id().unwrap(),
+            next_message,
+        ));
+        resumed.validate().unwrap();
+        assert_ne!(
+            reservation.runtime_session_id(),
+            resumed.runtime_session_id()
+        );
+        assert_eq!(reservation.identity, resumed.identity);
+        assert_eq!(reservation.session_id, resumed.session_id);
     }
 }

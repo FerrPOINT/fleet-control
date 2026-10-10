@@ -126,6 +126,7 @@ fn private_claim_journal_is_original_key_only_and_preserves_creation_response() 
         session_id: Some(Uuid::new_v4()),
         credentials: None,
         execution_lease: None,
+        workflow_assignment: None,
     };
     assert!(operation.lease_claim().is_err());
     let credential = crate::PmCredentialCommand::tracker(

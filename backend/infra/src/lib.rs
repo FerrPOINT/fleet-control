@@ -16,6 +16,7 @@ mod message_dispatch;
 pub mod pm_credentials;
 mod pm_draft;
 mod pm_execution;
+pub mod pm_workflow;
 pub mod runtime;
 mod runtime_acceptance;
 mod runtime_controls;
@@ -50,7 +51,6 @@ use entities::{
     runtime_approval_request, runtime_template, session_agent_run, session_message,
     session_participant, user, workflow_binding,
 };
-use hmac::{Hmac, Mac};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::NotSet, ActiveValue::Set, ColumnTrait, ConnectOptions,
     ConnectionTrait, Database, DatabaseBackend, DatabaseConnection, EntityTrait, IntoActiveModel,
@@ -66,8 +66,6 @@ use std::{
     time::Duration,
 };
 use uuid::Uuid;
-
-type HmacSha256 = Hmac<Sha256>;
 
 pub async fn connect_database(config: DatabaseConfig) -> Result<DatabaseConnection, AppError> {
     if config.url.trim().is_empty() {
@@ -312,11 +310,7 @@ fn redacted_env(kind: AgentKind, agent: &Agent) -> Value {
 }
 
 pub fn agent_runtime_token(config: &AppConfig, agent_id: Uuid) -> Result<String, AppError> {
-    let mut mac = HmacSha256::new_from_slice(config.fleet.runtime_token_secret.as_bytes())
-        .map_err(AppError::internal)?;
-    mac.update(b"fleet-control/hermes-api-key/v1/");
-    mac.update(agent_id.to_string().as_bytes());
-    Ok(format!("fc_{}", hex::encode(mac.finalize().into_bytes())))
+    app::agent_runtime_credential(config, agent_id)
 }
 
 fn command_preview(kind: AgentKind, config: &AppConfig, agent: &Agent) -> String {
@@ -674,6 +668,383 @@ impl FleetRepository for PostgresFleetRepository {
     }
     async fn get_pm_run(&self, id: Uuid) -> Result<domain::PmRunRecord, AppError> {
         pm_execution::get(self, id).await
+    }
+    async fn find_pm_native_run(
+        &self,
+        agent: Uuid,
+        native_session: &str,
+    ) -> Result<Option<domain::PmRunRecord>, AppError> {
+        let rows = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT session_run_id FROM pm_run_bindings WHERE agent_id=$1 AND hermes_session_ref=$2 AND terminal_status IS NULL LIMIT 2",
+            [agent.into(),native_session.into()])).await.map_err(AppError::database)?;
+        if rows.len() > 1 {
+            return Err(AppError::conflict(
+                "PM native session has ambiguous active bindings",
+            ));
+        }
+        match rows.first() {
+            None => Ok(None),
+            Some(row) => Ok(Some(
+                pm_execution::get(
+                    self,
+                    row.try_get("", "session_run_id")
+                        .map_err(AppError::database)?,
+                )
+                .await?,
+            )),
+        }
+    }
+    async fn waiting_pm_runs(&self, session: Uuid) -> Result<Vec<Uuid>, AppError> {
+        self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT p.session_run_id FROM pm_run_bindings p JOIN pm_run_checkpoints c USING(session_run_id)
+             WHERE p.session_id=$1 AND p.terminal_status IS NOT NULL AND c.receipt IS NOT NULL",
+            [session.into()])).await.map_err(AppError::database)?.into_iter()
+            .map(|row| row.try_get("", "session_run_id").map_err(AppError::database)).collect()
+    }
+    async fn pm_resume_by_message(
+        &self,
+        message: Uuid,
+    ) -> Result<Option<domain::PmResumeJournal>, AppError> {
+        self.db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT journal FROM pm_run_resumes WHERE message_id=$1",
+                [message.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .map(|row| {
+                serde_json::from_value(
+                    row.try_get::<Value>("", "journal")
+                        .map_err(AppError::database)?,
+                )
+                .map_err(AppError::internal)
+            })
+            .transpose()
+    }
+    async fn queue_pm_resume(&self, old_run: Uuid) -> Result<(), AppError> {
+        let old = pm_execution::get(self, old_run).await?;
+        let checkpoint = self
+            .pm_checkpoint(old_run)
+            .await?
+            .ok_or_else(|| AppError::conflict("PM confirmed checkpoint missing"))?;
+        let journal = self
+            .pm_resume(old_run)
+            .await?
+            .ok_or_else(|| AppError::conflict("PM original resume missing"))?;
+        journal.intent.verify_receipt(
+            &old,
+            &checkpoint,
+            &json!({"ok":true,"result":journal.receipt.as_ref()
+            .ok_or_else(|| AppError::conflict("PM resume acknowledgement missing"))?}),
+        )?;
+        let agent = old.reservation.identity.agent_id()?;
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let row = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT a.kind,a.sdlc_role,a.status FROM agents a WHERE a.id=$1 FOR NO KEY UPDATE",
+                [agent.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::conflict("PM resume agent missing"))?;
+        if row
+            .try_get::<String>("", "kind")
+            .map_err(AppError::database)?
+            != "hermes"
+            || row
+                .try_get::<Option<String>>("", "sdlc_role")
+                .map_err(AppError::database)?
+                .as_deref()
+                != Some("project_manager")
+            || row
+                .try_get::<String>("", "status")
+                .map_err(AppError::database)?
+                != "running"
+        {
+            return Err(AppError::conflict("PM resume requires its running agent"));
+        }
+        let owner=txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT s.user_id FROM agent_sessions s JOIN task_chat_bindings b ON b.session_id=s.id
+             JOIN users u ON u.id=s.user_id WHERE s.id=$1 AND b.agent_id=$2 AND u.is_active
+               AND u.central_sub=b.owner_subject FOR NO KEY UPDATE OF s",
+            [old.reservation.session_id.into(),agent.into()])).await.map_err(AppError::database)?
+            .ok_or(AppError::Forbidden)?;
+        let _owner: Uuid = owner.try_get("", "user_id").map_err(AppError::database)?;
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO session_agent_runs(id,session_id,agent_id,run_role,state,model_options,created_at,updated_at)
+             VALUES($1,$2,$3,'primary','pending','{}'::jsonb,now(),now()) ON CONFLICT(id) DO NOTHING",
+            [journal.intent.new_session_run_id.into(),old.reservation.session_id.into(),agent.into()])).await.map_err(AppError::database)?;
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO session_messages(id,session_id,author_type,body,message_kind,idempotency_key,delivery_state,created_at)
+             VALUES($1,$2,'system',$3,'control',$4,'pending',now()) ON CONFLICT(id) DO NOTHING",
+            [journal.intent.message_id.into(),old.reservation.session_id.into(),journal.intent.prompt.clone().into(),
+                format!("fleet-pm-answer:{}",journal.intent.source_event_id).into()])).await.map_err(AppError::database)?;
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO message_dispatch_outbox(message_id,agent_id,state,created_at,updated_at)
+             VALUES($1,$2,'pending',now(),now()) ON CONFLICT(message_id) DO NOTHING",
+            [journal.intent.message_id.into(), agent.into()],
+        ))
+        .await
+        .map_err(AppError::database)?;
+        let matching=txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT EXISTS(SELECT 1 FROM session_messages m JOIN session_agent_runs r ON r.id=$1
+                JOIN message_dispatch_outbox o ON o.message_id=m.id WHERE m.id=$2 AND m.session_id=$3 AND r.session_id=$3
+                AND r.agent_id=$4 AND o.agent_id=$4 AND m.author_type='system' AND m.message_kind='control' AND m.body=$5) AS matching",
+            [journal.intent.new_session_run_id.into(),journal.intent.message_id.into(),old.reservation.session_id.into(),agent.into(),journal.intent.prompt.into()]))
+            .await.map_err(AppError::database)?.ok_or_else(|| AppError::conflict("PM resume queue missing"))?;
+        if !matching
+            .try_get::<bool>("", "matching")
+            .map_err(AppError::database)?
+        {
+            return Err(AppError::conflict("PM resume queue identity conflict"));
+        }
+        txn.commit().await.map_err(AppError::database)?;
+        Ok(())
+    }
+    async fn pm_resume(&self, old_run: Uuid) -> Result<Option<domain::PmResumeJournal>, AppError> {
+        self.db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT journal FROM pm_run_resumes WHERE old_run_id=$1",
+                [old_run.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .map(|row| {
+                serde_json::from_value(
+                    row.try_get::<Value>("", "journal")
+                        .map_err(AppError::database)?,
+                )
+                .map_err(AppError::internal)
+            })
+            .transpose()
+    }
+    async fn save_pm_resume(
+        &self,
+        old: &domain::PmRunRecord,
+        checkpoint: &domain::PmCheckpointJournal,
+        journal: domain::PmResumeJournal,
+    ) -> Result<domain::PmResumeJournal, AppError> {
+        journal.intent.validate(old, checkpoint)?;
+        if let Some(receipt) = &journal.receipt {
+            journal
+                .intent
+                .verify_receipt(old, checkpoint, &json!({"ok":true,"result":receipt}))?;
+        }
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let current = pm_execution::locked(&txn, old.reservation.session_run_id)
+            .await?
+            .ok_or_else(|| AppError::conflict("PM original resume run missing"))?;
+        if serde_json::to_value(&current).map_err(AppError::internal)?
+            != serde_json::to_value(old).map_err(AppError::internal)?
+            || !current
+                .terminal_status
+                .is_some_and(|status| status.terminal())
+        {
+            return Err(AppError::conflict(
+                "PM original resume run changed or is not terminal",
+            ));
+        }
+        let persisted_checkpoint=txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT jsonb_build_object('command',command,'request_sha256',request_sha256,'receipt',receipt) AS journal
+             FROM pm_run_checkpoints WHERE session_run_id=$1",[old.reservation.session_run_id.into()])).await.map_err(AppError::database)?
+             .ok_or_else(|| AppError::conflict("PM confirmed checkpoint missing"))?;
+        if persisted_checkpoint
+            .try_get::<Value>("", "journal")
+            .map_err(AppError::database)?
+            != serde_json::to_value(checkpoint).map_err(AppError::internal)?
+        {
+            return Err(AppError::conflict("PM confirmed checkpoint changed"));
+        }
+        let mut intent_only = journal.clone();
+        intent_only.receipt = None;
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO pm_run_resumes(old_run_id,new_run_id,message_id,journal) VALUES($1,$2,$3,$4)
+             ON CONFLICT(old_run_id) DO NOTHING",[journal.intent.old_session_run_id.into(),journal.intent.new_session_run_id.into(),
+                journal.intent.message_id.into(),serde_json::to_value(intent_only).map_err(AppError::internal)?.into()])).await.map_err(AppError::database)?;
+        let row = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT journal FROM pm_run_resumes WHERE old_run_id=$1 FOR UPDATE",
+                [old.reservation.session_run_id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::conflict("PM original resume journal missing"))?;
+        let mut saved: domain::PmResumeJournal =
+            serde_json::from_value(row.try_get("", "journal").map_err(AppError::database)?)
+                .map_err(AppError::internal)?;
+        if serde_json::to_value(&saved.intent).map_err(AppError::internal)?
+            != serde_json::to_value(&journal.intent).map_err(AppError::internal)?
+            || saved
+                .receipt
+                .as_ref()
+                .zip(journal.receipt.as_ref())
+                .is_some_and(|(a, b)| a != b)
+        {
+            return Err(AppError::conflict("PM resume original command conflict"));
+        }
+        if saved.receipt.is_none() && journal.receipt.is_some() {
+            saved.receipt = journal.receipt;
+            txn.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE pm_run_resumes SET journal=$2 WHERE old_run_id=$1",
+                [
+                    old.reservation.session_run_id.into(),
+                    serde_json::to_value(&saved)
+                        .map_err(AppError::internal)?
+                        .into(),
+                ],
+            ))
+            .await
+            .map_err(AppError::database)?;
+        }
+        txn.commit().await.map_err(AppError::database)?;
+        Ok(saved)
+    }
+    async fn active_pm_runs(&self, session: Uuid) -> Result<Vec<domain::PmRunRecord>, AppError> {
+        let ids = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT session_run_id FROM pm_run_bindings WHERE session_id=$1 AND terminal_status IS NULL",
+            [session.into()])).await.map_err(AppError::database)?;
+        let mut records = Vec::new();
+        for row in ids {
+            records.push(
+                pm_execution::get(
+                    self,
+                    row.try_get("", "session_run_id")
+                        .map_err(AppError::database)?,
+                )
+                .await?,
+            );
+        }
+        Ok(records)
+    }
+    async fn pending_pm_checkpoints(&self, session: Uuid) -> Result<Vec<Uuid>, AppError> {
+        self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT c.session_run_id FROM pm_run_checkpoints c JOIN pm_run_bindings p USING(session_run_id)
+             WHERE p.session_id=$1 AND c.receipt IS NULL ORDER BY c.created_at", [session.into()]))
+            .await.map_err(AppError::database)?.into_iter().map(|row| row.try_get("", "session_run_id").map_err(AppError::database)).collect()
+    }
+    async fn pm_checkpoint(
+        &self,
+        run: Uuid,
+    ) -> Result<Option<domain::PmCheckpointJournal>, AppError> {
+        self.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT jsonb_build_object('command',command,'request_sha256',request_sha256,'receipt',receipt) AS journal
+             FROM pm_run_checkpoints WHERE session_run_id=$1", [run.into()])).await.map_err(AppError::database)?
+            .map(|row| serde_json::from_value(row.try_get::<Value>("", "journal").map_err(AppError::database)?).map_err(AppError::internal)).transpose()
+    }
+    async fn save_pm_checkpoint(
+        &self,
+        record: &domain::PmRunRecord,
+        journal: domain::PmCheckpointJournal,
+    ) -> Result<domain::PmCheckpointJournal, AppError> {
+        journal.validate(record)?;
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let current = pm_execution::locked(&txn, record.reservation.session_run_id)
+            .await?
+            .ok_or_else(|| AppError::conflict("PM original run missing"))?;
+        if current.reservation != record.reservation
+            || current.hermes_run_ref != record.hermes_run_ref
+            || current.hermes_session_ref != record.hermes_session_ref
+        {
+            return Err(AppError::conflict("PM checkpoint run changed"));
+        }
+        let r = &record.reservation;
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO pm_run_checkpoints(session_run_id,command,request_sha256) VALUES($1,$2,$3)
+             ON CONFLICT(session_run_id) DO NOTHING",
+            [
+                r.session_run_id.into(),
+                journal.command.clone().into(),
+                journal.request_sha256.clone().into(),
+            ],
+        ))
+        .await
+        .map_err(AppError::database)?;
+        let row = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT command,request_sha256,receipt FROM pm_run_checkpoints WHERE session_run_id=$1 FOR UPDATE",
+            [r.session_run_id.into()])).await.map_err(AppError::database)?.ok_or_else(|| AppError::conflict("PM checkpoint missing"))?;
+        let command: Value = row.try_get("", "command").map_err(AppError::database)?;
+        let hash: String = row
+            .try_get("", "request_sha256")
+            .map_err(AppError::database)?;
+        let mut receipt: Option<Value> = row.try_get("", "receipt").map_err(AppError::database)?;
+        if command != journal.command
+            || hash != journal.request_sha256
+            || receipt
+                .as_ref()
+                .zip(journal.receipt.as_ref())
+                .is_some_and(|(a, b)| a != b)
+        {
+            return Err(AppError::conflict(
+                "PM checkpoint original command conflict",
+            ));
+        }
+        if receipt.is_none() && journal.receipt.is_some() {
+            txn.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE pm_run_checkpoints SET receipt=$2 WHERE session_run_id=$1",
+                [r.session_run_id.into(), journal.receipt.clone().into()],
+            ))
+            .await
+            .map_err(AppError::database)?;
+            receipt = journal.receipt;
+        }
+        txn.commit().await.map_err(AppError::database)?;
+        Ok(domain::PmCheckpointJournal {
+            command,
+            request_sha256: hash,
+            receipt,
+        })
+    }
+    async fn list_pm_lease_operations(&self) -> Result<Vec<domain::PmDraftOperation>, AppError> {
+        let rows = self
+            .db
+            .query_all(Statement::from_string(
+                DatabaseBackend::Postgres,
+                "SELECT o.operation FROM pm_draft_creation_operations o
+             JOIN agents a ON a.id::text=o.operation->'request'->>'agent_id'
+             WHERE o.operation->'execution_lease'->'receipt' IS NOT NULL
+               AND o.operation->'execution_lease'->'receipt' <> 'null'::jsonb
+               AND a.status IN ('running','starting','degraded')"
+                    .to_string(),
+            ))
+            .await
+            .map_err(AppError::database)?;
+        rows.into_iter()
+            .map(|row| {
+                serde_json::from_value(
+                    row.try_get::<Value>("", "operation")
+                        .map_err(AppError::database)?,
+                )
+                .map_err(AppError::internal)
+            })
+            .collect()
+    }
+    async fn find_pm_creation_for_session(
+        &self,
+        session: Uuid,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        let rows = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT id,owner_user_id FROM pm_draft_creation_operations WHERE operation->>'session_id'=$1 LIMIT 2",
+            [session.to_string().into()])).await.map_err(AppError::database)?;
+        if rows.len() != 1 {
+            return Err(AppError::Unavailable(
+                "PM original creation cannot be resolved uniquely".into(),
+            ));
+        }
+        self.read_pm_creation(
+            rows[0].try_get("", "id").map_err(AppError::database)?,
+            rows[0]
+                .try_get("", "owner_user_id")
+                .map_err(AppError::database)?,
+        )
+        .await
     }
     async fn accept_pm_run(
         &self,
@@ -2704,9 +3075,35 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?;
         if binding.is_some() {
-            return Err(AppError::conflict(
-                "task-bound messages require a verified workflow assignment",
-            ));
+            // Only the exact original intake can enter the PM owner lane. Free
+            // task prompts remain forbidden until the scoped continuation path.
+            let row = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                "SELECT operation FROM pm_draft_creation_operations WHERE operation->>'session_id'=$1 AND owner_user_id=$2",
+                [id.to_string().into(),actor_user_id.into()])).await.map_err(AppError::database)?
+                .ok_or_else(|| AppError::conflict("task-bound messages require verified PM preparation"))?;
+            let op: domain::PmDraftOperation =
+                serde_json::from_value(row.try_get("", "operation").map_err(AppError::database)?)
+                    .map_err(AppError::internal)?;
+            if req.author_agent_id.is_some()
+                || req.runtime_message_id.is_some()
+                || req.message_kind != Some(MessageKind::UserPrompt)
+                || idempotency_key.as_deref() != Some(format!("fleet-pm-intake:{}", op.id).as_str())
+                || op.input.as_ref().map(|v| v.input.description.trim()) != Some(body.as_str())
+                || op
+                    .workflow_assignment
+                    .as_ref()
+                    .and_then(|v| v.receipt.as_ref())
+                    .is_none()
+                || op
+                    .execution_lease
+                    .as_ref()
+                    .and_then(|v| v.receipt.as_ref())
+                    .is_none()
+            {
+                return Err(AppError::conflict(
+                    "task-bound message is not the original prepared PM intake",
+                ));
+            }
         }
         let actor = user::Entity::find_by_id(actor_user_id)
             .one(&txn)
@@ -3198,8 +3595,15 @@ impl FleetRepository for PostgresFleetRepository {
                  OR (r.runtime_run_id IS NULL AND r.state='pending' AND m.runtime_message_id IS NULL
                      AND m.delivery_state='pending' AND j.state='submitted'
                      AND jsonb_typeof(j.capabilities->'fleet_recovery')='object'))
-               AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=r.session_id)
-               AND NOT EXISTS(SELECT 1 FROM pm_run_bindings p WHERE p.session_run_id=r.id OR p.session_id=r.session_id)
+               AND ((NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=r.session_id)
+                 AND NOT EXISTS(SELECT 1 FROM pm_run_bindings p WHERE p.session_run_id=r.id OR p.session_id=r.session_id))
+                 OR EXISTS(SELECT 1 FROM pm_run_bindings p JOIN pm_draft_creation_operations o
+                    ON o.id::text=j.capabilities->'fleet_pm'->>'operation_id'
+                    WHERE p.session_run_id=r.id AND p.session_id=r.session_id AND p.agent_id=r.agent_id
+                      AND p.reservation->'identity'=j.capabilities->'fleet_pm'->'identity'
+                      AND o.operation->>'session_id'=r.session_id::text
+                      AND jsonb_typeof(o.operation->'execution_lease'->'receipt')='object'
+                      AND jsonb_typeof(o.operation->'workflow_assignment'->'receipt')='object'))
                AND ($1::uuid IS NULL OR r.id>$1)
              ORDER BY r.id LIMIT 20", [after.into()]))
             .await.map_err(AppError::database)?;
@@ -5373,6 +5777,20 @@ pub(crate) async fn configuration_files(
             ));
         }
     }
+    let pm_native =
+        config.pm.workflow.enabled && agent.sdlc_role == Some(domain::SdlcRole::ProjectManager);
+    if pm_native {
+        if agent.kind != AgentKind::Hermes || renderer != 2 {
+            return Err(AppError::validation(
+                "PM native tools require the managed Hermes renderer",
+            ));
+        }
+        env.push_str(&configuration_renderer::pm_tools(
+            agent,
+            config,
+            &mut content,
+        )?);
+    }
     let mut files = vec![
         (
             expected.join("config.yaml"),
@@ -5384,6 +5802,18 @@ pub(crate) async fn configuration_files(
         ),
         (expected.join(".env"), env),
     ];
+    if pm_native {
+        files.extend([
+            (
+                expected.join("plugins/fleet-pm/__init__.py"),
+                include_str!("../../../runtime_plugins/fleet_pm/__init__.py").into(),
+            ),
+            (
+                expected.join("plugins/fleet-pm/plugin.yaml"),
+                include_str!("../../../runtime_plugins/fleet_pm/plugin.yaml").into(),
+            ),
+        ]);
+    }
     for skill in &revision.snapshot.skills {
         if skill.name.is_empty()
             || !skill
@@ -5817,6 +6247,67 @@ mod tests {
                 .await
                 .unwrap(),
             env
+        );
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn pm_native_plugin_is_materialized_and_hash_verified_in_existing_config_lifecycle() {
+        let (root, mut agent, mut config, mut revision) = effective_config_fixture().await;
+        agent.sdlc_role = Some(domain::SdlcRole::ProjectManager);
+        config.pm.workflow.enabled = true;
+        config.pm.workflow.native_fleet_origin = "http://fleet.test/".into();
+        revision.snapshot.config.config_json["model"] =
+            json!({"default":"pm-model","max_tokens":8192});
+        revision.revision = 2;
+        revision.snapshot.renderer_version = 2;
+        revision
+            .snapshot
+            .config
+            .env_json
+            .as_object_mut()
+            .unwrap()
+            .remove("TEST_SECRET");
+        revision.snapshot.config.env_json["FLEET_PM_AGENT_ID"] = json!(Uuid::new_v4());
+        revision.snapshot.config.env_json["FLEET_PM_FLEET_ORIGIN"] = json!("http://foreign.test/");
+        let files = configuration_files(&agent, &config, &revision)
+            .await
+            .unwrap();
+        let env = &files
+            .iter()
+            .find(|(p, _)| p.file_name().is_some_and(|v| v == ".env"))
+            .unwrap()
+            .1;
+        assert!(env.contains(&format!("FLEET_PM_AGENT_ID=\"{}\"", agent.id)));
+        assert!(!env.contains("foreign.test"));
+        let plugin = files
+            .iter()
+            .find(|(p, _)| p.ends_with("plugins/fleet-pm/__init__.py"))
+            .unwrap();
+        assert!(plugin.1.contains("llm_execution"));
+        let content: Value = serde_json::from_str(
+            &files
+                .iter()
+                .find(|(p, _)| p.file_name().is_some_and(|v| v == "config.yaml"))
+                .unwrap()
+                .1,
+        )
+        .unwrap();
+        assert_eq!(
+            content["platform_toolsets"]["api_server"],
+            json!(["fleet_pm"])
+        );
+        install_effective_fixture(&agent, &config, &revision).await;
+        effective_configuration::verify(&agent, &config, &revision)
+            .await
+            .unwrap();
+        tokio::fs::write(&plugin.0, "unattested plugin")
+            .await
+            .unwrap();
+        assert!(
+            effective_configuration::verify(&agent, &config, &revision)
+                .await
+                .is_err()
         );
         tokio::fs::remove_dir_all(root).await.unwrap();
     }

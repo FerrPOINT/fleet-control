@@ -127,10 +127,12 @@ pub(super) async fn reserve(
         return Err(AppError::Forbidden);
     }
     let busy = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-        "SELECT EXISTS(SELECT 1 FROM session_agent_runs WHERE agent_id=$1
+        "SELECT EXISTS(SELECT 1 FROM session_agent_runs WHERE agent_id=$1 AND id<>$2
             AND state IN ('pending','running','waiting','stopping') AND runtime_session_id IS NOT NULL)
          OR EXISTS(SELECT 1 FROM agent_config_heads WHERE agent_id=$1 AND draining)
-         OR EXISTS(SELECT 1 FROM message_dispatch_outbox WHERE agent_id=$1 AND state IN ('dispatching','uncertain')) AS busy", [agent_id.into()]))
+         OR EXISTS(SELECT 1 FROM message_dispatch_outbox o WHERE agent_id=$1 AND state IN ('dispatching','uncertain')
+            AND NOT EXISTS(SELECT 1 FROM hermes_dispatch_journal j WHERE j.message_id=o.message_id AND j.run_id=$2)) AS busy",
+            [agent_id.into(),req.session_run_id.into()]))
         .await.map_err(AppError::database)?.ok_or_else(|| AppError::internal("missing PM capacity check"))?;
     if busy
         .try_get::<bool>("", "busy")
@@ -140,11 +142,39 @@ pub(super) async fn reserve(
             "PM is draining or has an active/unresolved run",
         ));
     }
-    txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+    let existing = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT session_id,agent_id,runtime_session_id,state FROM session_agent_runs WHERE id=$1 FOR UPDATE",
+        [req.session_run_id.into()])).await.map_err(AppError::database)?;
+    if let Some(existing) = existing {
+        if existing
+            .try_get::<Uuid>("", "session_id")
+            .map_err(AppError::database)?
+            != req.session_id
+            || existing
+                .try_get::<Uuid>("", "agent_id")
+                .map_err(AppError::database)?
+                != agent_id
+            || existing
+                .try_get::<Option<String>>("", "runtime_session_id")
+                .map_err(AppError::database)?
+                .as_deref()
+                != Some(req.runtime_session_id().as_str())
+            || existing
+                .try_get::<String>("", "state")
+                .map_err(AppError::database)?
+                != "pending"
+        {
+            return Err(AppError::conflict(
+                "PM reservation differs from the prepared native journal run",
+            ));
+        }
+    } else {
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "INSERT INTO session_agent_runs(id,session_id,agent_id,runtime_session_id,run_role,state,model_options,created_at,updated_at)
             VALUES($1,$2,$3,$4,'primary','pending','{}'::jsonb,now(),now())",
         [req.session_run_id.into(), req.session_id.into(), agent_id.into(), req.runtime_session_id().into()]))
         .await.map_err(AppError::database)?;
+    }
     txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "INSERT INTO pm_run_bindings(session_run_id,session_id,agent_id,reservation,dispatch_operation_key,runtime_session_id)
             VALUES($1,$2,$3,$4,$5,$6)",

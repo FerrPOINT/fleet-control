@@ -3571,6 +3571,107 @@
         }
       }
     },
+    "/internal/runtime/v1/pm/agents/{agent_id}/admit": {
+      "post": {
+        "tags": [
+          "pm-runtime"
+        ],
+        "operationId": "admit",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PmNativeAdmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmNativeAdmissionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/internal/runtime/v1/pm/agents/{agent_id}/tools/{operation}": {
+      "post": {
+        "tags": [
+          "pm-runtime"
+        ],
+        "operationId": "tool",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "operation",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PmNativeToolRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/internal/runtime/v1/pm/runs/{session_run_id}": {
       "get": {
         "tags": [
@@ -6156,6 +6257,87 @@
             "type": "string"
           },
           "tracker_project_ref": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PmNativeAdmissionRequest": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "native_configuration"
+        ],
+        "properties": {
+          "native_configuration": {
+            "$ref": "#/components/schemas/PmNativeConfiguration"
+          },
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PmNativeAdmissionResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "allowed"
+        ],
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PmNativeConfiguration": {
+        "type": "object",
+        "required": [
+          "model",
+          "provider",
+          "api_mode",
+          "route_sha256",
+          "tools",
+          "output_limit"
+        ],
+        "properties": {
+          "api_mode": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "output_limit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "route_sha256": {
+            "type": "string"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PmNativeToolRequest": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "arguments"
+        ],
+        "properties": {
+          "arguments": {},
+          "session_id": {
             "type": "string"
           }
         },

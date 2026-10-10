@@ -9,6 +9,7 @@ pub struct PmCredentialCoordinator {
     issuer: PmCredentialIssuer,
     subject: String,
     ttl_seconds: i64,
+    workflow: Option<crate::pm_workflow::PmWorkflowClient>,
 }
 
 #[derive(Deserialize)]
@@ -48,6 +49,7 @@ impl PmCredentialCoordinator {
             )?,
             subject: credentials.machine_subject.clone(),
             ttl_seconds: credentials.ttl_seconds,
+            workflow: crate::pm_workflow::PmWorkflowClient::configured(config)?,
         }))
     }
 
@@ -278,6 +280,74 @@ impl PmCredentialCoordinator {
         Ok(current)
     }
 
+    /// Renew the same server-issued generation. The key is derived from its CAS
+    /// cursor, so concurrent workers and a lost reply cannot extend it twice.
+    pub async fn renew_execution_lease(
+        &self,
+        operation: &PmDraftOperation,
+        credential: &PmDelegatedCredential,
+    ) -> Result<domain::PmExecutionLeaseReadback, AppError> {
+        let journal = operation.execution_lease.as_ref().ok_or_else(unavailable)?;
+        let receipt = journal.receipt.as_ref().ok_or_else(unavailable)?;
+        let original = domain::PmExecutionLeaseCommand::Claim(journal.claim.clone());
+        let before = self
+            .read_execution_lease(operation, credential, Some(&original))
+            .await?;
+        let lease = before.current.as_ref().ok_or_else(unavailable)?;
+        if before.state != domain::PmExecutionLeaseState::Active
+            || before.operation.is_none()
+            || lease.lease_id != receipt.lease.lease_id
+        {
+            return Err(AppError::conflict("PM original lease is not active"));
+        }
+        if lease.expires_at - before.observed_at > ChronoDuration::seconds(20) {
+            return Ok(before);
+        }
+        let command =
+            domain::PmExecutionLeaseCommand::Heartbeat(domain::PmExecutionLeaseHeartbeat {
+                expected_owner_version: journal.claim.expected_owner_version,
+                fence: journal.claim.fence.clone(),
+                lease_id: lease.lease_id,
+                expected_lease_version: lease.version,
+                idempotency_key: format!("fleet-pm-heartbeat:{}:{}", lease.lease_id, lease.version),
+            });
+        let mut url = self.issuer.tracker_origin.clone();
+        url.set_path(&format!(
+            "/api/v1/issues/{}/sdlc/pm-draft-execution-lease/heartbeat",
+            operation.identity()?.task_id
+        ));
+        let request = credential.authorize(
+            self.issuer
+                .client
+                .post(url)
+                .timeout(Duration::from_secs(5))
+                .header(header::ACCEPT_ENCODING, "identity")
+                .json(&command.payload()),
+        )?;
+        // A transport error or concurrent CAS conflict is resolved only through
+        // the original keyed read. Auth denials must remain denials.
+        let posted = match self.read_json(request, MAX_RESPONSE_BYTES).await {
+            Ok(value) => Some(canonical::<domain::PmExecutionLeaseReceipt>(value)?),
+            Err(AppError::Unauthorized) => return Err(AppError::Unauthorized),
+            Err(AppError::Forbidden) => return Err(AppError::Forbidden),
+            Err(_) => None,
+        };
+        let current = self
+            .read_execution_lease(operation, credential, Some(&command))
+            .await?;
+        let acknowledgement = current.operation.as_ref().ok_or_else(unavailable)?;
+        if current.state != domain::PmExecutionLeaseState::Active
+            || posted
+                .as_ref()
+                .is_some_and(|v| v != &acknowledgement.result)
+        {
+            return Err(AppError::conflict(
+                "PM heartbeat acknowledgement is not current",
+            ));
+        }
+        Ok(current)
+    }
+
     async fn principal(
         &self,
         authorization: header::HeaderValue,
@@ -428,7 +498,40 @@ impl PmDraftCredentials for PmCredentialCoordinator {
         repo: &dyn FleetRepository,
         operation: &PmDraftOperation,
     ) -> Result<(), AppError> {
-        self.prepare_credential(repo, operation).await.map(|_| ())
+        let credential = self.prepare_credential(repo, operation).await?;
+        if let Some(workflow) = &self.workflow {
+            let saved = repo
+                .read_pm_draft_operation(operation.id, operation.owner_user_id)
+                .await?;
+            self.claim_execution_lease(repo, &saved, &credential)
+                .await?;
+            let saved = repo
+                .read_pm_draft_operation(operation.id, operation.owner_user_id)
+                .await?;
+            workflow
+                .prepare_assignment(repo, &saved, self, &credential)
+                .await?;
+            let session = saved.session_id.ok_or_else(unavailable)?;
+            repo.create_session_message(
+                session,
+                domain::CreateSessionMessageRequest {
+                    body: saved
+                        .input
+                        .as_ref()
+                        .ok_or_else(unavailable)?
+                        .input
+                        .description
+                        .clone(),
+                    author_agent_id: None,
+                    message_kind: Some(domain::MessageKind::UserPrompt),
+                    runtime_message_id: None,
+                    idempotency_key: Some(format!("fleet-pm-intake:{}", saved.id)),
+                },
+                saved.owner_user_id,
+            )
+            .await?;
+        }
+        Ok(())
     }
 }
 

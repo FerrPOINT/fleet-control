@@ -19,7 +19,17 @@ impl PostgresFleetRepository {
                     OR NOT EXISTS (SELECT 1 FROM runtime_launches l WHERE l.agent_id=a.id AND l.state IN ('claimed','gateway_started'))
                     OR EXISTS (SELECT 1 FROM runtime_launches l WHERE l.agent_id=a.id
                       AND l.state='gateway_started' AND l.controller_id=$1))
-                  AND NOT EXISTS (SELECT 1 FROM task_chat_bindings b WHERE b.session_id = s.id)
+                  AND (NOT EXISTS (SELECT 1 FROM task_chat_bindings b WHERE b.session_id = s.id)
+                    OR EXISTS (SELECT 1 FROM pm_draft_creation_operations p WHERE p.operation->>'session_id'=s.id::text
+                        AND p.owner_user_id=m.created_by_user_id
+                        AND m.idempotency_key='fleet-pm-intake:'||p.id::text
+                        AND jsonb_typeof(p.operation->'workflow_assignment'->'receipt')='object'
+                        AND jsonb_typeof(p.operation->'execution_lease'->'receipt')='object')
+                    OR EXISTS(SELECT 1 FROM pm_run_resumes resume JOIN pm_run_bindings old ON old.session_run_id=resume.old_run_id
+                        WHERE resume.message_id=m.id AND old.session_id=s.id AND old.agent_id=a.id
+                          AND jsonb_typeof(resume.journal->'receipt')='object'
+                          AND m.author_type='system' AND m.message_kind='control'
+                          AND m.body=resume.journal->'intent'->>'prompt'))
                   AND NOT EXISTS (SELECT 1 FROM agent_config_heads h WHERE h.agent_id = a.id AND h.draining)
                   AND NOT EXISTS (SELECT 1 FROM message_dispatch_outbox busy WHERE busy.agent_id = a.id AND busy.state IN ('dispatching','uncertain'))
                   AND NOT EXISTS (SELECT 1 FROM session_agent_runs r WHERE r.agent_id = a.id

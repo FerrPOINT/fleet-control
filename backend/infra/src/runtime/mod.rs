@@ -51,9 +51,14 @@ use launch_journal::LaunchPhase;
 #[cfg(test)]
 mod lifecycle_tests;
 mod native_context;
+mod pm_admission;
+mod pm_dispatch;
+mod pm_lease;
 mod pm_readback;
 #[cfg(all(test, target_os = "linux"))]
 mod pm_readback_tests;
+mod pm_resume;
+mod pm_tools;
 mod prepared_dispatch;
 mod process_stop;
 mod readiness;
@@ -121,6 +126,7 @@ impl LocalRuntimeSupervisor {
             }),
         };
         supervisor.spawn_reconciler();
+        pm_lease::spawn(&supervisor);
         supervisor.spawn_controller_recovery();
         supervisor.spawn_message_dispatcher();
         supervisor.spawn_acceptance_readback();
@@ -1368,7 +1374,7 @@ impl LocalRuntimeSupervisor {
         session: &AgentSession,
         message: &SessionMessage,
     ) -> Result<(SessionAgentRun, String), AppError> {
-        if let Some(binding) = self.repo.get_task_chat_binding(session.id).await? {
+        let pm = if let Some(binding) = self.repo.get_task_chat_binding(session.id).await? {
             if binding.agent_id != agent.id || agent.id != session.primary_agent_id {
                 return Err(AppError::conflict(
                     "task runtime identity does not match binding",
@@ -1376,16 +1382,24 @@ impl LocalRuntimeSupervisor {
             }
             let capabilities = self.probe_hermes(agent).await?;
             hermes_wire::task_protocol(&capabilities)?;
-            return Err(AppError::Unavailable(
-                "task runtime admission is not yet verified".into(),
-            ));
-        }
+            Some(pm_dispatch::preparation(self, agent, session, message).await?)
+        } else {
+            None
+        };
         let lock = self.lifecycle_lock(agent.id).await;
         let guard = lock.lock().await;
         let generation = self.gateway_launch_generation(agent.id).await?;
         let capabilities = self.probe_hermes(agent).await?;
         let mut capabilities = hermes_wire::dispatch_capabilities(&capabilities)?;
         capabilities["fleet_launch"] = json!({"version":1,"launch_id":generation});
+        if let Some((op, _, resume)) = &pm {
+            capabilities["fleet_pm"] =
+                json!({"operation_id":op.id,"identity":op.execution_identity()?});
+            if let Some(resume) = resume {
+                capabilities["fleet_pm"]["resume_old_run_id"] =
+                    json!(resume.intent.old_session_run_id);
+            }
+        }
         let base = self.hermes_base_url(agent).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         if self.config.fleet.hermes_recovery_extension_enabled {
@@ -1393,19 +1407,65 @@ impl LocalRuntimeSupervisor {
                 recovery_wire::capabilities(&self.client, &base, &token).await?;
         }
         let fingerprint = hermes_wire::credential_fingerprint(&token);
-        self.repo
+        let prepared = self
+            .repo
             .prepare_hermes_dispatch(app::HermesDispatchDraft {
                 message_id: message.id,
                 session_id: session.id,
                 agent_id: agent.id,
                 run_role: Self::run_role(session, agent),
-                requested_session_id: Self::runtime_session_id(session, agent),
+                requested_session_id: if pm.is_some() {
+                    domain::pm_native_session_key(session.id, agent.id, message.id)
+                } else {
+                    Self::runtime_session_id(session, agent)
+                },
                 input: Self::runtime_input(agent, session, message),
                 origin: base.clone(),
                 credential_fingerprint: fingerprint.clone(),
                 capabilities,
             })
             .await?;
+        if let Some((op, binding, resume)) = pm {
+            if resume
+                .as_ref()
+                .is_some_and(|journal| journal.intent.new_session_run_id != prepared.run.id)
+            {
+                return Err(AppError::conflict(
+                    "PM resumed native journal allocated another run",
+                ));
+            }
+            self.repo
+                .reserve_pm_run(domain::PmRunReservation {
+                    session_id: session.id,
+                    session_run_id: prepared.run.id,
+                    identity: op.execution_identity()?,
+                    binding_ref: format!("fleet-pm:{}", prepared.run.id),
+                    dispatch_operation_key: resume
+                        .as_ref()
+                        .and_then(|journal| journal.intent.command["operation_key"].as_str())
+                        .unwrap_or(&message.id.to_string())
+                        .to_owned(),
+                    checkpoint_ref: resume.as_ref().and_then(|journal| {
+                        journal.intent.command["checkpoint_ref"]
+                            .as_str()
+                            .map(str::to_owned)
+                    }),
+                    fence: match resume.as_ref() {
+                        Some(journal) => journal
+                            .receipt
+                            .as_ref()
+                            .and_then(|value| value["fence"].as_i64())
+                            .ok_or_else(|| AppError::conflict("PM resumed fence missing"))?,
+                        None => 1,
+                    },
+                    runtime_binding: Some(binding),
+                    native_session_key: Some(domain::pm_native_session_key(
+                        session.id, agent.id, message.id,
+                    )),
+                    native_message_id: Some(message.id),
+                })
+                .await?;
+        }
         // Consume the durable permit before any network side effect. An unknown POST
         // may not be repeated merely because the native idempotency key was saved.
         let claimed = self
@@ -1466,6 +1526,14 @@ impl LocalRuntimeSupervisor {
             .repo
             .accept_hermes_run(message.id, claimed.run.id, runtime_run_id.clone())
             .await?;
+        drop(_guard);
+        if claimed.capabilities.get("fleet_pm").is_some() {
+            pm_dispatch::accepted(self, agent, &run, &runtime_run_id).await?;
+            return Ok((
+                self.repo.get_session_agent_run(run.id).await?,
+                runtime_run_id,
+            ));
+        }
         // ACK is durable even if HTTP readback fails. The recovery worker only reads this run.
         let run = self
             .finish_acceptance_readback(agent, session, message, &run)
@@ -1817,6 +1885,27 @@ impl LocalRuntimeSupervisor {
             let error = (state == SessionRunState::Failed).then(|| {
                 pick_error(&payload).unwrap_or_else(|| format!("Hermes event {event_type}"))
             });
+            if self.repo.get_task_chat_binding(session.id).await?.is_some() {
+                let record = self.repo.get_pm_run(run.id).await?;
+                let observed = pm_readback::probe(self, agent, &record).await?;
+                if !observed.terminal() {
+                    return Err(AppError::Unavailable(
+                        "PM terminal event requires native terminal readback".into(),
+                    ));
+                }
+                if let Some(body) = body {
+                    self.repo
+                        .insert_session_message_mirror(
+                            session.id,
+                            Some(agent.id),
+                            body,
+                            MessageKind::AssistantMessage,
+                            Some(runtime_run_id.to_owned()),
+                        )
+                        .await?;
+                }
+                return Ok(true);
+            }
             let (updated, assistant, first) = self
                 .repo
                 .commit_hermes_terminal(app::HermesTerminalCommit {
@@ -2552,6 +2641,23 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         agent: &Agent,
     ) -> Result<domain::PmRuntimeBinding, AppError> {
         pm_readback::capture(self, agent).await
+    }
+    async fn admit_pm_native_configuration(
+        &self,
+        agent: &Agent,
+        record: &domain::PmRunRecord,
+        configuration: &domain::PmNativeConfiguration,
+    ) -> Result<bool, AppError> {
+        pm_admission::verify(self, agent, record, configuration).await
+    }
+    async fn pm_native_tool(
+        &self,
+        agent: &Agent,
+        record: &domain::PmRunRecord,
+        operation: &str,
+        command: &Value,
+    ) -> Result<Value, AppError> {
+        pm_tools::execute(self, agent, record, operation, command).await
     }
     async fn probe_pm_run(
         &self,

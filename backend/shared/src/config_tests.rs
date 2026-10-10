@@ -159,6 +159,15 @@ fn pm_credentials_default_disabled_and_never_serialize_parent_secret() {
     assert!(!debug.contains(&cfg.credentials.parent_pat));
     let value = serde_json::to_value(&cfg).unwrap();
     assert!(value["credentials"].get("parent_pat").is_none());
+    assert!(!cfg.workflow.enabled);
+    cfg.workflow.assignment_token = "test-only-workflow-assignment-secret".into();
+    cfg.workflow.runtime_token = "test-only-workflow-runtime-secret".into();
+    let value = serde_json::to_value(&cfg).unwrap();
+    assert!(value["workflow"].get("assignment_token").is_none());
+    assert!(value["workflow"].get("runtime_token").is_none());
+    let debug = format!("{cfg:?}");
+    assert!(!debug.contains(&cfg.workflow.assignment_token));
+    assert!(!debug.contains(&cfg.workflow.runtime_token));
 }
 
 #[test]

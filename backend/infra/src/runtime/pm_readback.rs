@@ -87,6 +87,29 @@ pub(super) async fn probe(
         AppError::Unavailable("PM effective session acceptance is unknown".into())
     })?;
     let status = status(&payload, raw_id, effective_session)?;
+    if status.terminal() && record.reservation.native_session_key.is_some() {
+        let response = supervisor
+            .client
+            .get(format!(
+                "{}/fleet/v1/pm/quiescence/{raw_id}",
+                binding.origin
+            ))
+            .header(reqwest::header::ACCEPT_ENCODING, "identity")
+            .timeout(Duration::from_secs(5))
+            .bearer_auth(crate::agent_runtime_token(&supervisor.config, agent.id)?)
+            .send()
+            .await
+            .map_err(|_| AppError::Unavailable("PM native quiescence unavailable".into()))?;
+        let proof = hermes_wire::read_json(response, reqwest::StatusCode::OK, 4096).await?;
+        if proof
+            != json!({"contract_version":1,"agent_id":agent.id,"native_run_ref":raw_id,
+            "session_id":effective_session,"quiescent":true})
+        {
+            return Err(AppError::Unavailable(
+                "PM native conversation has not ended".into(),
+            ));
+        }
+    }
     verify_binding(supervisor, agent, binding).await?;
     // Keep lifecycle exclusion through the DB fence and terminal/capacity commit.
     supervisor

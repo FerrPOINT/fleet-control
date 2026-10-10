@@ -225,6 +225,8 @@ mod tests {
                 checkpoint_ref: None,
                 fence: 1,
                 runtime_binding: None,
+                native_session_key: None,
+                native_message_id: None,
             },
             hermes_run_ref: Some("run_one".into()),
             hermes_session_ref: Some("session_one".into()),

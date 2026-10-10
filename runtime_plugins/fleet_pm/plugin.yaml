@@ -1,0 +1,16 @@
+name: fleet-pm
+version: 1.0.0
+kind: backend
+description: Fleet-owned PM tools and native request admission.
+requires_env:
+  - FLEET_PM_AGENT_ID
+  - FLEET_PM_FLEET_ORIGIN
+  - API_SERVER_KEY
+  - FLEET_PM_OUTPUT_LIMIT
+provides_tools:
+  - fleet_pm_context
+  - fleet_pm_question
+  - fleet_pm_requirements
+  - fleet_pm_workflow
+  - fleet_pm_checkpoint
+  - fleet_pm_skills
