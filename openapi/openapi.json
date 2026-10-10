@@ -6183,7 +6183,9 @@
         "type": "string",
         "enum": [
           "incomplete",
-          "awaiting_admission"
+          "awaiting_admission",
+          "awaiting_runtime_acceptance",
+          "runtime_accepted"
         ]
       },
       "PmDraftCreationStep": {
@@ -6193,7 +6195,8 @@
           "input",
           "reservation",
           "chat",
-          "admission"
+          "admission",
+          "runtime"
         ]
       },
       "PmDraftOperationQuery": {
