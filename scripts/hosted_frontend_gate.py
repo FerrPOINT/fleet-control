@@ -411,6 +411,34 @@ def safe_compiler_failure(data, paths):
         return dict(report="rejected", diagnostics=[])
 
 
+def safe_unit_failure(data, paths):
+    if data is None:
+        return dict(report="unavailable", diagnostics=[])
+    if len(data) > COMPILER_LOG_LIMIT:
+        return dict(report="truncated", diagnostics=[])
+    frames = []
+    try:
+        for line in data.decode("utf-8").splitlines():
+            # Vitest printStack: discard ANSI SGR, method names and every non-frame line.
+            line = re.sub(r"\x1b\[[0-9;]*m", "", line)
+            match = re.fullmatch(r"[ \t]*\u276f[ \t]+(?:[^ \t\r\n]+[ \t]+)?"
+                                 r"((?:frontend/)?src/[A-Za-z0-9_./-]+\.tsx?):"
+                                 r"([1-9][0-9]{0,5}):([1-9][0-9]{0,5})[ \t]*", line)
+            if match is None:
+                continue
+            file, row, column = match.groups()
+            file = file if file.startswith("frontend/") else "frontend/" + file
+            if file not in paths:
+                continue
+            frame = dict(file=file, line=int(row), column=int(column))
+            if frame not in frames:
+                frames.append(frame)
+            require(len(frames) <= 128, "Unit frame bound")
+        return dict(report="valid" if frames else "unavailable", diagnostics=frames)
+    except (ValueError, UnicodeError):
+        return dict(report="rejected", diagnostics=[])
+
+
 def validate_failure(value, *, workflow_sha, run_id, attempt, locations):
     controls = Path(__file__).resolve().parents[1]
     expected = dict(version=1, kind="safe_frontend_failure", status="failure", repository=REPOSITORY,
@@ -421,7 +449,8 @@ def validate_failure(value, *, workflow_sha, run_id, attempt, locations):
         control_sha256={name: digest((controls / name).read_text(encoding="utf-8").encode())
                         for name in sorted(WRITE_SET)}, **QUALIFIED_INPUTS, **FAILURE_SCOPE)
     extra = {"gate", "completed_gates", "category", "exit_code", "browser", "cleanup"}
-    require(isinstance(value, dict) and set(value) in (set(expected) | extra, set(expected) | extra | {"compiler"})
+    require(isinstance(value, dict) and set(value) in (set(expected) | extra, set(expected) | extra | {"compiler"},
+                                                     set(expected) | extra | {"unit"})
             and all(type(value.get(k)) is type(v) and value.get(k) == v for k, v in expected.items()),
             "Invalid failure identity/provenance/scope")
     name, completed = value["gate"], value["completed_gates"]
@@ -479,6 +508,23 @@ def validate_failure(value, *, workflow_sha, run_id, attempt, locations):
             seen.add(canonical(row))
         require(len(seen) == len(compiler["diagnostics"])
                 and (compiler["report"] == "valid") == bool(compiler["diagnostics"]), "Invalid compiler report")
+    if "unit" in value:
+        unit = value["unit"]
+        require(name == "unit" and value["category"] == "exit"
+                and isinstance(unit, dict) and set(unit) == {"report", "diagnostics"}
+                and unit["report"] in ("valid", "unavailable", "rejected", "truncated")
+                and isinstance(unit["diagnostics"], list) and len(unit["diagnostics"]) <= 128,
+                "Invalid unit failure schema")
+        paths = attested_compiler_paths(controls)
+        seen = set()
+        for row in unit["diagnostics"]:
+            require(isinstance(row, dict) and set(row) == {"file", "line", "column"}
+                    and isinstance(row["file"], str) and row["file"] in paths
+                    and all(type(row[k]) is int and 1 <= row[k] <= 999999 for k in ("line", "column")),
+                    "Unattested unit frame")
+            seen.add(canonical(row))
+        require(len(seen) == len(unit["diagnostics"])
+                and (unit["report"] == "valid") == bool(unit["diagnostics"]), "Invalid unit report")
     require(len(canonical(value)) <= FAILURE_LIMIT, "Failure receipt exceeds bound")
 
 
@@ -519,18 +565,19 @@ def record_failure(name, error):
         gate=name, completed_gates=completed, category=category, exit_code=code,
         browser=browser, cleanup=dict(private_absent=False),
         **QUALIFIED_INPUTS, **FAILURE_SCOPE)
-    if name == "typecheck" and category == "exit":
-        compiler = dict(report="unavailable", diagnostics=[])
-        if (private / "typecheck.log").exists():
+    if name in ("typecheck", "unit") and category == "exit":
+        field, parser = ("compiler", safe_compiler_failure) if name == "typecheck" else ("unit", safe_unit_failure)
+        projection = dict(report="unavailable", diagnostics=[])
+        if (private / (name + ".log")).exists():
             try:
-                if (private / "typecheck.log").stat().st_size > COMPILER_LOG_LIMIT:
-                    compiler["report"] = "truncated"
+                if (private / (name + ".log")).stat().st_size > COMPILER_LOG_LIMIT:
+                    projection["report"] = "truncated"
                 else:
-                    compiler = safe_compiler_failure(bounded_file(private, "typecheck.log", limit=COMPILER_LOG_LIMIT),
-                                                     attested_compiler_paths(workspace / "controls"))
+                    projection = parser(bounded_file(private, name + ".log", limit=COMPILER_LOG_LIMIT),
+                                        attested_compiler_paths(workspace / "controls"))
             except (OSError, ValueError):
-                compiler["report"] = "rejected"
-        value["compiler"] = compiler
+                projection["report"] = "rejected"
+        value[field] = projection
     validate_failure(value, workflow_sha=sha, run_id=value["run_id"], attempt=value["run_attempt"], locations=locations)
     with (private / "failure-pending.json").open("xb") as pending:
         pending.write(canonical(value))

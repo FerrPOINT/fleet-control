@@ -1270,6 +1270,96 @@ class FailureContracts(unittest.TestCase):
                 b"src/pages/chat-detail/index.test.tsx(1969,7): error TS2322: PRIVATE_SENTINEL\n",
                 gate.attested_compiler_paths(ROOT)))
 
+    def unit_receipt(self):
+        return dict(self.receipt(), gate="unit",
+            completed_gates=list(gate.GATES)[:list(gate.GATES).index("unit")],
+            browser=gate.safe_browser_failure(None, self.locations),
+            unit=gate.safe_unit_failure(b" \xe2\x9d\xaf src/pages/chat-detail/index.test.tsx:2013:18\n",
+                                        gate.attested_compiler_paths(ROOT)))
+
+    def test_unit_frames_drop_methods_titles_messages_source_and_dependency_paths(self):
+        paths = gate.attested_compiler_paths(ROOT)
+        data = (" FAIL src/pages/chat-detail/index.test.tsx > PRIVATE_SENTINEL\n"
+                "AssertionError: PRIVATE_SENTINEL\n 2013| PRIVATE_SENTINEL\n"
+                " \u276f PRIVATE_SENTINEL node_modules/private/index.js:9:1\n"
+                " \u276f PRIVATE_SENTINEL src/pages/chat-detail/index.test.tsx:2013:18\n"
+                " \x1b[36m\u276f \x1b[2mfrontend/src/pages/chat-detail/index.test.tsx:2013:18\x1b[0m\n").encode()
+        result = gate.safe_unit_failure(data, paths)
+        self.assertEqual(result, self.unit_receipt()["unit"])
+        self.assertEqual(result["diagnostics"], [dict(file="frontend/src/pages/chat-detail/index.test.tsx",
+                                                    line=2013, column=18)])
+        self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_unit_paths_injection_malformed_and_size_bounds_never_escape(self):
+        paths = gate.attested_compiler_paths(ROOT)
+        for suffix in ("src/PRIVATE_SENTINEL.ts:1:1", "../src/pages/chat-detail/index.test.tsx:1:1",
+                       "/tmp/src/pages/chat-detail/index.test.tsx:1:1", "src/../api/generated.ts:1:1",
+                       "src/pages/chat-detail/index.test.tsx:0:1", "src/pages/chat-detail/index.test.tsx:1:1000000",
+                       "src/pages/chat-detail/index.test.tsx:1:1 PRIVATE_SENTINEL", "e2e/private.ts:1:1"):
+            self.assertEqual(gate.safe_unit_failure((" \u276f " + suffix).encode(), paths)["diagnostics"], [])
+        self.assertEqual(gate.safe_unit_failure(None, paths)["report"], "unavailable")
+        self.assertEqual(gate.safe_unit_failure(b"\xff", paths), dict(report="rejected", diagnostics=[]))
+        self.assertEqual(gate.safe_unit_failure(b"x" * (gate.COMPILER_LOG_LIMIT + 1), paths),
+                         dict(report="truncated", diagnostics=[]))
+        frames = [f" \u276f src/pages/chat-detail/index.test.tsx:{n}:1\n".encode() for n in range(1, 130)]
+        self.assertEqual(len(gate.safe_unit_failure(b"".join(frames[:128]), paths)["diagnostics"]), 128)
+        self.assertEqual(gate.safe_unit_failure(b"".join(frames), paths), dict(report="rejected", diagnostics=[]))
+
+    def test_unit_closed_schema_gate_and_original_authenticated_reader(self):
+        value = self.unit_receipt()
+        self.assertEqual(self.readback(zipped(self.files(value))), self.files(value))
+        for change in (dict(message="PRIVATE_SENTINEL"), dict(file="src/pages/chat-detail/index.test.tsx"),
+                       dict(line=True), dict(column="18"), dict(line=0), dict(column=1000000)):
+            value = self.unit_receipt()
+            value["unit"]["diagnostics"][0].update(change)
+            with self.assertRaises(ValueError):
+                self.verify(value)
+        for change in (dict(raw="PRIVATE_SENTINEL"), dict(report="PRIVATE_SENTINEL"), dict(diagnostics=[]),
+                       dict(report="rejected"), dict(diagnostics=self.unit_receipt()["unit"]["diagnostics"] * 129)):
+            value = self.unit_receipt()
+            value["unit"].update(change)
+            with self.assertRaises(ValueError):
+                self.verify(value)
+        value = self.unit_receipt()
+        for name in gate.GATES:
+            if name != "unit":
+                with self.assertRaises(ValueError):
+                    self.verify(dict(value, gate=name, completed_gates=list(gate.GATES)[:list(gate.GATES).index(name)]))
+        with self.assertRaises(ValueError):
+            self.verify(dict(value, category="timeout", exit_code=None))
+        with self.assertRaises(ValueError):
+            self.verify(dict(value, compiler=self.compiler_receipt()["compiler"]))
+
+    def test_unit_log_record_cleanup_roundtrip_withholds_all_private_text(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            private = self.cleanup_fixture(root, self.unit_receipt())
+            (private / "failure-pending.json").unlink()
+            for name in gate.WRITE_SET:
+                target = root / "controls" / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((ROOT / name).read_text(encoding="utf-8").encode())
+            (private / "unit.log").write_bytes(
+                "PRIVATE_SENTINEL\n \u276f src/pages/chat-detail/index.test.tsx:2013:18\n".encode())
+            (private / "preflight.json").write_bytes(gate.canonical(dict(
+                workflow_sha="a" * 40, run_id="123", attempt="2", public=True)))
+            (private / "state.json").write_bytes(gate.canonical(dict(workflow_sha="a" * 40,
+                gates=self.unit_receipt()["completed_gates"])))
+            with patch.object(gate, "controls_preflight", return_value=(root, "a" * 40)), \
+                    patch.object(gate, "hosted_identity", return_value=(ROOT.parent, "a" * 40)), \
+                    patch.object(gate, "workspace_temp", return_value=root), \
+                    patch.object(gate, "attested_test_locations", return_value=self.locations), \
+                    patch.object(gate, "attested_compiler_paths", return_value=gate.attested_compiler_paths(ROOT)), \
+                    patch.object(gate, "qualified_inputs", return_value=gate.QUALIFIED_INPUTS), \
+                    patch.dict(os.environ, GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="2"):
+                gate.record_failure("unit", gate.GateFailure("exit", 1))
+                gate.cleanup()
+            self.assertFalse(private.exists())
+            files = {p.name: p.read_bytes() for p in (root / "fleet-frontend-failure").iterdir()}
+            self.assertEqual(self.readback(zipped(files)), files)
+            self.assertNotIn(b"PRIVATE_SENTINEL", files[gate.FAILURE_FILE])
+            self.assertEqual(json.loads(files[gate.FAILURE_FILE])["unit"], self.unit_receipt()["unit"])
+
     def test_compiler_frames_copy_only_attested_header_numbers_and_path(self):
         paths = gate.attested_compiler_paths(ROOT)
         self.assertIn("frontend/src/pages/chat-detail/index.test.tsx", paths)
