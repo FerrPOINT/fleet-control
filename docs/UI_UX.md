@@ -35,6 +35,13 @@ Screens:
 Use local shadcn-style primitives, lucide icons, theme tokens and fixed control
 dimensions. Avoid marketing-style hero pages.
 
+The task requirements revision selector uses local semantic background/text/
+border tokens and an explicit native color-scheme (dark/gray default, light
+theme override). Do not rely on inherited text color against a browser-native
+background. The6c022f3 fixture regression verifies unchanged exact revision
+selection; WebKit desktop/mobile captures verify the closed control is readable.
+Native popup and full light-theme visual acceptance are separately required.
+
 Session and agent session lists show a user avatar for every session. The user
 filter defaults to the current user, supports removing users with an inline
 close control, and supports adding multiple users from the users list. An empty

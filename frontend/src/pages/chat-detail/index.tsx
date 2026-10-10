@@ -1148,6 +1148,7 @@ function RequirementsView({
       <Label htmlFor="requirement-revision">Редакция требований</Label>
       <select
         id="requirement-revision"
+        className="min-h-10 max-w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary scheme-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus [[data-theme=light]_&]:scheme-light"
         value={selected.revision}
         onChange={(event) =>
           setParams((current) => {

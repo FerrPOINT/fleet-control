@@ -273,6 +273,14 @@ async fn unknown_attempt_then_rejection_keeps_original_hold_until_exact_answer()
 #[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
 async fn expired_attempt_recovers_same_body_without_runtime_dispatch_or_identity_mutation() {
     let (repo, actor, question) = setup().await;
+    let runs_before = repo
+        .list_session_agent_runs(actor.session_id)
+        .await
+        .unwrap();
+    assert_eq!(runs_before.len(), 1);
+    assert_eq!(runs_before[0].state, SessionRunState::Pending);
+    assert!(runs_before[0].runtime_session_id.is_none());
+    assert!(runs_before[0].runtime_run_id.is_none());
     let command = repo
         .store_clarification_command(&actor, question, request())
         .await
@@ -306,11 +314,15 @@ async fn expired_attempt_recovers_same_body_without_runtime_dispatch_or_identity
         .await
         .unwrap();
     assert_eq!(held.state, ClarificationDeliveryState::Uncertain);
-    assert!(
-        repo.list_session_agent_runs(actor.session_id)
-            .await
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        serde_json::to_value(
+            repo.list_session_agent_runs(actor.session_id)
+                .await
+                .unwrap()
+        )
+        .unwrap(),
+        serde_json::to_value(runs_before).unwrap(),
+        "clarification recovery changed the pending runtime baseline"
     );
     for sql in [
         "DELETE FROM clarification_answer_commands WHERE id=$1",
@@ -341,6 +353,14 @@ async fn http_reload_replays_exact_original_post_after_current_project_and_owner
     };
     use serde_json::{Value, json};
     let (repo, actor, question) = setup().await;
+    let runs_before = repo
+        .list_session_agent_runs(actor.session_id)
+        .await
+        .unwrap();
+    assert_eq!(runs_before.len(), 1);
+    assert_eq!(runs_before[0].state, SessionRunState::Pending);
+    assert!(runs_before[0].runtime_session_id.is_none());
+    assert!(runs_before[0].runtime_run_id.is_none());
     let original = request();
     let answer = TrackerAnswer {
         id: Uuid::new_v4(),
@@ -680,10 +700,14 @@ async fn http_reload_replays_exact_original_post_after_current_project_and_owner
     );
     assert_eq!(context_calls.load(Ordering::SeqCst), before);
     assert_eq!(posts.load(Ordering::SeqCst), 2);
-    assert!(
-        repo.list_session_agent_runs(actor.session_id)
-            .await
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        serde_json::to_value(
+            repo.list_session_agent_runs(actor.session_id)
+                .await
+                .unwrap()
+        )
+        .unwrap(),
+        serde_json::to_value(runs_before).unwrap(),
+        "clarification HTTP replay changed the pending runtime baseline"
     );
 }

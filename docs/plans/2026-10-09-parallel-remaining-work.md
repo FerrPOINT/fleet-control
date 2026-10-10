@@ -12,10 +12,10 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Retarget existing backend controls after the reviewed project-access fix | Wait for final source SHA, then normal merge and exact inventory/declaration updates. Preserve74 stages,9 journal cases,21/24 migrations and90 pure cases. No old-source rerun or bypass. |
-| Feynman | Independent review of stop/steer project-revocation correction | Read-only review of the parent's two-file patch: free-chat compatibility, authorization ordering, valid keys and no control reservation. Prior narrow PR47 work is complete. |
-| Anscombe | Resolve current-client screenshot qualification | Diagnose missing SDK styling in the owned build; if junction scanning is the cause, rebuild using real clean SDK19a files and repeat the same six cases/27 captures. No speculative product styles or production manifest replacement. |
-| Parent | Fix the actual backend failure and integrate reviewed results | Implement stop/steer project authorization and its regression; review source/control changes, publish scoped successors and launch the next exact-head gate. Keep native/live dependencies explicit. |
+| Pascal | CI failure readback complete; review the clarification baseline correction | Actual38006625294 fails clarification_pg, safe artifact authenticated. Independently review the parent's test-only baseline oracle, then retarget only after its final SHA. Preserve every gate; no raw logs or blind rerun. |
+| Feynman | Prepare normal PR64 dependency refresh | Exact60ff01e/11f97aa/b750e7b merge analysis preserves all32 config paths/patch-id and has a clean ordered merge. Create candidate commits only in own checkout; no public push or broad runtime import. |
+| Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
+| Parent | Fix the actual clarification PG failure and integrate releases | UI d5f18d0 is fixture-qualified; hosted38006625294 passes foundation but exposes two incorrect empty-run assertions. Preserve pending run identity with full-record comparison, authenticate evidence and publish reviewed exact-head successors. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
@@ -141,6 +141,60 @@ Anscombe checks only the owned SDK junction/build layout and corrects the
 evidence; source changes require a demonstrated product defect first. No live
 PM/backend/native acceptance or production-manifest update follows from these
 fixtures.
+
+Source140234b is normally published with the project-control correction and
+documentation. Feynman's independent actual-diff review finds no P1/P2; free
+chats return before Tracker I/O. Pascal normally merges that source into4a8f71f,
+with exactly six controls additions. Parent verifies all163 Rust Git blobs,
+the changed compiled inputs and canonical aggregate9f0bb1ed. Gate logic,
+dependencies and coverage are unchanged; Linux90/Windows88+two skips pass.
+Normal controls publication starts actual38006625294, confirmed in progress.
+No full PostgreSQL/backend acceptance is inferred before terminal readback.
+
+Anscombe proves that the Windows SDK junction omitted Base Tailwind utilities;
+an actual clean SDK19a directory restores those bytes. Six fresh browser cases
+pass,27 captures retained, own processes removed. Parent independently views
+mobile clarification and WebKit desktop requirements: header/filled buttons are
+restored but the revision select still has white-on-white text. The worker now
+owns a minimal local select-theme correction, existing regression checks and
+fresh screenshots. No redesign, backend change or production-manifest rewrite
+is authorized by this narrow assignment.
+
+That UI assignment completes as6c022f3 (sole parent140234b), only two files and
+five added lines: local semantic native-select classes plus assertions in the
+existing exact-confirmation test. Parent normally merges it asd5f18d0, preserving
+the intervening documentation successor. Frontend tree13ccbaba exactly matches
+the worker's rebuilt/tested tree. Worker full lint/format/typecheck/build, focused
+one-case regression and six browser cases pass;27 fresh fixture PNGs are retained.
+Parent views WebKit1920/375 requirements, confirming readable selected revision,
+and independently runs all42 chat-detail tests, typecheck and focused ESLint PASS.
+No production screenshots, full light-theme/native popup, live PM or backend
+acceptance is inferred. Existing hosted gate still tests exact source140234b;
+the later UI/docs do not alter its Rust, migration or generated API inputs.
+
+Terminal checkpoint38006625294: FAILURE clarification_pg, exit101, after the
+credentials/foundation/clarification domain and API stages pass. Worker and
+parent independently authenticate artifact11651638800, ZIP digest
+69c966b128a41bb14d612484ded8912e0739745d1c47e3b9163c58a496f7ebac,
+against controls4a8f71f/source140234b. Scratch and synthetic DB cleanup pass.
+Canonical exports of the six unchanged control Git blobs avoid Windows CRLF
+transport drift; readers/validators are not altered and temporary exports are
+removed. Safe diagnostics name only expiry and HTTP reload custody cases at
+support/clarification_custody.rs309/683. Both are their empty-run assertions,
+not lease/authorization/dispatch failures: create_session already inserts a
+pending primary placeholder. Parent's test-only correction snapshots that exact
+baseline, requires pending/no native IDs, then compares all serialized run fields
+after the existing recovery flow. No prior authority/body/lease assertions or
+coverage are dropped; production code and migrations are unchanged. Independent
+review and corrected-source PostgreSQL execution remain separate gates.
+
+PR64 source compatibility is independently analyzed at60ff01e, dependencyPR47
+11f97aa and actualmainb750e7b. Direct-main merge conflicts in six inherited files;
+refreshing PR47 first merges cleanly and already contains actual main. The config
+unit remains exactly32 paths with stable patch-idd1c3391; pins/migrations/locks
+are unchanged. Feynman prepares only a normal candidate in his own clone. PR47
+is still OPEN and remains a release dependency; old PR64 CI cannot accept a new
+head. No combined Docker/native/admission tail is imported into this config unit.
 
 These tasks have disjoint write sets. Reviewers do not modify frozen owner
 checkouts. Shared runtime/admission, live PM and native acceptance remain explicit

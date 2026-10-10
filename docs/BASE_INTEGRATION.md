@@ -2,7 +2,15 @@
 
 Base SHA закреплён в [`.base-revision`](../.base-revision); `main` Base не является
 воспроизводимой зависимостью. Checkout Base должен лежать соседним каталогом
-`services-base`. Перед standalone build выполнить из корня продукта:
+`services-base`.
+
+Для frontend на Windows нужен настоящий чистый checkout, не junction на другой
+каталог: `@source` Tailwind сканирует соседний Base отдельно от package imports.
+На проверенном кандидате junction пропускал Base utilities при успешном build;
+обычный checkout exact SHA восстановил CSS. Проверять нужно CSS, на который
+ссылается свежий `dist/index.html`, а не оставшийся файл предыдущей сборки.
+
+Перед standalone build выполнить из корня продукта:
 
 ```sh
 python3 ../services-base/scripts/verify_base_revision.py --base ../services-base --revision .base-revision

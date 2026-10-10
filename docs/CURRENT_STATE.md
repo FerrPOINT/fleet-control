@@ -2,7 +2,7 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current product-code assembly `5337997`, a normal descendant
+Current product-code assembly `d5f18d0`, a normal descendant
 of b249 with runtime corrections, durable clarification custody, generated API
 and the private-approval ownership correction, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
@@ -37,11 +37,33 @@ Formatting passes; actual PostgreSQL execution of this correction is pending.
 Every gate and dependency/API pin is preserved;90 pure controls are not product
 acceptance.
 
-Current-client sourcef8b9a58 builds and its two fixture scenarios pass in three
-engines (six cases). Parent inspection of the27 fresh captures finds missing SDK
-styling and unreadable controls. Browser qualification remains open while the
-worker checks the owned SDK junction/build layout; functional PASS alone does not
-qualify visual evidence. No production screenshot manifest is replaced.
+Source140234b and reviewed controls4a8f71f are normally published. Independent
+review finds no P1/P2 in the project-control correction; fmt/diff and123 Markdown
+links pass. Parent verifies all163 Rust Git blobs, changed compiled inputs and
+the aggregate. Controls retain74 stages/9 clarification cases/21 canonical and24
+split migrations; Linux90 PASS and Windows88 PASS/two Linux-only skips qualify
+only control logic. Actual run38006625294 at4a8f71f/source140234b completes
+FAILURE at clarification_pg. Sequential gate receipts establish credentials_pg,
+foundation (including the stop/steer revocation correction), clarification domain
+and API passed. Parent independently authenticates safe artifact11651638800,
+digest69c966b128a41bb14d612484ded8912e0739745d1c47e3b9163c58a496f7ebac;
+scratch/synthetic DB cleanup passes. Both failed test locations309/683 require an
+empty session-run list, although creation already inserts a pending primary row.
+The next test-only correction requires that initial row to be pending with no
+runtime IDs and compares every serialized run field after expiry/HTTP recovery.
+Existing authority/lease/body/replay assertions remain; actual corrected PG
+execution is pending. No production code or schema is changed by that correction.
+
+Current-client visual follow-up6c022f3 is normally merged asd5f18d0. Its two-file
+delta adds local semantic styling/native color-scheme to the requirements select
+and assertions in the existing confirmation test. Worker lint/format/typecheck,
+focused test/build and six browser cases pass;27 fresh fixture captures cover
+three tabs, three sizes and three engines. Parent independently inspects WebKit
+desktop/mobile: the selected revision is readable. Parent merged-source42/42
+chat-detail tests, typecheck and ESLint pass; frontend tree13ccbaba matches the
+tested worker exactly. Actual SDK19a directory, not a Windows junction, is
+required for the verified Base CSS scan. Native popup/light-theme rendering,
+live PM/backend and production screenshot manifest remain separate acceptance.
 
 Supported-browser fixture checks pass for explicit answers/confirmation and
 unknown-command reload. The new test is integrated, including its corrected
