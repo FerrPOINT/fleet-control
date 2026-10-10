@@ -430,9 +430,7 @@ describe('production chat', () => {
       )
       await waitFor(() => expect(chats.deliverAnswerCommand).toHaveBeenCalledTimes(1))
       await act(() => router.navigate('/chats/session2?tab=clarification'))
-      await waitFor(() =>
-        expect(chats.listPendingAnswerCommands).toHaveBeenCalledWith('session2'),
-      )
+      await waitFor(() => expect(chats.listPendingAnswerCommands).toHaveBeenCalledWith('session2'))
       expect(screen.queryByText(command.request.text!)).not.toBeInTheDocument()
       expect(
         screen.queryByRole('button', { name: 'Продолжить исходную команду' }),
