@@ -92,6 +92,38 @@ def validate(payload, run=None, artifact=None):
 
 
 class SourceContracts(unittest.TestCase):
+    def test_materialization_is_closed_to_one_base_revision_path_and_exact_bytes(self):
+        name = "crates/auth-server/migrations/0001_users_sessions.sql"
+        self.assertEqual(gate.BASE_MATERIALIZED_FILES, {name: (
+            "69f7ec8116b228dede62375c7c8b45e1af233887",
+            "ef0fae09d1a5359eb23ade564541b03bc1f1514c2017317fc7922ced72c26d75",
+        )})
+        blob, actual, data = "a" * 40, "b" * 40, b"synthetic\r\n"
+        with patch.dict(gate.BASE_MATERIALIZED_FILES, {name: (blob, gate.digest(data))}, clear=True):
+            gate.verify_materialized_file(gate.BASE_SHA, name, blob, actual, data)
+            for sha, path, expected_blob, body in (
+                (gate.SOURCE_SHA, name, blob, data),
+                ("f" * 40, name, blob, data),
+                (gate.BASE_SHA, name + ".copy", blob, data),
+                (gate.BASE_SHA, name, "c" * 40, data),
+                (gate.BASE_SHA, name, blob, b"synthetic\n"),
+                (gate.BASE_SHA, name, blob, data + b"altered"),
+            ):
+                with self.subTest(sha=sha, path=path), self.assertRaises(ValueError):
+                    gate.verify_materialized_file(sha, path, expected_blob, actual, body)
+        gate.verify_materialized_file(gate.SOURCE_SHA, "normal.txt", blob, blob, b"synthetic")
+        with self.assertRaises(ValueError):
+            gate.verify_materialized_file(gate.BASE_SHA, "unattested.txt", blob, actual, data)
+
+    def test_failure_hints_never_echo_unrecognized_private_diagnostics(self):
+        self.assertEqual(gate.safe_failure_hint(ValueError("Source bytes differ from exact committed tree")),
+                         "source_bytes")
+        self.assertEqual(gate.safe_failure_hint(ValueError(
+            "Base materialized bytes differ from the pinned attribute contract")), "base_materialization")
+        for error in (OSError("PRIVATE_SENTINEL"), KeyError("PRIVATE_SENTINEL"),
+                      ValueError("Source bytes differ from exact committed tree PRIVATE_SENTINEL")):
+            self.assertEqual(gate.safe_failure_hint(error), "unclassified")
+
     def test_exact_two_parent_tuple(self):
         gate.validate_source_tuple(gate.SOURCE_SHA, gate.SOURCE_TREE, gate.SOURCE_PARENTS)
         for parents in (gate.SOURCE_PARENTS[:1], list(reversed(gate.SOURCE_PARENTS)),

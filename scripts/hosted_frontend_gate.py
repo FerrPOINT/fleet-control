@@ -23,6 +23,12 @@ SOURCE_PARENTS = ["c0513190b1802cddfd3c8ad26005634724326cd3",
                   "ab222f0499de5d2394cff6d32af659bc3c94396e"]
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 BASE_TREE = "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc"
+BASE_MATERIALIZED_FILES = {
+    "crates/auth-server/migrations/0001_users_sessions.sql": (
+        "69f7ec8116b228dede62375c7c8b45e1af233887",
+        "ef0fae09d1a5359eb23ade564541b03bc1f1514c2017317fc7922ced72c26d75",
+    ),
+}
 SCHEMA_SHA256 = "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953"
 WORKFLOW = ".github/workflows/frontend-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/hosted_frontend_gate.py", "scripts/tests/test_hosted_frontend_gate.py"}
@@ -31,7 +37,7 @@ PNPM = "10.28.1"
 QUALIFIED_UNIT_COUNTS = dict(files_passed=36, tests_passed=337, files_skipped=0, tests_skipped=0)
 QUALIFIED_INPUTS = {
     "source_inventory_sha256": "56a30e0ea610bf051ea82184be98201cb8891f2c5c43070f667d537c8a9f1a05",
-    "base_inventory_sha256": "8d40f601853014e446d8acc0c195fccf9f2e2d3dd93d8901df4c81862d99272b",
+    "base_inventory_sha256": "437244f3861d17356cbe33162dceca877aea74d82dccae9b9b1a2915b62ee444",
     "frontend_lock_sha256": "37918d9d24852a14f24c43a593777e99d36e0e58de2e7b9a58a4415fd927fb67",
     "base_lock_sha256": "149adc7015cd1b7fa1d093e5501156ed6e149efbc82b222c82a2797912261fb4",
 }
@@ -43,6 +49,18 @@ MAX_ARTIFACT = 192 * 1024 ** 2
 MAX_MEMBERS = 800
 SCOPE = dict(frontend_unit_build_fixture=True, live_pm_acceptance=False,
              live_runtime_acceptance=False, all_sdlc_acceptance=False)
+SAFE_FAILURE_HINTS = {
+    "Source bytes differ from exact committed tree": "source_bytes",
+    "Base materialized bytes differ from the pinned attribute contract": "base_materialization",
+    "Qualified dependency/source inventory mismatch": "input_inventory",
+    "Dirty checkout": "dirty_checkout",
+    "Persisted checkout credentials forbidden": "checkout_credentials",
+    "Checkout origin mismatch": "checkout_origin",
+    "Node version mismatch": "node_version",
+    "pnpm version mismatch": "pnpm_version",
+    "Frontend dependency/generation convention mismatch": "frontend_convention",
+    "Pre-existing ignored inputs/secrets/build products forbidden": "ignored_inputs",
+}
 THEME = """set -euo pipefail
 pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > "$RUNNER_TEMP/fleet-frontend-private/theme-preview.log" 2>&1 &
 preview_pid=$!
@@ -244,9 +262,23 @@ def tracked_inventory(root, sha):
         data = bounded_file(root, name)
         # Git SHA1 here verifies actual bytes against the committed blob, including ignored contexts.
         actual = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
-        require(actual == blob.decode(), "Source bytes differ from exact committed tree")
+        verify_materialized_file(sha, name, blob.decode(), actual, data)
         result[name] = digest(data)
     return result
+
+
+def verify_materialized_file(sha, name, blob, actual, data):
+    # Base19a explicitly materializes this legacy migration with CRLF. Never rewrite it.
+    if sha == BASE_SHA and name in BASE_MATERIALIZED_FILES:
+        expected_blob, expected_bytes = BASE_MATERIALIZED_FILES[name]
+        require(blob == expected_blob and digest(data) == expected_bytes,
+                "Base materialized bytes differ from the pinned attribute contract")
+    else:
+        require(actual == blob, "Source bytes differ from exact committed tree")
+
+
+def safe_failure_hint(error):
+    return SAFE_FAILURE_HINTS.get(str(error), "unclassified")
 
 
 def capture_paths(source):
@@ -672,5 +704,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (ValueError, KeyError, OSError, TimeoutError, subprocess.SubprocessError, zipfile.BadZipFile):
-        raise SystemExit("Frontend control failed; no acceptance claimed. Private diagnostics are withheld.") from None
+    except (ValueError, KeyError, OSError, TimeoutError, subprocess.SubprocessError, zipfile.BadZipFile) as error:
+        raise SystemExit("Frontend control failed [" + safe_failure_hint(error)
+                         + "]; no acceptance claimed. Private diagnostics are withheld.") from None
