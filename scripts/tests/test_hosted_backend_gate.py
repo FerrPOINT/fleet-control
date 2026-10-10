@@ -740,10 +740,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "3fcbe6288dfb52d6b56eed5068ee364532ac84f6")
+        self.assertEqual(gate.SOURCE_SHA, "b97e1e6933d1c6156afc629708b53204cff6680a")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "472777f4a0df116483f5535ba5eb3145aadb82ab")
+        self.assertEqual(tree, "4fc5867369f9fec582ea8ee4634f7b89eed88db5")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -772,10 +772,15 @@ class HostedBackendTests(unittest.TestCase):
             "backend/api", "backend/app", "backend/domain", "backend/shared"] + [
             "backend/" + member + "/Cargo.toml"
             for member in ("api", "app", "domain", "shared", "infra", "migration", "server", "cli")]
-        source_delta = ["backend/infra/tests/sdlc_foundation.rs", "backend/infra/tests/support/pm_dispatch.rs",
-            "backend/infra/tests/support/pm_events.rs", "backend/infra/tests/support/pm_human_controls.rs",
-            "docs/CHAT_CLARIFICATION_VERIFICATION.md", "docs/CURRENT_STATE.md", "docs/GAP_REGISTER.md",
-            "frontend/src/pages/chat-detail/index.test.tsx", "frontend/src/pages/chat-detail/task-detail.tsx"]
+        prior_controls = "78d3727e196ed17af3af371e3a56936e556cd7e8"
+        prior = json.loads(self.source_blob(gate.INVENTORY, prior_controls))
+        prior_source = prior["source_commit"]
+        new_delta = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff",
+            "--name-only", prior_source, gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+        changed_rust = "backend/infra/src/runtime/pm_recovery_pg_tests.rs"
+        self.assertEqual([path for path in new_delta if path.startswith("backend/")], [changed_rust])
+        self.assertTrue(all(path == changed_rust or path == "README.md" or path.startswith("docs/") for path in new_delta))
+        source_delta = sorted(set(prior["config_union_preparation"]["codegen_evidence"]["source_delta"]) | set(new_delta))
         source = original["source_commit"]
         listing = lambda pin: subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT),
             "ls-tree", "-r", "-z", pin, "--", *closure], capture_output=True, check=True, timeout=30).stdout
@@ -790,6 +795,37 @@ class HostedBackendTests(unittest.TestCase):
             artifact_bound_source_commit=gate.SOURCE_SHA, binding_kind="verified_api_dependency_closure_parity",
             api_dependency_closure=closure, api_dependency_closure_git_sha256=gate.digest(accepted),
             source_delta=source_delta))
+        changed_compiled = {path for path, value in REVIEWED["compiled_source_sha256"].items()
+                            if value != prior["compiled_source_sha256"][path]}
+        changed_fingerprints = {path for path, value in REVIEWED["rust_source_sha256"].items()
+                               if value != prior["rust_source_sha256"][path]}
+        self.assertEqual(changed_compiled, {"fleet-control/" + changed_rust})
+        self.assertEqual(changed_fingerprints, {changed_rust})
+        body = self.source_blob(changed_rust, prior_source)
+        self.assertEqual(body.count(b"let f = fixture(true, false).await;"), 2)
+        self.assertEqual(body.count(b"let f = fixture(false, true).await;"), 1)
+        expected = body.replace(b"let f = fixture(true, false).await;", b"let f = Box::pin(fixture(true, false)).await;")
+        expected = expected.replace(b"let f = fixture(false, true).await;", b"let f = Box::pin(fixture(false, true)).await;")
+        self.assertEqual(self.source_blob(changed_rust), expected)
+        expected_inventory = copy.deepcopy(prior)
+        expected_inventory["source_commit"] = gate.SOURCE_SHA
+        expected_inventory["config_union_preparation"]["source_commit"] = gate.SOURCE_SHA
+        expected_inventory["config_union_preparation"]["codegen_evidence"] = preparation["codegen_evidence"]
+        expected_inventory["compiled_source_sha256"]["fleet-control/" + changed_rust] = gate.digest(expected)
+        expected_inventory["rust_source_sha256"][changed_rust] = gate.digest(expected)
+        self.assertEqual(REVIEWED, expected_inventory)
+        import ast
+        old_helper = ast.parse(self.source_blob(gate.HELPER, prior_controls))
+        current_helper = ast.parse((ROOT / gate.HELPER).read_bytes())
+        project = lambda tree: [ast.dump(node) for node in tree.body if not isinstance(node, ast.Assign)
+            or not isinstance(node.targets[0], ast.Name) or node.targets[0].id not in {"SOURCE_SHA", "SOURCE_INVENTORY_SHA"}]
+        self.assertEqual(project(old_helper), project(current_helper))
+        old_tests = ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", prior_controls))
+        identities = lambda tree: {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        self.assertEqual(len(identities(old_tests)), 177)
+        self.assertEqual(identities(old_tests), identities(ast.parse(Path(__file__).read_bytes())))
+        self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(),
+            self.source_blob(gate.WORKFLOW, prior_controls).replace(prior_source.encode(), gate.SOURCE_SHA.encode()))
         self.assertEqual(REVIEWED["groups"], json.loads(self.source_blob(gate.INVENTORY,
             "fe1fb3f5f863b8dad9dcd400ee2dccb68e69c4c4"))["groups"])
         for path in gate.WRITE_SET:
@@ -1670,8 +1706,9 @@ class HostedBackendTests(unittest.TestCase):
             if path == gate.WORKFLOW:
                 self.assertEqual(expected.count(b"--memory 4g"), 1)
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
-            self.assertEqual((ROOT / path).read_bytes(), expected, path)
-        self.assertEqual(gate.SOURCE_SHA, "3fcbe6288dfb52d6b56eed5068ee364532ac84f6")
+            actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.INVENTORY) else (ROOT / path).read_bytes()
+            self.assertEqual(actual, expected, path)
+        self.assertEqual(gate.SOURCE_SHA, "b97e1e6933d1c6156afc629708b53204cff6680a")
         self.assertEqual(len(gate.GATES), 84)
 
     def test_hosted_six_gib_policy_is_exact_and_retains_three_gib_reserve(self):
@@ -1715,18 +1752,20 @@ class HostedBackendTests(unittest.TestCase):
         project = lambda data: [ast.dump(node) for node in ast.parse(data).body
                                if not isinstance(node, ast.FunctionDef)
                                or node.name not in {"safe_test_diagnostics", "validate_failure_evidence"}]
-        self.assertEqual(project((ROOT / gate.HELPER).read_bytes()), project(expected))
+        self.assertEqual(project(self.source_blob(gate.HELPER, "78d3727e196ed17af3af371e3a56936e556cd7e8")), project(expected))
         for path in (gate.WORKFLOW, gate.GATE, gate.INIT, gate.INVENTORY):
             expected = self.source_blob(path, frozen)
             if path == gate.WORKFLOW:
                 self.assertEqual(expected.count(b"--memory 4g"), 1)
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
-            self.assertEqual((ROOT / path).read_bytes(), expected)
+            actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.INVENTORY) else (ROOT / path).read_bytes()
+            self.assertEqual(actual, expected)
         names = lambda tree: {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
         original = names(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)))
         self.assertEqual(len(original), 170)
         self.assertTrue(original <= names(ast.parse(Path(__file__).read_bytes())))
-        binding = REVIEWED["config_union_preparation"]["codegen_evidence"]
+        binding = json.loads(self.source_blob(gate.INVENTORY,
+            "78d3727e196ed17af3af371e3a56936e556cd7e8"))["config_union_preparation"]["codegen_evidence"]
         self.assertEqual(binding, json.loads(self.source_blob(gate.INVENTORY, frozen))["config_union_preparation"]["codegen_evidence"])
         self.assertEqual(binding["source_commit"], "aa11d3b90fcacb6f01a99b8a534cadbffbf54993")
         self.assertEqual(binding["binding_kind"], "verified_api_dependency_closure_parity")
@@ -2391,13 +2430,15 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(old.keys(), new.keys())
         self.assertEqual({name for name in old if old[name] != new[name]}, {"safe_test_diagnostics", "validate_failure_evidence"})
         constants = lambda tree: [ast.dump(node) for node in tree.body if isinstance(node, (ast.Assign, ast.AnnAssign))]
-        self.assertEqual(constants(before), constants(after))
+        self.assertEqual(constants(before), constants(ast.parse(self.source_blob(gate.HELPER,
+            "78d3727e196ed17af3af371e3a56936e556cd7e8"))))
         tests = lambda tree: {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
         original = tests(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)))
         self.assertEqual(len(original), 172)
         self.assertTrue(original <= tests(ast.parse(Path(__file__).read_bytes())))
         for path in (gate.WORKFLOW, gate.GATE, gate.INIT, gate.INVENTORY):
-            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen), path)
+            actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.INVENTORY) else (ROOT / path).read_bytes()
+            self.assertEqual(actual, self.source_blob(path, frozen), path)
         self.assertEqual(len(gate.GATES), 84)
         for path in ("backend/infra/src/runtime/pm_recovery.rs", "backend/infra/src/runtime/pm_recovery_pg_tests.rs"):
             self.assertEqual((ROOT / path).read_bytes().replace(b"\r\n", b"\n"), self.source_blob(path))
@@ -2415,7 +2456,8 @@ class HostedBackendTests(unittest.TestCase):
                          {"safe_test_diagnostics", "test_failure_logs", "validate_failure_evidence", "execute", "main", "resource_guard"})
         constants = lambda tree: {node.targets[0].id: ast.dump(node.value) for node in tree.body
                                   if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)}
-        old_constants, new_constants = constants(before), constants(after)
+        old_constants = constants(before)
+        new_constants = constants(ast.parse(self.source_blob(gate.HELPER, "78d3727e196ed17af3af371e3a56936e556cd7e8")))
         self.assertEqual(set(new_constants) - set(old_constants), {"CONTROL_PHASE"})
         self.assertEqual(old_constants, {key: value for key, value in new_constants.items() if key != "CONTROL_PHASE"})
         tests = lambda tree: {node.name for node in ast.walk(tree)
@@ -2428,7 +2470,8 @@ class HostedBackendTests(unittest.TestCase):
             if path == gate.WORKFLOW:
                 self.assertEqual(expected.count(b"--memory 4g"), 1)
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
-            self.assertEqual((ROOT / path).read_bytes(), expected, path)
+            actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.INVENTORY) else (ROOT / path).read_bytes()
+            self.assertEqual(actual, expected, path)
 
     def catch_projection(self, run):
         budget = SimpleNamespace(arm=lambda: None, close=lambda: None, cleanup=lambda **_: None)
@@ -2583,7 +2626,8 @@ class HostedBackendTests(unittest.TestCase):
             if path == gate.WORKFLOW:
                 self.assertEqual(expected.count(b"--memory 4g"), 1)
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
-            self.assertEqual((ROOT / path).read_bytes(), expected)
+            actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.INVENTORY) else (ROOT / path).read_bytes()
+            self.assertEqual(actual, expected)
         names = lambda tree: {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
         original = names(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)))
         self.assertEqual(len(original), 158)
