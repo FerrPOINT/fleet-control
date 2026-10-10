@@ -3131,7 +3131,8 @@ async fn pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof
             reads.fetch_add(1, Ordering::SeqCst);
             let phase = state.load(Ordering::SeqCst);
             axum::Json(serde_json::json!({"object":"hermes.run","run_id":if phase == 2 {"run_foreign"} else {"run_pm_readback"},
-                "session_id":if phase == 3 { "foreign-session" } else { &session },"status":if phase == 1 {"completed"} else {"running"}}))
+                "session_id":if phase == 3 { "foreign-session" } else { &session },"status":if phase == 1 {"completed"} else {"running"},
+                "completed":phase==1,"partial":false,"interrupted":false}))
         }
     }));
     let hermes_server =
