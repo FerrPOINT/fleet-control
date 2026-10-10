@@ -1,43 +1,35 @@
 # Implementation Plan
 
-## Current SDLC Scope
+## Current Scope
 
-The historical phases below are not completion evidence for the October SDLC plan.
-Current implementation, boundaries, blockers and acceptance are maintained in
-[SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md). Leaders are deferred. Java lifecycle
-exists, but runtime chat/control still returns phase-2 errors and cannot run SDLC.
+Deliver the approved runtime/execution scope, not just the already implemented
+parts. Leaders are deferred; Java lifecycle is retained, but automatic Java SDLC
+requires separately verified chat/control capabilities. Hermes remains unchanged.
 
-Phase 0: pre-development hardening.
+The executable work order and acceptance boundaries are maintained in
+[REMAINING_DELIVERY_WORK](REMAINING_DELIVERY_WORK.md). Do not maintain a second
+copy of its workstream table here.
 
-- RBAC and permissions endpoint. — done: `SystemRole = admin|operator|user` c бэкенд-энфорсментом (middleware + `GET /users/{id}/permissions`, `PATCH /users/{id}/role`), legacy `is_system_admin` alias; см. docs/AUTHORIZATION.md.
-- Idempotent sessions/messages. — done: миграция 0004 (`idempotency_key` + `idempotency_payload_hash`, unique `(user_id, idempotency_key)`), replay возвращает исходную сессию/сообщение.
-- Session participants, leader selection, handoff and delegation. — done: `leader_agent_id`, роли `leader|executor`, `/sessions/{id}/participants`, handoff/delegation-роуты (docs/API.md §sessions).
-- Deployment jobs and settings surfaces. — done: `deployment_jobs` + bulk `POST /deployments/jobs/bulk`, settings API с per-key аудитом (docs/API.md).
-- Product pages for leaders and executors. — done: `frontend/src/pages/{leaders,executors}` + карточки агентов/сессий.
-- Technical pages for agents, deployments, logs and settings. — done: `frontend/src/pages/{agents,deployments,logs,settings,alerts}`.
-- Screenshot manifest and evidence capture. — done: 82 desktop-файла в `docs/assets/screens/` + manifest.md (`1920x1080` и `2560x1440`).
-- Documentation and ADR alignment. — done: полный док-паритет с task-tracker (55 файлов), ADR + ADR_INDEX синхронизированы.
+## Sources Of Truth
 
-Phase 1: Hermes MVP completion.
+- [SDLC implementation](SDLC_IMPLEMENTATION.md): product scope and service ownership.
+- [Chat clarification plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md) and
+  [contract](contracts/CHAT_CLARIFICATION_CONTRACT.md): owner flow and wire rules.
+- [Current state](CURRENT_STATE.md): exact source and verified check evidence.
+- [Gap register](GAP_REGISTER.md): limitations and required exit evidence.
+- [Quality gate](QUALITY_GATE.md): required checks; source presence is not acceptance.
 
-- Finish real Hermes API session open/send/stream integration. — done: Hermes `/v1/runs` адаптер (open/send/SSE mirroring/stop/steer/approval forwarding) — см. CURRENT_STATE.md.
-- Expand fake Hermes lifecycle tests into real adapter contract tests. — done: контрактные тесты адаптера на фикстурах `backend/tests/fixtures` (Run-переходы, SSE, approvals).
-- Add runtime reconciler tests for desired-state restart. — done: `reconcile_action(status, desired)` решает Restart/HealthCheck/None (unit-тесты переходов), reconciler-цикл перезапускает failed/stopped агентов с desired=running и health-checkает running.
-- Add clean DB migration and seed workflows. — done: SeaORM-миграции 0001+ (idempotent IF NOT EXISTS), seed в тестах через фикстуры.
-- Replace the local HMAC token validator with `sdlc-auth-core::Validator::hmac`
-  after WSL/CI can fetch `services-base`. — done: `AuthService` валидирует через `sdlc_auth_core::Validator` (hmac-mode), локальный дубликат decode-логики удалён; см. docs/AUTHORIZATION.md.
-- Add OIDC/JWKS validation mode and retire the compact-token legacy fallback
-  after the transition window. — done: `auth.mode=oidc` — RS256/JWKS (кэш+refresh, kid-miss), строгие iss/aud, маппинг ролей, local login и HMAC-токены отклоняются fail-closed (см. docs/ENV.md, docs/OPERATIONS.md).
+## Delivery Rules
 
-Phase 2: Java Agent runtime.
+Keep one reviewed candidate per qualification cycle and preserve Git history.
+Use existing runtime supervisors, command journals, adapters and shared Base
+utilities. Do not add another scheduler, host-controller service or custom
+Hermes authorization hook. Tracker and Workflow are read-only dependencies.
 
-- Implement Spring Boot launch/provision adapter. — done: supervisor поднимает `java -jar <agents_root>/agentN/runtime/backend.jar --spring.profiles.active=noop`, readiness по `/actuator/health/readiness` (db-only).
-- Wire health, capabilities, sessions and chat stream. — partial: health/readiness and lifecycle exist; chat/control remain phase 2 in runtime/mod.rs.
-- Add Java Agent runtime tests and screenshots. — done: runtime-тесты provision/launch/readiness + скрин-свидетельства java-agent-страниц в evidence-сете.
+Release only after the relevant backend, migration, frontend, browser and native
+checks pass on the final inputs, and the real owner PM flow is accepted.
+Fixtures, healthy processes and accepted runs do not prove completion of SDLC.
 
-Phase 3: fleet operations.
-
-- Add operator retention policy thresholds and scheduled stale-folder review. — done: `fleet.retention.stale_archived_days` / `fleet.retention.review_interval_secs`, fleet-wide `GET /api/v1/agents/storage-review`, stale flag + archived days in storage report, scheduled review worker, `POST /api/v1/settings/retention/review`.
-- Add richer monitoring and alerts. — done: `fleet_alerts` (миграция 6): авто-алерты переходов здоровья (agent_down/agent_recovered), `GET /fleet-alerts`, acknowledge (Operator+), авто-закрытие открытых и подтверждённых алертов после восстановления, аудит; событийная модель включает restart-loop/heartbeat-stale.
-- Add bulk runtime updates and rollback. — done: `POST /api/v1/deployments/jobs/bulk` (см. docs/API.md); rollback помечает runtime_update jobs через `detail.rollback`.
-- Add cross-project workflow health integration. — done: `refresh_workflow_bindings` сверяет биндинги с живым project-workflow каталогом (reconciler, runtime/mod.rs:344), `binding_status` в UI/API.
+The former phase checklist is preserved in
+[Git history](https://github.com/FerrPOINT/fleet-control/blob/ce4153f453e730dad1e315131d65ca030243264c/docs/IMPLEMENTATION_PLAN.md).
+Its historical `done` labels are not current qualification evidence.
