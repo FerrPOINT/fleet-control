@@ -1306,7 +1306,7 @@ async fn pinned_recovery_original_context_legacy_private_other_and_task_pm_fail_
 
 #[tokio::test]
 #[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
-async fn pinned_recovery_keyset_scans_all_pages_before_idle_poll() {
+async fn pinned_recovery_keyset_reaches_valid_terminal_after_twenty_invalid_pinned_runs() {
     let f = Fixture::new().await;
     let mut pinned = Vec::new();
     for _ in 0..101 {
