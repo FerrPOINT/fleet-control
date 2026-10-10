@@ -68,7 +68,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 3c900b00f15aeda2016a45d080d850fa028cdcfd # Prepared only; authentic codegen binding pending.
+          ref: 3c900b00f15aeda2016a45d080d850fa028cdcfd # Authentic 91a1 codegen38052082418, exact source.
           path: fleet-control
           persist-credentials: false
       - name: Check out pinned build SDK

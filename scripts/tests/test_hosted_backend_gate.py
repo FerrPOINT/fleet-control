@@ -220,10 +220,25 @@ class HostedBackendTests(unittest.TestCase):
             if path.endswith("/build.rs") or "rust-toolchain" in path or path.endswith("/Cargo.toml"):
                 self.assertIn(path, closure)
         gate.require_codegen_binding(frozen)
-        self.assertEqual(REVIEWED["openapi_binding"], dict(status="pending_authentic_codegen", sha256=None))
-        self.assertIsNone(REVIEWED["config_union_preparation"]["codegen_evidence"])
+        pending = json.loads(self.source_blob(gate.INVENTORY, "e7a357f895617b057840a8c0d42d8552e2425d66"))
+        self.assertEqual(pending["openapi_binding"], dict(status="pending_authentic_codegen", sha256=None))
+        self.assertIsNone(pending["config_union_preparation"]["codegen_evidence"])
         with self.assertRaisesRegex(ValueError, "binding is pending"):
-            gate.require_codegen_binding(REVIEWED)
+            gate.require_codegen_binding(pending)
+        self.assertEqual(REVIEWED["config_union_preparation"]["prior_recovery_codegen_evidence"], evidence)
+        self.assertEqual(REVIEWED["config_union_preparation"]["codegen_evidence"], dict(
+            source_commit=gate.SOURCE_SHA, artifact_bound_source_commit=gate.SOURCE_SHA,
+            workflow_commit="91a1c48c7a3f0cfad33586fb55c45f47ff864bc2", run_id=38052082418,
+            run_attempt=1, artifact_id=11669374937,
+            artifact_zip_sha256="8283b599e66dc66d5a05e961ae2b59bc5dffc1c408f7d2f35352608198730701",
+            reported_by_parent=True, schema_sha256=gate.OPENAPI_SHA,
+            source_file_count=303,
+            source_inventory_sha256="4ab1c70324a3b184096a69ed1dbdd72bcbf5f993fbdc1ecc6b01fb643f650457",
+            source_tree="b975beb628bb68c03fb5bce45e7c43085837e41f"))
+        self.assertEqual(REVIEWED["openapi_binding"], dict(status="verified", sha256=gate.OPENAPI_SHA))
+        self.assertFalse(REVIEWED["config_union_preparation"]["authentic_union_codegen_pending"])
+        self.assertFalse(REVIEWED["config_union_preparation"]["compiled_inventory_includes_pre_regen_schema"])
+        gate.require_codegen_binding(REVIEWED)
 
     def synthetic_bound_inventory(self):
         return dict(REVIEWED, openapi_binding=dict(status="verified", sha256=gate.OPENAPI_SHA))

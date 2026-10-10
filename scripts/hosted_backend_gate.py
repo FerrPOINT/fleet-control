@@ -34,7 +34,7 @@ UTILITY_INVENTORY_SHA = "8e727d1d2ba02941dc176f26945d25593068fc593cb619928538129
 PACKAGE_SHA = "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58"
 PACKAGE_TREE = "96d9a7453744fd09f9ee3ba3b2c20f6b3d389b85"
 PACKAGE_INVENTORY_SHA = "1bdf56b21b0b97ec4a5a6303b04ecdda1b6609164aa018acc830187ca124f827"
-# Committed schema only; current source binding remains pending authentic codegen.
+# Authentic codegen38052082418/91a1 exact3c900 source; schema unchanged.
 OPENAPI_SHA = "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76"
 SWAGGER_SHA = "481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc"
 WORKFLOW = ".github/workflows/backend-build-only.yml"
