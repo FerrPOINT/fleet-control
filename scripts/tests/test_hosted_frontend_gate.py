@@ -482,14 +482,13 @@ class SourceContracts(unittest.TestCase):
                       historical_helper)
 
     def test_human_controls_successor_source_inventory_and_additive_units(self):
-        self.assertEqual(gate.SOURCE_SHA, "d4584769c925c2a92829251960b85a14b63c31dd")
-        self.assertEqual(gate.SOURCE_TREE, "33bfce243f52ac198ef88be37c331052c88c1451")
-        self.assertEqual(gate.SOURCE_PARENTS, ["153242c5cbe3dfd93eca65529c81c6e422ec9fff"])
-        gate.qualify_source(ROOT)
-        inventory = git_blob_inventory(gate.SOURCE_SHA)
+        source = "d4584769c925c2a92829251960b85a14b63c31dd"
+        self.assertEqual(gate.git(ROOT, "show", "-s", "--format=%T %P", source).decode().strip(),
+                         "33bfce243f52ac198ef88be37c331052c88c1451 153242c5cbe3dfd93eca65529c81c6e422ec9fff")
+        inventory = git_blob_inventory(source)
         self.assertEqual(len(inventory), 888)
-        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
-        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
+        self.assertEqual(gate.digest(gate.canonical(inventory)),
+                         "c7a996dc1de77be51df3fa8d10aae689e85aa43a6100a8a287265e3fe2485430")
         previous = "34ee5f0b8f4c7f65d9b1f1503b38c21316c1b49b"
         prior = git_blob_inventory(previous)
         paths = [p for p in inventory if re.fullmatch(r"frontend/src/.+\.test\.(ts|tsx)", p)]
@@ -502,7 +501,7 @@ class SourceContracts(unittest.TestCase):
             ("frontend/src/pages/chat-detail/index.test.tsx", "\ndescribe('PM delivered answer continuation receipt'", "describe('production chat'"),
         ):
             old = gate.git(ROOT, "show", previous + ":" + path).decode()
-            current = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + path).decode()
+            current = gate.git(ROOT, "show", source + ":" + path).decode()
             start = current.index(marker)
             if end_marker is None:
                 # API imports expand, but the entire original describe/body remains exact.
@@ -515,12 +514,44 @@ class SourceContracts(unittest.TestCase):
         fixture = "frontend/e2e/chats-directory.spec.ts"
         self.assertEqual(inventory[fixture], "3a0d2fc1f243b52e1f6a310e1f46940218a2146de34cf76b3d3a01a45f4adb0b")
         old_fixture = gate.git(ROOT, "show", previous + ":" + fixture).decode()
-        current_fixture = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + fixture).decode()
+        current_fixture = gate.git(ROOT, "show", source + ":" + fixture).decode()
         self.assertEqual(current_fixture, old_fixture.replace("\u0412\u0435\u0440\u043d\u0443\u0442\u044c\u0441\u044f \u043a \u0447\u0430\u0442\u0430\u043c", "\u041d\u0430\u0437\u0430\u0434 \u043a \u0447\u0430\u0442\u0430\u043c", 1))
         self.assertEqual(current_fixture.count("expect("), 27)
-        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", previous, gate.SOURCE_SHA,
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", previous, source,
                                   "--", "frontend/playwright.config.ts", "frontend/pnpm-lock.yaml",
                                   "frontend/src/previews/pm-draft", "frontend/e2e/pm-draft-preview.spec.ts"), b"")
+
+        self.assertEqual(gate.SOURCE_SHA, "c59dbea1ab73a782a28cf6106155c84d73e2e14d")
+        self.assertEqual(gate.SOURCE_TREE, "6acba662312af8d48069ed07f2d087379739c5c5")
+        self.assertEqual(gate.SOURCE_PARENTS, ["7b49c77aa4e0614b1efd5dff6ad5e92f09eab3f1"])
+        gate.qualify_source(ROOT)
+        final = git_blob_inventory(gate.SOURCE_SHA)
+        self.assertEqual(len(final), 895)
+        self.assertEqual(gate.digest(gate.canonical(final)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
+        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), final)
+        self.assertEqual({p: final[p] for p in paths}, {p: inventory[p] for p in paths})
+        history = "frontend/e2e/fleet-control.spec.ts"
+        self.assertEqual(gate.git(ROOT, "diff", "--name-only", source, gate.SOURCE_SHA,
+                                  "--", "frontend", "openapi").decode().splitlines(), [history])
+        old_history = gate.git(ROOT, "show", source + ":" + history).decode()
+        final_history = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + history).decode()
+        self.assertEqual(final[history], "e08e845d51739a8bfbbe7c698649290cfb6f5cf9acece60f261866516b052707")
+        start = old_history.index("test('chat history preserves server order after clock rollback and page overlap'")
+        old_setup = "  const state = createState()\n  await installMocks(page, state)\n"
+        self.assertEqual(final_history, old_history[:start] + old_history[start:].replace(
+            old_setup, "  await installChatUxFixtures(page)\n", 1))
+        self.assertEqual(final_history.count("expect("), old_history.count("expect("))
+        # Saved authentic codegen 38048577514: final source changes only infra test inputs.
+        codegen_source = "4449a3b1cdd915e265543a24054506f15385393d"
+        self.assertEqual(gate.digest(gate.git(ROOT, "show", codegen_source + ":openapi/openapi.json")),
+                         gate.SCHEMA_SHA256)
+        self.assertEqual(gate.git(ROOT, "diff", "--name-only", codegen_source, gate.SOURCE_SHA,
+                                  "--", "backend").decode().splitlines(),
+                         ["backend/infra/src/runtime/pm_recovery_pg_tests.rs",
+                          "backend/infra/src/runtime/pm_recovery_tests.rs"])
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", codegen_source, gate.SOURCE_SHA,
+                                  "--", "backend/api", "backend/app", "backend/domain", "backend/shared",
+                                  "backend/Cargo.toml", "backend/Cargo.lock", ".base-revision", "openapi"), b"")
 
     def test_current_unit_counts_expand_all_source_declarations(self):
         def rows(expression):
@@ -778,7 +809,14 @@ class WorkflowContracts(unittest.TestCase):
         directory = b"frontend/e2e/chats-directory.spec.ts"
         retained = lambda sha: [entry for entry in gate.git(ROOT, "ls-tree", "-rz", sha, *paths).split(b"\0")
                                 if entry and entry.split(b"\t", 1)[1] != directory]
-        self.assertEqual(retained(gate.SOURCE_SHA), retained(parent))
+        previous = "d4584769c925c2a92829251960b85a14b63c31dd"
+        self.assertEqual(retained(previous), retained(parent))
+        history = b"frontend/e2e/fleet-control.spec.ts"
+        accepted = gate.git(ROOT, "ls-tree", "-z", "2a3491683df0e5e19f7a60114b0e99f36fbfa8d2",
+                            history.decode()).rstrip(b"\0")
+        self.assertEqual(retained(gate.SOURCE_SHA),
+                         [accepted if entry.split(b"\t", 1)[1] == history else entry
+                          for entry in retained(previous)])
         self.assertEqual(gate.GATES["fixtures"][0][:-1],
                          ["pnpm", "exec", "playwright", "test", "--reporter=list,json"])
         self.assertEqual(gate.GATES["fixtures"][0][-1], "--max-failures=1")

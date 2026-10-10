@@ -40,6 +40,7 @@ mod pm_continuation;
 mod pm_dispatch;
 mod pm_events;
 mod pm_readback;
+mod pm_recovery;
 mod pm_tools;
 pub(crate) mod recovery_wire;
 mod run_control;

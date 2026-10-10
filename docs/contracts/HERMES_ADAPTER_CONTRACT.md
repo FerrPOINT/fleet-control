@@ -18,7 +18,7 @@ custom pre-model handshake is required.
 
 ## Original-Key And Pinned Recovery Candidate
 
-The default-off [recovery extension](HERMES_RECOVERY_V1.md) freezes verified
+The default-off free-chat [recovery extension](HERMES_RECOVERY_V1.md) freezes verified
 original store/scope/source facts before submission and performs only a
 non-dispatch original-key lookup after unknown acceptance. No repeated run POST,
 legacy backfill, new key, task/PM model admission or capacity release follows a
@@ -27,6 +27,20 @@ Exact terminal run/session proof commits mirror/delivery/state in one transactio
 replay is read-only, contradictions fail. [Stream bounds](HERMES_EVENT_STREAM_V1.md)
 require a complete frame or independent terminal status at EOF. Native producer
 and managed-runtime compatibility are not yet accepted for this candidate.
+
+PM initial dispatch and saved-answer continuation instead use the unchanged
+native `POST /v1/runs` idempotency contract, not that optional extension. Only new
+container intents capture immutable key/body hash, durable 86400-second native
+capability, original launch/generation/PID/start snapshot and a conservative
+86340-second horizon before journal insertion and the first POST. Replay retains
+the original key/body and reserves the full 30-second HTTP budget inside that
+horizon. Current owner/assignment/configuration/token/container proofs must still
+pass; the native atomic key reservation prevents a second run for an already
+accepted request. Legacy/no-proof, non-container, expired or changed-generation
+unknown acceptance stays held. A retry cannot refresh the proof or release
+capacity; known ACKs keep their existing GET/bind path. No Hermes patch, new
+schema or recovery scheduler is introduced. This is source-only until the new
+Rust HTTP regressions, PostgreSQL custody and actual native acceptance execute.
 
 ## Current Approval Recovery Candidate
 

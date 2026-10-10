@@ -19,7 +19,17 @@ not require modifications to Hermes internals. Existing missing Fleet wiring
 must be implemented and tested; this decision does not turn held source paths
 into working runs or waive clarification/confirmation business gates.
 
-## Source Compatibility Evidence (2026-10-08)
+## Source Compatibility Evidence (2026-10-10)
+
+All seven DTOs were rechecked against clean Tracker source
+`357caa7a60a717eb7b0ac72f286b793326992931` using the authentic Fleet Rust schema
+`e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76` from
+[codegen38048577514](https://github.com/FerrPOINT/fleet-control/actions/runs/38048577514)
+on source `4449a3b1cdd915e265543a24054506f15385393d`. Strict artifact11667814381
+readback verifies the new domain assembly; schema bytes match the earlier f7d
+generation. The TypeScript client was regenerated without a tracked schema diff.
+Comparison and all eight verifier unit cases pass. This proves source wire
+compatibility, not deployed authorization, delivery or execution acceptance.
 
 The PR47 foundation reconciled with mainc8093aa retains Base875cac2 and
 matches all seven DTOs in Tracker PR114 source
@@ -99,13 +109,31 @@ updates/transitions cannot bypass this gate. Changed requirements need a new con
 
 ## Delivery And Resume
 
-Answer saved, resume queued, resume delivered and run started are separate states. Tracker
+Target contract: answer saved, resume queued, resume delivered and run started are separate states. Tracker
 outbox and Fleet inbox use stable event IDs. Per-session durable event cursor is Fleet-owned.
 Cross-service command replay uses canonical payload hash and persisted result.
 
 Creation is a resumable Draft/binding/dispatch saga. PM starts only after links are saved.
-The implemented owner-only creation slice stops at `awaiting_admission` with
-`dispatch_allowed=false`. Fleet persists the request before calling Tracker,
+Owner-only creation is wired to PM dispatch when `pm.dispatch.enabled` is true
+and dispatch checks pass. Creation responses distinguish `awaiting_admission`,
+`awaiting_runtime_acceptance` and `runtime_accepted`; none proves business completion.
+The initial assignment adapter targets Workflow PR90 source
+`163a4ace7e06a4770958122ae4c56a426db758ef`, using
+`POST /internal/runtime/v1/pm/assign` and its closed `PMDraftAssignment`:
+the ten execution identity fields plus original `owner_version`, `input_snapshot_ref`,
+`input_sha256` and the probed `runtime_compatibility`. Role/mode are Workflow-owned;
+later-stage work/queue/workspace/decomposition refs remain null. Assignment and bind
+readback verify the exact Draft projection (`stage_key=draft`, `pm_draft_input`,
+`lease_generation=1`); that generation is metadata, not proof of a live lease.
+Assignment capabilities require exactly `assign`, `bind`, `resume`, `rebind`,
+`readback`; the runtime credential retains `checkpoint`, `readback`. Old persisted
+dispatch intents are not rewritten or resent with the new assignment payload.
+This source alignment and its synthetic fixtures are not executable qualification
+against deployed Workflow/Tracker/Hermes. No idle-owner prompt contract is added.
+The same PM wire was independently rechecked at Workflow PR90
+`66e5d6db9fc2ae9129c9162688bacb1a98c7a4a3`; its runtime contract is unchanged
+from the pinned163a source. This is source evidence, not installed acceptance.
+Fleet persists the request before calling Tracker,
 derives stable per-operation command keys, and always reads authoritative Draft
 and reservation operations before retrying writes. The original title/description
 must match the immutable Tracker input snapshot/hash; mutable issue edits are not
@@ -124,17 +152,19 @@ The guard runs even on creation replay and never treats a previously successful
 GET or the mapping's `created_at` as authority for execution. It does not persist
 an admission receipt or dispatch a run. Owner-only progress GET remains read-only.
 
-Full predispatch admission still requires Tracker current owner CAS and execution
-lease, Fleet actual effective config/chat/workspace receipts, Workflow execution
-claim and catalog/native first-step evidence, plus Base scoped credentials.
-Immutable namespace mapping is only one necessary prerequisite. Any future
-prepare/admit protocol must revalidate these producer receipts under fencing and
-recover unknown CAS outcomes through exact readback, without minting another
-execution/ordinal. Existing Workflow PM bind verifies a running callback after
-dispatch; it cannot be reused as a circular predispatch proof.
-Wait captures execution checkpoint. Old run must be terminal or safely stopped before new run;
-resume preserves execution, verifies Workflow rebind and rejects stale request/fencing/version.
-Unknown runtime acceptance requires readback; no blind redispatch or EOF-as-success.
+Before dispatch, Fleet revalidates Tracker reservation/owner, original input and
+task context, namespace authority, concrete-agent configuration, runtime capabilities
+and Workflow assignment. It persists run/dispatch custody before Hermes submission.
+After acceptance readback pins the effective session, Fleet verifies Workflow
+assignment bind and PM bind, obtains first-step instructions and sends ordinary
+runtime guidance. Native first-step evidence is not a predispatch prerequisite;
+no Hermes pre-model hook or reserved-run handshake is required.
+
+Wait captures an execution checkpoint. Resume requires terminal readback of the old
+run; a Stop ACK alone does not release capacity. Saved-answer delivery and continuation
+confirmation remain separate. Continuation verifies the original checkpoint,
+identity/fence and Workflow rebind. Unknown runtime acceptance requires readback;
+no blind redispatch or EOF-as-success.
 
 Fleet implements the machine-only Workflow callback
 `GET /internal/runtime/v1/pm/runs/{session_run_id}`. The flat response is the
@@ -143,7 +173,9 @@ dispatch key, checkpoint and fence. Fleet run UUIDs are globally unique;
 Hermes run references are agent-local. A dedicated callback token is not an agent
 credential. Reservations commit before dispatch, acknowledgement pins the
 effective Hermes session ID, and every callback probes the actual runtime.
-This callback is a prerequisite, not proof that the dispatch/resume saga is wired.
+Callback, PM event/readback recovery and saved-answer continuation are wired in
+source. Their implementation does not establish deployed compatibility or successful
+end-to-end execution; executable qualification remains separate.
 
 ### Source-Checked Hermes Dispatch Prerequisites
 

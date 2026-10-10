@@ -1,0 +1,48 @@
+{
+  "ok": true,
+  "exit_code": 0,
+  "result": {
+    "task_key": "SDLC-1",
+    "workflow_id": 1,
+    "workflow_key": "hermes-sdlc:project_manager",
+    "mode_id": 2,
+    "mode_key": "draft",
+    "cycle_number": 0,
+    "attempt_number": 1,
+    "assignment_operation_key": "pm-draft:01a0faf0-6c0c-70d3-8676-2f2b1925874c",
+    "assignment_revision": 1,
+    "role_key": "project_manager",
+    "execution_scope": "business",
+    "stage_key": "draft",
+    "business_task_ref": "01a0faf0-6b2a-7ec0-98e6-6d0227df8dc9",
+    "root_task_ref": "01a0faf0-6b2a-7ec0-98e6-6d0227df8dc9",
+    "work_item_ref": null,
+    "work_item_revision": null,
+    "queue_item_ref": null,
+    "task_workspace_ref": null,
+    "workspace_revision": null,
+    "tech_execution_workspace_ref": null,
+    "tech_execution_attempt_ref": null,
+    "decomposition_revision_ref": null,
+    "stage_revision": "1",
+    "assignment_ref": "01a0faf0-6c0c-70d3-8676-2f2b1925874c",
+    "binding_ref": null,
+    "hermes_run_ref": null,
+    "bind_operation_key": null,
+    "concrete_agent_ref": null,
+    "workspace_generation": null,
+    "lease_generation": 1,
+    "exact_input_refs": [
+      {
+        "kind": "pm_draft_input",
+        "ref": "01a0faf0-6b2c-7e01-9fb3-9879b6c2a55e",
+        "hash": "8f09dacd2e9dcd6335b867319edeb40a412b1affb0906fa4f560f4b12ef6cdcf"
+      }
+    ],
+    "binding_state": "unbound",
+    "status": "active",
+    "current_phase_id": 3,
+    "current_phase_code": "PM-DRAFT-01",
+    "current_phase_name": "Draft"
+  }
+}
