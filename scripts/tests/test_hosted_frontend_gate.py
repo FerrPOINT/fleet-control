@@ -258,9 +258,16 @@ class SourceContracts(unittest.TestCase):
         self.assertIn("const retainedAnswer = page.getByRole('status').filter({ has: resume })", chats)
 
     def test_capture_permissions_successor_exact_source_closure_and_mandatory_native_tests(self):
-        self.assertEqual(gate.SOURCE_SHA, "60f35db0b73922a0d5f753d370e556edcf4d20b0")
-        self.assertEqual(gate.SOURCE_TREE, "78547522533dcf5c5bc6b8d5e750e4bd94b96e3c")
-        self.assertEqual(gate.SOURCE_PARENTS, ["f9644cb1963dee198a0abd7ccd534ade1f9f3110"])
+        frozen = "60f35db0b73922a0d5f753d370e556edcf4d20b0"
+        self.assertEqual(gate.git(ROOT, "show", "-s", "--format=%T %P", frozen).decode().strip(),
+                         "78547522533dcf5c5bc6b8d5e750e4bd94b96e3c f9644cb1963dee198a0abd7ccd534ade1f9f3110")
+        frozen_inventory = git_blob_inventory(frozen)
+        self.assertEqual(len(frozen_inventory), 837)
+        self.assertEqual(gate.digest(gate.canonical(frozen_inventory)),
+                         "32e20f4613f580cea502ba03c4ed854df16f6573cc18bcd645214bbdee848df1")
+        self.assertEqual(gate.SOURCE_SHA, "59d00fe3269d67ab09819f19c6b2b5703a6e2268")
+        self.assertEqual(gate.SOURCE_TREE, "18d42f2c02af23a369f32d177829b84c5fad0978")
+        self.assertEqual(gate.SOURCE_PARENTS, ["cd3027575a37f5401e4a3b2970b134aa5a506312"])
         gate.qualify_source(ROOT)
         inventory = git_blob_inventory(gate.SOURCE_SHA)
         self.assertEqual(len(inventory), 837)
@@ -268,13 +275,23 @@ class SourceContracts(unittest.TestCase):
         self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
         previous = "7dd60204bd352f5dbf3e61b8c2db14706450eea4"
         self.assertEqual(gate.git(ROOT, "diff", "--no-renames", "--name-status", previous,
-                                  gate.SOURCE_SHA).decode().splitlines(), [
+                                  frozen).decode().splitlines(), [
             "M\tdocs/plans/2026-10-09-parallel-remaining-work.md",
             "M\tfrontend/package.json",
             "M\tfrontend/scripts/capture-screenshots.mjs",
             "A\tfrontend/scripts/capture-screenshots.test.mjs",
             "M\tfrontend/src/pages/chat-detail/index.test.tsx",
             "M\tfrontend/src/pages/chat-detail/index.tsx",
+        ])
+        self.assertEqual(gate.git(ROOT, "diff", "--no-renames", "--name-status", frozen,
+                                  gate.SOURCE_SHA).decode().splitlines(), [
+            "M\tdocs/CURRENT_STATE.md",
+            "M\tdocs/GAP_REGISTER.md",
+            "M\tdocs/REMAINING_DELIVERY_WORK.md",
+            "M\tdocs/contracts/CHAT_CLARIFICATION_CONTRACT.md",
+            "M\tdocs/contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md",
+            "M\tdocs/plans/2026-10-09-parallel-remaining-work.md",
+            "M\tfrontend/src/pages/chat-detail/index.test.tsx",
         ])
         self.assertEqual(gate.git(ROOT, "diff", "--exit-code", previous, gate.SOURCE_SHA,
                                   "--", "frontend/e2e"), b"")
@@ -309,6 +326,19 @@ class SourceContracts(unittest.TestCase):
                          .replace("                        questions.isError ||\n                        answerCommands.isError\n",
                                   "                        questions.isError\n", 1), original_source)
         tests = (ROOT / "frontend/src/pages/chat-detail/index.test.tsx").read_text(encoding="utf-8")
+        before = (
+            "      expect(screen.getByRole('tab', { name: /Требования/ })).toHaveFocus()\n"
+            "      act(() => screen.getByRole('combobox', { name: 'Редакция требований' }).focus())")
+        after = (
+            "      const requirements = screen.getByRole('tab', { name: /Требования/ })\n"
+            "      await waitFor(() => expect(requirements).toHaveAttribute('aria-selected', 'true'))\n"
+            "      expect(requirements).toHaveFocus()\n"
+            "      const revisionSelect = await screen.findByRole('combobox', { name: 'Редакция требований' })\n"
+            "      act(() => revisionSelect.focus())")
+        self.assertEqual(tests.count(after), 1)
+        self.assertEqual(tests.replace(after, before), gate.git(ROOT, "show", frozen +
+                         ":frontend/src/pages/chat-detail/index.test.tsx").decode())
+        tests = tests.replace(after, before)
         start = tests.index("  describe('answer custody permissions and session isolation'")
         end = tests.index("  it('requires explicit answer and does not publish after saving it'", start)
         self.assertEqual(tests[:start] + tests[end:], gate.git(ROOT, "show", previous +

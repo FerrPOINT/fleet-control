@@ -2,7 +2,7 @@ name: Frontend Build Only
 
 on:
   push:
-    branches: [build-only/frontend-capture-permissions-20261010]
+    branches: [build-only/frontend-unit-sync-20261010]
 
 permissions:
   contents: read
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   frontend:
-    if: github.repository == 'FerrPOINT/fleet-control' && github.event_name == 'push' && github.ref == 'refs/heads/build-only/frontend-capture-permissions-20261010' && github.event.deleted == false
+    if: github.repository == 'FerrPOINT/fleet-control' && github.event_name == 'push' && github.ref == 'refs/heads/build-only/frontend-unit-sync-20261010' && github.event.deleted == false
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     defaults:
@@ -40,7 +40,7 @@ jobs:
       - name: Check out exact product source including parent history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # official v7
         with:
-          ref: 60f35db0b73922a0d5f753d370e556edcf4d20b0
+          ref: 59d00fe3269d67ab09819f19c6b2b5703a6e2268
           path: fleet-control
           fetch-depth: 0
           persist-credentials: false
