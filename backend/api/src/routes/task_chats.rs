@@ -24,6 +24,8 @@ pub(super) struct TrackerGateway {
 pub async fn controls(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
+    subject: Option<Extension<VerifiedCentralSubject>>,
+    human: Option<Extension<VerifiedHumanSession>>,
     Path(id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<domain::ChatControls>, AppError> {
@@ -59,15 +61,45 @@ pub async fn controls(
             })
     };
     let tracked = active.is_some_and(|run| run.runtime_run_id.is_some());
+    let mut pm_controls = domain::PmHumanControls::default();
+    if bound
+        && owner
+        && let (Some(run), Some(Extension(subject)), Some(_)) = (active, subject, human)
+    {
+        if require_pm_owner(&ctx, &user, &subject.0, id, &headers)
+            .await
+            .is_ok()
+        {
+            pm_controls = ctx
+                .runtime
+                .pm_human_controls(&agent, run, user.id)
+                .await
+                .unwrap_or_default();
+        }
+    }
     Ok(Json(domain::ChatControls {
         can_send: owner && supported && !bound && active.is_none() && !pending,
-        can_steer: owner && supported && live && !bound && tracked && supports("run_steer"),
-        can_stop: owner && supported && live && tracked && supports("run_stop"),
+        can_steer: if bound {
+            pm_controls.can_steer
+        } else {
+            owner && supported && live && tracked && supports("run_steer")
+        },
+        can_stop: if bound {
+            pm_controls.can_stop
+        } else {
+            owner && supported && live && tracked && supports("run_stop")
+        },
         active_run_id: active.map(|run| run.id),
         blocked_reason: if !owner {
             Some("read_only".into())
         } else if bound {
-            Some("workflow_assignment_required".into())
+            if active.is_none() {
+                Some("pm_idle_prompt_contract_unavailable".into())
+            } else if !pm_controls.can_steer && !pm_controls.can_stop {
+                Some("pm_control_authority_unavailable".into())
+            } else {
+                None
+            }
         } else if !supported {
             Some("java_chat_phase_2".into())
         } else if pending || (active.is_some() && !tracked) {
@@ -78,6 +110,37 @@ pub async fn controls(
             None
         },
     }))
+}
+
+pub(super) async fn require_pm_owner(
+    ctx: &Arc<AppContext>,
+    user: &CurrentUser,
+    subject: &str,
+    id: Uuid,
+    headers: &HeaderMap,
+) -> Result<(), AppError> {
+    let session = ctx.repo.get_session(id).await?;
+    if session.user_id != user.id {
+        return Err(AppError::Forbidden);
+    }
+    let context = load_task_context(ctx, user, id, headers, true).await?;
+    let binding = context.binding.ok_or(AppError::Forbidden)?;
+    let tracker = context.tracker.ok_or(AppError::Forbidden)?;
+    let pm = ctx.repo.read_pm_operation_for_session(id, user.id).await?;
+    let reserved = pm.reservation.as_ref().ok_or(AppError::Forbidden)?;
+    let assignment = tracker.assignment.as_ref().ok_or(AppError::Forbidden)?;
+    if binding.owner_subject != subject
+        || pm.owner_subject != subject
+        || pm.identity()? != binding
+        || assignment.assignment_id != reserved.assignment.assignment_id
+        || assignment.execution_id != reserved.assignment.execution_id
+        || assignment.agent_id != reserved.assignment.agent_id
+        || u64::try_from(assignment.version).ok() != Some(reserved.assignment.version)
+        || assignment.machine_subject != reserved.assignment.machine_subject
+    {
+        return Err(AppError::Forbidden);
+    }
+    Ok(())
 }
 
 impl TrackerGateway {

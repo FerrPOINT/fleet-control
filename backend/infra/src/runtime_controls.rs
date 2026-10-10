@@ -138,6 +138,7 @@ async fn current(
     txn: &DatabaseTransaction,
     expected: &SessionAgentRun,
     op: RuntimeControlOperation,
+    scope: Option<&domain::PmHumanControlScope>,
 ) -> Result<QueryResult, AppError> {
     // Match the terminal/dispatch lock order; key-share event writers must not deadlock.
     let agent = txn
@@ -190,6 +191,9 @@ async fn current(
         return Err(AppError::conflict(
             "runtime control no longer matches an active primary run",
         ));
+    }
+    if let Some(scope) = scope {
+        return crate::pm_controls::current(txn, expected, op, scope).await;
     }
     let scoped = txn
         .query_one(Statement::from_sql_and_values(
@@ -256,6 +260,32 @@ pub(super) async fn reserve(
     op: RuntimeControlOperation,
     input: Option<&str>,
 ) -> Result<RuntimeControlReservation, AppError> {
+    reserve_scoped(repo, run, actor, op, input, None).await
+}
+
+pub(super) async fn check_pm(
+    repo: &PostgresFleetRepository,
+    run: &SessionAgentRun,
+    owner: Uuid,
+    op: RuntimeControlOperation,
+    scope: &domain::PmHumanControlScope,
+) -> Result<(), AppError> {
+    let txn = repo.db.begin().await.map_err(database_error)?;
+    authorize(&txn, owner, run.session_id).await?;
+    crate::pm_controls::authorize(&txn, run.session_id, owner, scope).await?;
+    current(&txn, run, op, Some(scope)).await?;
+    txn.commit().await.map_err(database_error)?;
+    Ok(())
+}
+
+pub(super) async fn reserve_scoped(
+    repo: &PostgresFleetRepository,
+    run: &SessionAgentRun,
+    actor: &RuntimeControlActor,
+    op: RuntimeControlOperation,
+    input: Option<&str>,
+    scope: Option<&domain::PmHumanControlScope>,
+) -> Result<RuntimeControlReservation, AppError> {
     if actor.user_id.is_nil()
         || !domain::valid_ref(&actor.idempotency_key, 128)
         || (op == RuntimeControlOperation::Steer
@@ -273,6 +303,9 @@ pub(super) async fn reserve(
     );
     let txn = repo.db.begin().await.map_err(database_error)?;
     authorize(&txn, actor.user_id, run.session_id).await?;
+    if let Some(scope) = scope {
+        crate::pm_controls::authorize(&txn, run.session_id, actor.user_id, scope).await?;
+    }
     if let Some(previous) = txn
         .query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -304,7 +337,11 @@ pub(super) async fn reserve(
             receipt: prior,
         });
     }
-    let journal = current(&txn, run, op).await?;
+    let journal = current(&txn, run, op, scope).await?;
+    let native_session = scope
+        .and_then(|scope| scope.record.hermes_session_ref.clone())
+        .or_else(|| run.runtime_session_id.clone())
+        .ok_or_else(|| AppError::conflict("runtime control native session is missing"))?;
     let id = Uuid::new_v4();
     txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "INSERT INTO runtime_control_commands(id,session_id,session_run_id,agent_id,actor_user_id,operation,
@@ -312,7 +349,7 @@ pub(super) async fn reserve(
             VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
         [id.into(),run.session_id.into(),run.id.into(),run.agent_id.into(),actor.user_id.into(),op.as_str().into(),
             actor.idempotency_key.clone().into(),hash.into(),run.runtime_run_id.clone().unwrap().into(),
-            run.runtime_session_id.clone().unwrap().into(),journal.try_get::<String>("","request_hash").map_err(database_error)?.into(),
+            native_session.into(),journal.try_get::<String>("","request_hash").map_err(database_error)?.into(),
             journal.try_get::<String>("","origin").map_err(database_error)?.into(),
             journal.try_get::<String>("","credential_fingerprint").map_err(database_error)?.into()]))
         .await.map_err(database_error)?;
@@ -326,14 +363,28 @@ pub(super) async fn reserve(
 }
 
 pub(super) async fn claim(repo: &PostgresFleetRepository, id: Uuid) -> Result<bool, AppError> {
+    claim_scoped(repo, id, None).await
+}
+
+pub(super) async fn claim_scoped(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+    scope: Option<&domain::PmHumanControlScope>,
+) -> Result<bool, AppError> {
     let seed = receipt(&row(&repo.db, id, false).await?)?;
     let txn = repo.db.begin().await.map_err(database_error)?;
     authorize(&txn, seed.actor_user_id, seed.session_id).await?;
+    if let Some(scope) = scope {
+        crate::pm_controls::authorize(&txn, seed.session_id, seed.actor_user_id, scope).await?;
+    }
     if receipt(&row(&txn, id, false).await?)?.state != RuntimeControlState::Reserved {
         return Ok(false);
     }
     let expected = repo.get_session_agent_run(seed.session_run_id).await?;
-    let journal = current(&txn, &expected, seed.operation).await?;
+    let journal = current(&txn, &expected, seed.operation, scope).await?;
+    let native_session = scope
+        .and_then(|scope| scope.record.hermes_session_ref.as_deref())
+        .or(expected.runtime_session_id.as_deref());
     let record = row(&txn, id, true).await?;
     let prior = receipt(&record)?;
     if prior.state != RuntimeControlState::Reserved {
@@ -365,7 +416,7 @@ pub(super) async fn claim(repo: &PostgresFleetRepository, id: Uuid) -> Result<bo
             .try_get::<String>("", "runtime_session_id")
             .map_err(database_error)?
             .as_str()
-            != expected.runtime_session_id.as_deref().unwrap_or("")
+            != native_session.unwrap_or("")
     {
         return Err(AppError::conflict("runtime control native pin changed"));
     }
@@ -447,6 +498,25 @@ pub(super) async fn finish(
     if prior.state != RuntimeControlState::Submitted {
         return Err(AppError::conflict("runtime control is not awaiting an ACK"));
     }
+    let native_session: String = record
+        .try_get("", "runtime_session_id")
+        .map_err(database_error)?;
+    let mut session_matches = run.runtime_session_id.as_deref() == Some(native_session.as_str());
+    if !session_matches {
+        // PM keeps the requested session on the run and the effective native session on its binding.
+        let proof = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT b.session_run_id FROM pm_run_bindings b JOIN pm_dispatch_journal p USING(session_run_id)
+             JOIN runtime_control_commands c ON c.session_run_id=b.session_run_id
+             WHERE c.id=$1 AND b.session_id=c.session_id AND b.agent_id=c.agent_id AND p.submitted
+               AND p.hermes_run_ref=b.hermes_run_ref AND b.hermes_run_ref=c.runtime_run_id
+               AND b.hermes_session_ref=c.runtime_session_id
+               AND (p.intent->>'request_body')::jsonb->>'session_id'=$2
+               AND encode(sha256(convert_to(p.intent->>'request_body','UTF8')),'hex')=c.original_request_sha256
+               AND p.intent->>'origin'=c.api_origin AND p.intent->>'credential_fingerprint'=c.credential_fingerprint
+             FOR SHARE OF b,p",
+            [id.into(),run.runtime_session_id.clone().into()])).await.map_err(database_error)?;
+        session_matches = proof.is_some();
+    }
     if run.session_id != seed.session_id
         || run.agent_id != seed.agent_id
         || run.runtime_run_id.as_deref()
@@ -456,13 +526,7 @@ pub(super) async fn finish(
                     .map_err(database_error)?
                     .as_str(),
             )
-        || run.runtime_session_id.as_deref()
-            != Some(
-                record
-                    .try_get::<String>("", "runtime_session_id")
-                    .map_err(database_error)?
-                    .as_str(),
-            )
+        || !session_matches
     {
         return Err(AppError::conflict(
             "runtime control changed before ACK commit",
@@ -602,11 +666,17 @@ pub(super) async fn reconcile(repo: &PostgresFleetRepository) -> Result<u64, App
     let ids = repo.db.query_all(Statement::from_string(DatabaseBackend::Postgres,
         "SELECT c.id,c.session_id,c.session_run_id FROM runtime_control_commands c
          JOIN session_agent_runs r ON r.id=c.session_run_id
-         JOIN hermes_dispatch_journal j ON j.run_id=r.id AND j.state='accepted'
-         JOIN session_messages m ON m.id=j.message_id AND m.runtime_message_id=r.runtime_run_id
+         LEFT JOIN hermes_dispatch_journal j ON j.run_id=r.id AND j.state='accepted'
+         LEFT JOIN session_messages m ON m.id=j.message_id AND m.runtime_message_id=r.runtime_run_id
          WHERE c.state IN ('reserved','submitted','uncertain') AND r.state IN ('completed','failed','cancelled')
-            AND r.last_event_at IS NOT NULL
-            AND m.delivery_state=CASE WHEN r.state='failed' THEN 'failed' ELSE 'completed' END
+            AND ((r.last_event_at IS NOT NULL
+              AND m.delivery_state=CASE WHEN r.state='failed' THEN 'failed' ELSE 'completed' END)
+              OR EXISTS(SELECT 1 FROM pm_run_bindings b JOIN pm_dispatch_journal p USING(session_run_id)
+                WHERE b.session_run_id=r.id AND b.session_id=r.session_id AND b.agent_id=r.agent_id
+                  AND p.submitted AND p.terminal_committed AND p.hermes_run_ref=b.hermes_run_ref
+                  AND b.hermes_run_ref=r.runtime_run_id
+                  AND r.runtime_session_id=(p.intent->>'request_body')::jsonb->>'session_id'
+                  AND b.terminal_status IN ('completed','failed','cancelled','stopped')))
          ORDER BY c.id LIMIT 100".to_owned())).await.map_err(database_error)?;
     let mut changed = 0;
     for seed in ids {
@@ -622,11 +692,23 @@ pub(super) async fn reconcile(repo: &PostgresFleetRepository) -> Result<u64, App
         let proof = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "SELECT EXISTS(SELECT 1 FROM hermes_dispatch_journal j JOIN session_messages m ON m.id=j.message_id
                 WHERE j.run_id=$1 AND j.state='accepted' AND m.runtime_message_id=$2
-                AND m.delivery_state=$3) AS valid",
-            [run_id.into(),run.runtime_run_id.clone().into(),if run.state == "failed" {"failed"} else {"completed"}.into()]))
+                AND m.delivery_state=$3) AS valid,
+             EXISTS(SELECT 1 FROM pm_run_bindings b JOIN pm_dispatch_journal p USING(session_run_id)
+                JOIN runtime_control_commands c ON c.session_run_id=b.session_run_id
+                WHERE c.id=$4 AND b.session_run_id=$1 AND p.submitted AND p.terminal_committed AND p.hermes_run_ref=b.hermes_run_ref
+                  AND b.session_id=c.session_id AND b.agent_id=c.agent_id
+                  AND b.hermes_run_ref=c.runtime_run_id AND b.hermes_session_ref=c.runtime_session_id
+                  AND b.hermes_run_ref=$2 AND (p.intent->>'request_body')::jsonb->>'session_id'=$5
+                  AND CASE WHEN b.terminal_status='stopped' THEN 'cancelled' ELSE b.terminal_status END=$6
+                  AND b.terminal_status IN ('completed','failed','cancelled','stopped')
+                  AND encode(sha256(convert_to(p.intent->>'request_body','UTF8')),'hex')=c.original_request_sha256
+                  AND p.intent->>'origin'=c.api_origin AND p.intent->>'credential_fingerprint'=c.credential_fingerprint) AS pm",
+            [run_id.into(),run.runtime_run_id.clone().into(),if run.state == "failed" {"failed"} else {"completed"}.into(),
+             id.into(),run.runtime_session_id.clone().into(),run.state.clone().into()]))
             .await.map_err(database_error)?.unwrap();
-        if run.last_event_at.is_none()
-            || !proof.try_get::<bool>("", "valid").map_err(database_error)?
+        if !proof.try_get::<bool>("", "pm").map_err(database_error)?
+            && (run.last_event_at.is_none()
+                || !proof.try_get::<bool>("", "valid").map_err(database_error)?)
         {
             continue;
         }

@@ -1987,6 +1987,15 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         pm_tools::call(self, agent, name, call).await
     }
 
+    async fn pm_human_controls(
+        &self,
+        agent: &Agent,
+        run: &SessionAgentRun,
+        owner: Uuid,
+    ) -> Result<domain::PmHumanControls, AppError> {
+        run_control::pm_human_controls(self, agent, run, owner).await
+    }
+
     async fn resume_pm_answer(
         &self,
         actor: &domain::ClarificationCommandActor,

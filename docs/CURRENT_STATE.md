@@ -30,15 +30,15 @@ remain authoritative for later completion.
 | Scope | Verified evidence | Still open |
 | --- | --- | --- |
 | Rust OpenAPI, PM source830 | [38040550767](https://github.com/FerrPOINT/fleet-control/actions/runs/38040550767) PASS; strict artifact11666035358 readback, schema SHA256 `ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c`; saved schema synchronized | New human-control API codegen and full backend/test qualification |
-| Backend, source32b | [38037641800](https://github.com/FerrPOINT/fleet-control/actions/runs/38037641800), controls6f23fd84, terminal FAIL; authenticated artifact11664703020 identifies one activation PG failure at `container_activation.rs:1483`; scratch/DB cleanup pass | Test-only correction merged, isolated PG execution and complete current-source full81 success pending |
-| Frontend, PM source830 | [38040245406](https://github.com/FerrPOINT/fleet-control/actions/runs/38040245406), controlsa5c0142, terminal FAIL after20 gates; strict artifact11665915258 readback identifies `chats-directory.spec.ts:59` in Chromium after the SSO/CORS repair; private cleanup passes | Exact browser failure repair, all engines, captures and visual acceptance; fail-fast leaves the other engines unexecuted |
-| PM integration | Shared stream/final persistence/restart attachment, typed continuation and phase cursor/report replay fixes merged; production Rust codegen compiles | Owner controls, delivered-answer resume discovery, Rust tests/PG/HTTP/live flow; source checks are not runtime acceptance |
+| Backend, PM sourcefacb | [38041711484](https://github.com/FerrPOINT/fleet-control/actions/runs/38041711484), controls0d1e5a4, terminal FAIL at workspace check; strict artifact11666431970 readback identifies13 Rust compiler diagnostics; scratch/DB cleanup pass | Compiler corrections, isolated PG execution and complete current-source full81 success; earlier recovered-stop test correction has not yet passed PG |
+| Frontend, PM source34ee5f0 | [38041893267](https://github.com/FerrPOINT/fleet-control/actions/runs/38041893267), controls66a446c, terminal FAIL at three-browser fixture tests after successful typecheck, default units, lint, production build and format | Strict failure-artifact diagnosis, all engines, captures and visual acceptance; individual successful gates are not browser/live qualification |
+| PM integration | Shared stream/final persistence/restart attachment, typed continuation and phase cursor/report replay fixes merged; API-only Rust schema generation passes | Infra/runtime compilation currently fails; owner controls, delivered-answer resume discovery, Rust tests/PG/HTTP/live flow remain open. The API codegen crate does not depend on infra |
 | Forge | [38040722608](https://github.com/FerrPOINT/CI-CD/actions/runs/38040722608), controls970f785, terminal FAIL; strict artifact11666385445 readback identifies `cache_prepare`; cleanup/daemon stop pass, all first-job stages NOT_RUN | Cache preparation repair, physical per-stage limit readback and full12 receipt |
 | Base maintenance | Draft [PR183](https://github.com/FerrPOINT/services-base/pull/183), exact43d0205;92 focused checks; run38030482035 has10 no-runner/no-step jobs with billing/spending-limit annotations | Private CI has not tested this head; native installation and consumer acceptance remain; no installed packet promotion |
 
-Frontend controlsa5c0142 retain all23 gates, source blobs, three browser engines,
+Frontend controls66a446c retain all23 gates, source blobs, three browser engines,
 timeouts and assertions. `--max-failures=1` only stops after an actual failure;
-it cannot turn partial execution into PASS. Parent repeats75 control tests.
+it cannot turn partial execution into PASS. Parent repeats77 control tests.
 
 Forge controls970f785 preserve the runtime-only delegation drop-in and actual
 container CPU/memory/PID readback, adding closed diagnostic labels only. All12
@@ -47,7 +47,8 @@ stages, product/SDK inputs and budgets remain. Parent repeats178 control tests:
 
 The PM creation API client now validates the authentic runtime-acceptance states;
 77 one-shot assertions execute its transpiled source with mocked HTTP/error
-dependencies. Three added Vitest cases still require the full frontend gate.
+dependencies. The source34 frontend job passes its default unit-test stage,
+but the complete frontend gate fails in browser fixtures.
 The creation form remains a separate preview, not a production Chats entrypoint.
 
 ## Release Decision
