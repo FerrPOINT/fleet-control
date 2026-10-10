@@ -12,10 +12,33 @@ Tracker and Workflow stay read-only; root Base foreign changes are untouched.
 
 | Owner | Current isolated write scope / deliverable | Handoff criterion |
 | --- | --- | --- |
-| Curie | New isolated frontend chat-detail/hooks/unit-test successor from7dd6020 | Close actual missing owner-revocation, session-switch and original-answer custody regressions; minimal fixes only for demonstrated bugs; no changes to frozen browser candidate, API, backend or E2E |
-| Pascal | New full-backend controls successor on exact7dd6020 | Integrate reviewed read-only SQL probes; preserve81 gates, selectors, migration lineages and privacy; parent reviews and publishes; no relaxed authority predicates |
-| Feynman | New clean private Base maintenance-packet candidate from verified upstream main | Locate canonical source provenance or disclose installed-byte origin; review exact three helpers and focused tests/docs; root dirty Base and PR180 stay untouched; no private source in public Forge history |
+| Curie | Read-only review of full81 artifact successor9e7fb08 | Validate exact extraction/directory upload, all116 inherited selectors and unchanged81 gates/counts/budgets; no source mutation or publication |
+| Pascal | Read-only review of Forge consumer4d97c54 | Check source/pin/proof/public-safe history, all12 stages and cleanup; Base safety successor43d0205 stays frozen |
+| Feynman | New Forge consumer binding child from4d97c54 | Qualify reviewed published Base43d0205/PR183 and explicit disposable-CI caller policy; no private Base source in Forge; no native run or publication |
+| Planck | New Fleet PM orchestration using unchanged Hermes API | Implement actual Fleet dispatch via existing contracts/API, not an extra Hermes authorization hook; retain ordinary ownership, workflow state and durable idempotency; no container-activation/frontend/producer edits |
 | Parent | Fleet integration, exact-source controls, CI, documentation and publication | Review worker diffs; qualify source/control closure; normal history/push; authenticate terminal receipts before any acceptance claim |
+
+Latest actual results supersede the historical in-progress wording below.
+C11 controls7296506/run38028716924 succeed with authenticated complete artifact
+11661626156 and all28 stages; the old green01f archive remains rejected.
+Full81 controls1200321/run38028965529 fail in the same eight authorize cases after
+successful read-only probes; authenticated artifact11661374366 proves cleanup,
+not the root cause. Frontend0917/run38027721811
+passes21 stages including three-engine fixtures, then fails capture. Source60f35db
+integrates the reproduced capture-fixture fix, native4 test hook and journal-error
+guards/seven new component cases; current-source full frontend acceptance is pending.
+Base717 stays rejected; reviewed safety43d0205 is published as DraftPR183 with
+parent92 pure passes. Private CI is blocked before jobs start by account billing.
+Frontend controls4972214 on exact60f35db are published; run38030851556 is active.
+Parent and independent review69 pure checks pass; actual inventory is837 blobs,
+not the earlier anticipated836. No file was removed to force an incorrect count.
+
+Owner decision: Hermes is not to be modified, and the proposed extra pre-model
+authorization/barrier is removed from requirements. Planck implements the missing
+Fleet integration against existing API/contracts. Ordinary owner/project checks,
+task/workflow business gates and durable one-run delivery remain in Fleet.
+
+### Earlier Same-Day Dispatch Evidence
 
 C11 controlscfe7805 normally publish exact3d1;
 [run38026078533](https://github.com/FerrPOINT/fleet-control/actions/runs/38026078533),

@@ -1,5 +1,22 @@
 # PM structured tools handoff: proposed contract, not runtime admission
 
+## Superseded Producer Proposal (2026-10-10)
+
+The product owner rejected modifying Hermes and the extra pre-model admission
+mechanism proposed below. This document is retained as historical source/probe
+evidence, NOT current release requirements. In particular its producer barrier,
+native-run reservation handshake and `producer_admission=BLOCKED` conclusion
+must not be used to block the existing Hermes API integration.
+
+The current decision is in
+[CHAT_CLARIFICATION_CONTRACT](CHAT_CLARIFICATION_CONTRACT.md#runtime-scope-decision-2026-10-10).
+Fleet must implement supported runtime dispatch/tools and existing task/workflow
+coordination without changing Hermes. Ordinary backend authorization, owner-only
+answers/confirmation, isolation, delivery idempotency and uncertainty recovery
+remain required. Offline results below are still not live PM acceptance.
+
+## Historical Packet
+
 Status: offline executable conformance packet. No plugin is installed and no
 gateway, credential handoff, HTTP endpoint, capability or model path is enabled.
 The contract identifier `pm-tools-handoff/v1` below is a proposal owned by this
