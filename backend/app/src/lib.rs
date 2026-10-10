@@ -416,6 +416,39 @@ pub trait FleetRepository: Send + Sync {
         ))
     }
 
+    async fn reserve_pm_runtime_control(
+        &self,
+        _run: &SessionAgentRun,
+        _actor: &domain::RuntimeControlActor,
+        _op: domain::RuntimeControlOperation,
+        _input: Option<&str>,
+        _scope: &domain::PmHumanControlScope,
+    ) -> Result<domain::RuntimeControlReservation, AppError> {
+        Err(AppError::Unavailable(
+            "PM human controls are unavailable".into(),
+        ))
+    }
+    async fn check_pm_runtime_control(
+        &self,
+        _run: &SessionAgentRun,
+        _owner: Uuid,
+        _op: domain::RuntimeControlOperation,
+        _scope: &domain::PmHumanControlScope,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "PM human controls are unavailable".into(),
+        ))
+    }
+    async fn claim_pm_runtime_control(
+        &self,
+        _id: Uuid,
+        _scope: &domain::PmHumanControlScope,
+    ) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "PM human controls are unavailable".into(),
+        ))
+    }
+
     async fn finish_runtime_control(
         &self,
         _id: Uuid,
@@ -744,6 +777,17 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<domain::ClarificationAnswerCommand, AppError> {
         Err(AppError::Unavailable(
             "clarification journal is not available".into(),
+        ))
+    }
+
+    async fn finish_clarification_continuation(
+        &self,
+        _actor: &domain::ClarificationCommandActor,
+        _id: Uuid,
+        _outcome: domain::PmContinuationOutcome,
+    ) -> Result<domain::ClarificationAnswerCommand, AppError> {
+        Err(AppError::Unavailable(
+            "PM continuation receipt is unavailable".into(),
         ))
     }
     async fn create_pm_draft_chat(
@@ -1294,6 +1338,16 @@ pub trait AgentProvisioner: Send + Sync {
 
 #[async_trait]
 pub trait RuntimeSupervisor: Send + Sync {
+    async fn pm_human_controls(
+        &self,
+        _agent: &Agent,
+        _run: &SessionAgentRun,
+        _owner: Uuid,
+    ) -> Result<domain::PmHumanControls, AppError> {
+        Err(AppError::Unavailable(
+            "PM human controls are unavailable".into(),
+        ))
+    }
     fn authorize_pm_tool(&self, _agent: Uuid, _bearer: &str) -> Result<(), AppError> {
         Err(AppError::Unavailable(
             "PM tool authentication is unavailable".into(),

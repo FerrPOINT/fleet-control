@@ -8,7 +8,7 @@ use sea_orm::{DatabaseTransaction, QueryResult};
 
 const RECORD: &str = "jsonb_build_object('id',c.id,'session_id',c.session_id,'question_id',c.question_id,
     'request',c.request_body::jsonb,'payload_sha256',c.payload_sha256,'state',c.state,
-    'answer',c.answer,'rejection_status',c.rejection_status,'created_at',c.created_at,'updated_at',c.updated_at)";
+    'answer',c.answer,'continuation_state',c.continuation_state,'rejection_status',c.rejection_status,'created_at',c.created_at,'updated_at',c.updated_at)";
 
 fn db_error(error: sea_orm::DbErr) -> AppError {
     if matches!(
@@ -130,6 +130,21 @@ pub(super) async fn store(
         tx.commit().await.map_err(db_error)?;
         return Ok(saved);
     }
+    if tx
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM clarification_answer_commands WHERE session_id=$1
+             AND state='delivered' AND continuation_state='pending' LIMIT 1",
+            [actor.session_id.into()],
+        ))
+        .await
+        .map_err(db_error)?
+        .is_some()
+    {
+        return Err(AppError::conflict(
+            "continue the original delivered PM answer before creating another command",
+        ));
+    }
     let id = Uuid::new_v4();
     tx.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "INSERT INTO clarification_answer_commands(id,session_id,question_id,actor_user_id,owner_subject,
@@ -163,7 +178,8 @@ pub(super) async fn list(
     let rows = tx.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         format!("SELECT {RECORD} AS record,c.request_body FROM clarification_answer_commands c
             WHERE c.session_id=$1 AND c.actor_user_id=$2 AND c.owner_subject=$3 AND c.binding=$4
-                AND c.state IN ('stored','delivering','uncertain') ORDER BY c.created_at,c.id LIMIT 101"),
+                AND (c.state IN ('stored','delivering','uncertain') OR (c.state='delivered' AND c.continuation_state='pending'))
+                ORDER BY c.created_at,c.id LIMIT 101"),
         [actor.session_id.into(),actor.user_id.into(),actor.subject.clone().into(),
          serde_json::to_value(&actor.binding).map_err(AppError::internal)?.into()])).await.map_err(db_error)?;
     if rows.len() > 100 {
@@ -196,6 +212,45 @@ pub(super) async fn claim(
         command,
         attempt_id: claimed.then_some(attempt),
     })
+}
+
+pub(super) async fn finish_continuation(
+    repo: &PostgresFleetRepository,
+    actor: &ClarificationCommandActor,
+    id: Uuid,
+    outcome: domain::PmContinuationOutcome,
+) -> Result<ClarificationAnswerCommand, AppError> {
+    let tx = repo.db.begin().await.map_err(db_error)?;
+    authorize(&tx, actor).await?;
+    let saved = receipt(&row(&tx, actor, id).await?)?;
+    let history_proven = if saved.state == domain::ClarificationDeliveryState::Delivered
+        && saved.continuation_state == domain::ClarificationContinuationState::Pending
+    {
+        tx.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT pm_answer_continuation_proven($1) AS proven",
+            [id.into()],
+        ))
+        .await
+        .map_err(db_error)?
+        .ok_or_else(|| AppError::Database("continuation history proof is unavailable".into()))?
+        .try_get::<bool>("", "proven")
+        .map_err(db_error)?
+    } else {
+        false
+    };
+    // Disabled dispatch / NotRequired alone cannot settle an existing PM receipt.
+    if (matches!(outcome, domain::PmContinuationOutcome::Confirmed) || history_proven)
+        && saved.state == domain::ClarificationDeliveryState::Delivered
+        && saved.continuation_state == domain::ClarificationContinuationState::Pending
+    {
+        tx.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "UPDATE clarification_answer_commands SET continuation_state='confirmed',updated_at=clock_timestamp() WHERE id=$1",
+            [id.into()])).await.map_err(db_error)?;
+    }
+    let result = receipt(&row(&tx, actor, id).await?)?;
+    tx.commit().await.map_err(db_error)?;
+    Ok(result)
 }
 
 pub(super) async fn finish(

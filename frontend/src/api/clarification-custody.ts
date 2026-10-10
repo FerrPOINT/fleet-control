@@ -1,7 +1,9 @@
 import type { AnswerInput } from './task-chats'
 import type { components } from './generated'
 
-export type ClarificationCommand = components['schemas']['ClarificationAnswerCommand']
+export type ClarificationCommand = components['schemas']['ClarificationAnswerCommand'] & {
+  continuation_state?: 'not_required' | 'pending' | 'confirmed'
+}
 
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -35,7 +37,12 @@ export function assertAnswerCommand(
     !/^[a-f0-9]{64}$/.test(value.payload_sha256) ||
     typeof value.created_at !== 'string' ||
     typeof value.updated_at !== 'string' ||
-    !['stored', 'delivering', 'uncertain', 'delivered', 'rejected'].includes(String(value.state)) ||
+    typeof value.state !== 'string' ||
+    !['stored', 'delivering', 'uncertain', 'delivered', 'rejected'].includes(value.state) ||
+    (value.continuation_state !== undefined &&
+      (typeof value.continuation_state !== 'string' ||
+        !['not_required', 'pending', 'confirmed'].includes(value.continuation_state))) ||
+    (value.continuation_state === 'confirmed' && value.state !== 'delivered') ||
     typeof request.idempotency_key !== 'string' ||
     !request.idempotency_key ||
     !safeVersion(request.expected_question_version) ||

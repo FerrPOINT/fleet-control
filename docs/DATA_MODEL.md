@@ -1,5 +1,26 @@
 # Data Model
 
+## PM Human Controls Integration Candidate
+
+Additive migration023 follows authority021 and PM022 in both supported
+lineages (canonical24/split27). It extends existing journals, not a new command
+ledger. Migration and historical backfill behavior still require current-source
+PostgreSQL qualification and closure of the recorded backend review findings.
+
+`clarification_answer_commands.continuation_state` is
+`not_required | pending | confirmed`; `confirmed` requires `state=delivered`.
+The original answer, owner, binding and payload stay immutable. Delivered
+answers with pending continuation remain discoverable and prevent a new answer
+from bypassing unresolved custody. Existing delivery leases remain separate
+from execution continuation; neither state proves requirements publication.
+
+The runtime-control foreign key points to `session_agent_runs`. Insert-time
+custody checks distinguish accepted free-chat dispatch from accepted bound PM
+dispatch; they do not trust a caller's task binding or native IDs. Existing
+actor/key uniqueness and immutable control history remain. Terminal release
+requires the matching committed terminal mirror, not a stop ACK. Down migration
+must preserve history and refuse unsafe downgrade; live migration proof is pending.
+
 ## Original Control Key Lookup
 
 The literal control lookup GET reuses runtime_control_commands' existing unique
@@ -343,6 +364,14 @@ the accepted mapping, introduce terminal state without proof, or regress verifie
 terminal state. Both paths lock the PM binding before the runtime run. A mapping
 mismatch rolls back proof and run state together. This never advances Tracker;
 business completion still requires its own workflow/requirements receipts.
+
+PM creation's public state is a projection, not a second run ledger. The original
+operation retains its task/chat identity. A submitted `pm_dispatch_journal`
+intent projects `awaiting_runtime_acceptance`; a saved native run reference
+projects `runtime_accepted`. Only the latter sets `dispatch_allowed=true`, and
+neither state proves terminal runtime execution or Tracker business completion.
+The frontend validates the exact state/step/boolean and task/session identity
+combination, including on same-operation recovery.
 
 ## Tracker Event Inbox
 

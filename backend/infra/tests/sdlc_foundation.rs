@@ -22,6 +22,8 @@ mod pm_dispatch;
 mod pm_draft_creation;
 #[path = "support/pm_events.rs"]
 mod pm_events;
+#[path = "support/pm_human_controls.rs"]
+mod pm_human_controls;
 
 #[path = "support/pm_credential_creation.rs"]
 mod pm_credential_creation;

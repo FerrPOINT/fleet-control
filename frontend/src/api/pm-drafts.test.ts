@@ -105,6 +105,63 @@ describe('PM Draft recovery contract', () => {
     }
   })
 
+  it.each(['awaiting_runtime_acceptance', 'runtime_accepted'] as const)(
+    'accepts the exact %s runtime receipt for creation and recovery',
+    async (state) => {
+      const response = {
+        ...pending,
+        task_id: agent,
+        session_id: project,
+        state,
+        next_step: 'runtime',
+        dispatch_allowed: state === 'runtime_accepted',
+      }
+      vi.mocked(apiRequest).mockResolvedValue(response)
+      expect(
+        await createPmDraft(project, {
+          agent_id: agent,
+          title: 'Task',
+          description: '',
+          idempotency_key: 'original-key',
+        }),
+      ).toEqual(response)
+      expect(await getPmDraftCreation(operation)).toEqual(response)
+      expect(await findPmDraftCreation(project, 'original-key')).toEqual(response)
+      expect(await continuePmDraftCreation(operation)).toEqual(response)
+      expect(apiRequest).toHaveBeenLastCalledWith(
+        `/api/v1/pm-drafts/operations/${operation}/continue`,
+        { method: 'POST', body: '{}' },
+      )
+    },
+  )
+
+  it('rejects inconsistent runtime acceptance without weakening identity or closed fields', async () => {
+    const response = {
+      ...pending,
+      task_id: agent,
+      session_id: project,
+      state: 'runtime_accepted',
+      next_step: 'runtime',
+      dispatch_allowed: true,
+    }
+    for (const changed of [
+      { ...response, dispatch_allowed: false },
+      { ...response, dispatch_allowed: 'true' },
+      { ...response, state: 'awaiting_runtime_acceptance' },
+      { ...response, state: 'awaiting_runtime_acceptance', dispatch_allowed: null },
+      { ...response, state: 'awaiting_admission', next_step: 'admission' },
+      { ...response, next_step: 'admission' },
+      { ...response, task_id: null },
+      { ...response, session_id: null },
+      { ...response, operation_id: agent },
+      { ...response, state: 'completed' },
+      { ...response, machine_secret: 'must-not-be-rendered' },
+    ]) {
+      vi.mocked(apiRequest).mockResolvedValue(changed)
+      await expect(getPmDraftCreation(operation)).rejects.toMatchObject({ status: 502 })
+    }
+  })
+
   it('rejects invented dispatch, incomplete identities and invalid partial-success states', async () => {
     for (const changed of [
       { ...pending, dispatch_allowed: true },
