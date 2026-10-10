@@ -2220,6 +2220,9 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
             axum::routing::get(api::routes::approvals::read).post(api::routes::approvals::decide),
         )
         .layer(axum::Extension(api::middleware::VerifiedHumanSession))
+        .layer(axum::Extension(api::middleware::VerifiedCentralSubject(
+            binding.owner_subject.clone(),
+        )))
         .layer(axum::Extension(api::middleware::CurrentUser {
             id: session.user_id,
             role: domain::SystemRole::User,
