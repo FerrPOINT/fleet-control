@@ -247,7 +247,7 @@
     "fleet-control/backend/infra/tests/support/pm_dispatch.rs": "b5efce12e407916a39f7d1eaded1a6875f42b362ebf2b9c920f631f96b1c54e6",
     "fleet-control/backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "fleet-control/backend/infra/tests/support/pm_events.rs": "3919f37e56a78e45132166c7431cdc8c0920d9a1238c8ca66ebe459ec1304903",
-    "fleet-control/backend/infra/tests/support/pm_human_controls.rs": "4a66c8c92fb044696e8b02d4cbafc4f7faa7aa775777028644cce6fe46bc8214",
+    "fleet-control/backend/infra/tests/support/pm_human_controls.rs": "e87c0899579bec1abba8986c785e4ad5e454442a0734c15402f2a144c7a27a5b",
     "fleet-control/backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "fleet-control/backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
     "fleet-control/backend/infra/tests/support/runtime_approval_recovery.rs": "354fc369572c6ded6ab9558ea34b6ca512a352fdd9f4a52500d32fddfaf9d9b8",
@@ -438,7 +438,7 @@
         "backend/cli/Cargo.toml"
       ],
       "api_dependency_closure_git_sha256": "721d0adcd6a5c08d362ea5e25535173333aeac74173608009184818fc30c4159",
-      "artifact_bound_source_commit": "5db4ff92d2168c46ce96b56f37acbbf7de92db33",
+      "artifact_bound_source_commit": "3fcbe6288dfb52d6b56eed5068ee364532ac84f6",
       "artifact_id": 11674599663,
       "artifact_zip_sha256": "8e1284e91d778d99281b1fa27df8b5dd7887679dd1068d023ae50a84f6fb1cbb",
       "binding_kind": "verified_api_dependency_closure_parity",
@@ -451,8 +451,12 @@
         "backend/infra/tests/sdlc_foundation.rs",
         "backend/infra/tests/support/pm_dispatch.rs",
         "backend/infra/tests/support/pm_events.rs",
+        "backend/infra/tests/support/pm_human_controls.rs",
+        "docs/CHAT_CLARIFICATION_VERIFICATION.md",
         "docs/CURRENT_STATE.md",
-        "docs/GAP_REGISTER.md"
+        "docs/GAP_REGISTER.md",
+        "frontend/src/pages/chat-detail/index.test.tsx",
+        "frontend/src/pages/chat-detail/task-detail.tsx"
       ],
       "source_file_count": 305,
       "source_inventory_sha256": "34c748fcfa80e9fde9bfe474acd08ecbe509befde29313ba7882ea08198b408b",
@@ -550,7 +554,7 @@
       "workflow_commit": "eed4bc54149e1b317c5eb3e3e7c628eeaffbdea4"
     },
     "prior_stages_preserved": 74,
-    "source_commit": "5db4ff92d2168c46ce96b56f37acbbf7de92db33"
+    "source_commit": "3fcbe6288dfb52d6b56eed5068ee364532ac84f6"
   },
   "default_foundation_ignored": 124,
   "executed": false,
@@ -1705,7 +1709,7 @@
     },
     {
       "gate": "pm_human_controls",
-      "line": 962,
+      "line": 968,
       "name": "pm_human_controls::legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_tool_history",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_human_controls.rs",
@@ -1714,7 +1718,7 @@
     },
     {
       "gate": "pm_human_controls",
-      "line": 1379,
+      "line": 1417,
       "name": "pm_human_controls::pm_control_migration_rejects_forged_original_dispatch_tuple_without_a_receipt",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_human_controls.rs",
@@ -3054,7 +3058,7 @@
     "backend/infra/tests/support/pm_dispatch.rs": "b5efce12e407916a39f7d1eaded1a6875f42b362ebf2b9c920f631f96b1c54e6",
     "backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "backend/infra/tests/support/pm_events.rs": "3919f37e56a78e45132166c7431cdc8c0920d9a1238c8ca66ebe459ec1304903",
-    "backend/infra/tests/support/pm_human_controls.rs": "4a66c8c92fb044696e8b02d4cbafc4f7faa7aa775777028644cce6fe46bc8214",
+    "backend/infra/tests/support/pm_human_controls.rs": "e87c0899579bec1abba8986c785e4ad5e454442a0734c15402f2a144c7a27a5b",
     "backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
     "backend/infra/tests/support/runtime_approval_recovery.rs": "354fc369572c6ded6ab9558ea34b6ca512a352fdd9f4a52500d32fddfaf9d9b8",
@@ -3122,7 +3126,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "5db4ff92d2168c46ce96b56f37acbbf7de92db33",
+  "source_commit": "3fcbe6288dfb52d6b56eed5068ee364532ac84f6",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",

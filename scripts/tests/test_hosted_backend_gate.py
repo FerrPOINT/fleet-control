@@ -739,10 +739,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "5db4ff92d2168c46ce96b56f37acbbf7de92db33")
+        self.assertEqual(gate.SOURCE_SHA, "3fcbe6288dfb52d6b56eed5068ee364532ac84f6")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "5328b7de2d2e1922ae6748b02f974471a01d9de4")
+        self.assertEqual(tree, "472777f4a0df116483f5535ba5eb3145aadb82ab")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -772,7 +772,9 @@ class HostedBackendTests(unittest.TestCase):
             "backend/" + member + "/Cargo.toml"
             for member in ("api", "app", "domain", "shared", "infra", "migration", "server", "cli")]
         source_delta = ["backend/infra/tests/sdlc_foundation.rs", "backend/infra/tests/support/pm_dispatch.rs",
-            "backend/infra/tests/support/pm_events.rs", "docs/CURRENT_STATE.md", "docs/GAP_REGISTER.md"]
+            "backend/infra/tests/support/pm_events.rs", "backend/infra/tests/support/pm_human_controls.rs",
+            "docs/CHAT_CLARIFICATION_VERIFICATION.md", "docs/CURRENT_STATE.md", "docs/GAP_REGISTER.md",
+            "frontend/src/pages/chat-detail/index.test.tsx", "frontend/src/pages/chat-detail/task-detail.tsx"]
         source = original["source_commit"]
         listing = lambda pin: subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT),
             "ls-tree", "-r", "-z", pin, "--", *closure], capture_output=True, check=True, timeout=30).stdout
