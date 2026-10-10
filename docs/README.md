@@ -47,6 +47,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [WORKFLOW.md](WORKFLOW.md)
 - [RUNTIME.md](RUNTIME.md)
 - [EVENTS.md](EVENTS.md)
+- [Tracker metadata11 compatibility and execution limits](TRACKER_METADATA11_COMPATIBILITY.md)
 - [ROUTING.md](ROUTING.md)
 - [LIBRARIES.md](LIBRARIES.md)
 - [SERVICES_BASE.md](SERVICES_BASE.md)

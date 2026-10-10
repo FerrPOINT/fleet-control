@@ -38,7 +38,9 @@ dispatch and lacks a completed safe-stop release/reacquire path. Corresponding
 execution lifecycles for Architect, Developer, Reviewer, Tester and DevOps are not
 present. Workflow PR90 at `66e5d6db9fc2ae9129c9162688bacb1a98c7a4a3` has the role/mode
 catalog and generic endpoints, but catalog presence is not execution authority.
-Fleet metadata decoding must also accept the two existing Analysis event types.
+Fleet now accepts the two existing Analysis metadata event types after independent
+source review; Rust/HTTP/PG execution remains unqualified. See
+[metadata compatibility](TRACKER_METADATA11_COMPATIBILITY.md).
 These are explicit implementation/dependency gaps, not missing Hermes hooks.
 
 ## Historical Qualification Checkpoints

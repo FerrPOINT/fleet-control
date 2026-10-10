@@ -17,6 +17,9 @@ remain authoritative for later completion.
   recovery are integrated after independent review. They do not modify Hermes
   or require the optional free-chat recovery extension. New Rust/PG/native
   qualification remains required; prior codegen is for the earlier sourcef7d.
+- Strict Tracker metadata now accepts both existing Analysis event types without
+  advancing execution or weakening owner/digest/cursor checks. Independent source
+  review passes; its authored Rust cases and actual event ingestion remain open.
 - Independently frozen product `32b9f063f9b5099ff61bca24ecdfeb9952889034` is the
   source for the earlier backend run. Its result does not qualify PM integration.
 - Current PM integration includes authority021, PM022 and human controls023:
