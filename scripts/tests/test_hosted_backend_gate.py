@@ -25,12 +25,6 @@ REVIEWED = gate.reviewed_inventory(ROOT)
 
 
 class HostedBackendTests(unittest.TestCase):
-    def validate_readback(self, *args, **kwargs):
-        # Exercise the full receipt validator with an explicitly synthetic final binding.
-        bound = dict(REVIEWED, openapi_binding=dict(status="verified", sha256=gate.OPENAPI_SHA))
-        with mock.patch.object(gate, "reviewed_inventory", return_value=bound):
-            return gate.validate_readback(*args, **kwargs)
-
     def source_blob(self, path, pin=None):
         return subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "show",
             (pin or gate.SOURCE_SHA) + ":" + path], capture_output=True, check=True, timeout=30).stdout
@@ -125,12 +119,17 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_authentic_codegen_binding_and_missing_ancestry_fail_before_private_or_heavy_effects(self):
         self.assertEqual(gate.OPENAPI_SHA, "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953")
-        self.assertEqual(REVIEWED["openapi_binding"], dict(status="pending_final_source_binding", sha256=gate.OPENAPI_SHA))
-        self.assertNotEqual(gate.digest(self.source_blob("openapi/openapi.json")), gate.OPENAPI_SHA)
+        self.assertEqual(REVIEWED["openapi_binding"], dict(status="verified", sha256=gate.OPENAPI_SHA))
+        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json")), gate.OPENAPI_SHA)
+        gate.require_codegen_binding(REVIEWED)
+        evidence = REVIEWED["config_union_preparation"]["codegen_evidence"]
+        self.assertEqual(evidence["run_id"], 38015043570)
+        self.assertEqual(evidence["artifact_bound_source_commit"], gate.SOURCE_SHA)
+        pending = dict(REVIEWED, openapi_binding=dict(status="pending_final_source_binding", sha256=gate.OPENAPI_SHA))
         with self.assertRaisesRegex(ValueError, "binding is pending"):
-            gate.require_codegen_binding(REVIEWED)
+            gate.require_codegen_binding(pending)
         with mock.patch.object(gate, "hosted_identity", return_value=(Path("owned"), "a" * 40)), \
-                mock.patch.object(gate, "clean_head"), mock.patch.object(gate, "reviewed_inventory", return_value=REVIEWED), \
+                mock.patch.object(gate, "clean_head"), mock.patch.object(gate, "reviewed_inventory", return_value=pending), \
                 mock.patch.object(gate, "git") as git, mock.patch.object(gate.subprocess, "Popen") as spawn:
             with self.assertRaisesRegex(ValueError, "binding is pending"):
                 gate.preflight()
@@ -1126,7 +1125,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(value["kind"], "safe_test_failure")
         self.assertFalse(value["backend_quality_gate"])
         with self.assertRaises(ValueError):
-            self.validate_readback(run, artifact, payload, **args)
+            gate.validate_readback(run, artifact, payload, **args)
 
     def test_journal_groups_use_safe_test_failure_without_cross_group_identity_or_acceptance(self):
         for stage in ("clarification_domain", "clarification_api", "clarification_pg", "clarification_migration"):
@@ -1144,7 +1143,7 @@ class HostedBackendTests(unittest.TestCase):
                 run, artifact, payload, args = self.failure_artifact(value=value)
                 gate.validate_failure_readback(run, artifact, payload, **args)
                 with self.assertRaises(ValueError):
-                    self.validate_readback(run, artifact, payload, **args)
+                    gate.validate_readback(run, artifact, payload, **args)
 
     def failure_artifact(self, extra=None, value=None):
         run, artifact, _, args = self.artifact()
@@ -1169,7 +1168,7 @@ class HostedBackendTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 gate.validate_failure_readback(run, dict(artifact, **{key: item}), payload, **args)
         with self.assertRaises(ValueError):
-            self.validate_readback(run, artifact, payload, **args)
+            gate.validate_readback(run, artifact, payload, **args)
 
     def test_failure_zip_rejects_raw_extra_traversal_duplicate_and_size(self):
         for extra in (["../private"], ["cargo-stderr.log"], [gate.FAILURE_FILE]):
@@ -1239,31 +1238,31 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_authenticated_readback_binds_exact_run_attempt_sha_digest(self):
         run, artifact, payload, args = self.artifact()
-        self.assertEqual(set(self.validate_readback(run, artifact, payload, **args)), gate.ARTIFACT_FILES)
+        self.assertEqual(set(gate.validate_readback(run, artifact, payload, **args)), gate.ARTIFACT_FILES)
         for key, value in (("id", 999), ("run_attempt", 2), ("head_sha", "b" * 40), ("event", "pull_request"),
                            ("conclusion", "failure"), ("head_branch", "main")):
             with self.assertRaises(ValueError):
-                self.validate_readback(dict(run, **{key: value}), artifact, payload, **args)
+                gate.validate_readback(dict(run, **{key: value}), artifact, payload, **args)
         with self.assertRaises(ValueError):
-            self.validate_readback(run, artifact, payload + b"tampered", **args)
+            gate.validate_readback(run, artifact, payload + b"tampered", **args)
 
     def test_readback_rejects_weakened_gate_and_wrong_source_base_auth(self):
         for change in (dict(backend_quality_gate=False), dict(cleanup=dict(scratch=False, synthetic_databases=True)),
                        dict(ignored_required=130), dict(gates=[]), dict(focused={})):
             run, artifact, payload, args = self.artifact(report_changes=change)
             with self.assertRaises(ValueError):
-                self.validate_readback(run, artifact, payload, **args)
+                gate.validate_readback(run, artifact, payload, **args)
         for change in (dict(source_sha="bad"), dict(base_sha="bad"), dict(auth_sha="bad"), dict(all_quality_gate=True),
                        dict(sdlc_acceptance=True), dict(control_sha256={}), dict(auth_binary_sha256="")):
             run, artifact, payload, args = self.artifact(provenance_changes=change)
             with self.assertRaises(ValueError):
-                self.validate_readback(run, artifact, payload, **args)
+                gate.validate_readback(run, artifact, payload, **args)
 
     def test_readback_rejects_unsafe_or_private_artifact_members(self):
         for name in ("../private", "cargo-stderr.log", "src/base-auth-source/private.rs"):
             run, artifact, payload, args = self.artifact(extra={name: b"private"})
             with self.assertRaises(ValueError):
-                self.validate_readback(run, artifact, payload, **args)
+                gate.validate_readback(run, artifact, payload, **args)
 
     def python_log(self, stage):
         suite = unittest.TestSuite()
@@ -1360,17 +1359,17 @@ class HostedBackendTests(unittest.TestCase):
             bad[stage]["tests"].pop()
             run, artifact, payload, args = self.artifact(report_changes=dict(contracts=bad))
             with self.assertRaises(ValueError):
-                self.validate_readback(run, artifact, payload, **args)
+                gate.validate_readback(run, artifact, payload, **args)
         for changes in (dict(contracts={}), dict(migration_ledger={}), dict(ignored_required=135)):
             run, artifact, payload, args = self.artifact(report_changes=changes)
             with self.assertRaises(ValueError):
-                self.validate_readback(run, artifact, payload, **args)
+                gate.validate_readback(run, artifact, payload, **args)
 
     def test_readback_rejects_wrong_utility_and_compiled_fingerprints(self):
         for field in ("utility_sha", "utility_tree", "utility_inventory_sha256", "source_inventory_sha256"):
             run, artifact, payload, args = self.artifact(provenance_changes={field: "0" * 40})
             with self.assertRaises(ValueError):
-                self.validate_readback(run, artifact, payload, **args)
+                gate.validate_readback(run, artifact, payload, **args)
 
     def test_utility_clean_exact_worktree_git_blobs_and_hashes_all_required(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -1557,7 +1556,7 @@ class HostedBackendTests(unittest.TestCase):
         for key in ("package_sha", "package_tree", "package_inventory_sha256"):
             run, artifact, payload, args = self.artifact(provenance_changes={key: "wrong"})
             with self.subTest(key=key), self.assertRaises(ValueError):
-                self.validate_readback(run, artifact, payload, **args)
+                gate.validate_readback(run, artifact, payload, **args)
             with self.assertRaises(ValueError):
                 self.validate_failure(dict(self.failure_value(), **{key: "wrong"}))
 
@@ -1569,6 +1568,9 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_all_exact_activation_probe_literals_emit_only_closed_hint_and_location(self):
         self.assertEqual(len(gate.TEST_ACTIVATION_HINTS), 25)
+        source = self.source_blob(gate.ACTIVATION_PROBE_SOURCE).decode()
+        helper = source.split("async fn assert_recovered_preconditions(", 1)[1].split("async fn recovered_step(", 1)[0]
+        self.assertEqual(set(re.findall(r'"(activation_probe_[a-z_]+)"', helper)), gate.TEST_ACTIVATION_HINTS)
         for hint in gate.TEST_ACTIVATION_HINTS:
             with self.subTest(hint=hint):
                 result = self.probe_diagnostics(hint)

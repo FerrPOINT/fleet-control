@@ -23,7 +23,7 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/config-union-backend-20261010"
-SOURCE_SHA = "8c93f43fdbe31e9564f05c69c6d28a81d18cb2b6"
+SOURCE_SHA = "b0ad56ca5a90a87b2b2d46c5bfbfc52c9c643d6d"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 UTILITY_SHA = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
@@ -31,7 +31,7 @@ UTILITY_INVENTORY_SHA = "8e727d1d2ba02941dc176f26945d25593068fc593cb619928538129
 PACKAGE_SHA = "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58"
 PACKAGE_TREE = "96d9a7453744fd09f9ee3ba3b2c20f6b3d389b85"
 PACKAGE_INVENTORY_SHA = "1bdf56b21b0b97ec4a5a6303b04ecdda1b6609164aa018acc830187ca124f827"
-# Authentic union codegen expectation; final source/artifact binding remains pending.
+# Authentic union codegen artifact bound to the final product source Git blob.
 OPENAPI_SHA = "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953"
 SWAGGER_SHA = "481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc"
 WORKFLOW = ".github/workflows/backend-build-only.yml"
@@ -42,7 +42,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "f264f551e6af371e021204e789ea8b38b0117c8b6d97f58f0e6dfe66e82a2bb3"
+SOURCE_INVENTORY_SHA = "6e0ba812419f28824ae98cb1c4e80a72abdd55d0e21416bfd3762a17b9309e90"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
@@ -762,7 +762,8 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
     if test_failure and set(value["categories"]) & (TEST_CUSTOM_HINTS.keys() | TEST_NULL_HINTS.keys() | TEST_ACTIVATION_HINTS):
         require("test_failure" in value["categories"] and bool(value["diagnostics"]), "Unanchored test failure hint")
     if test_failure and set(value["categories"]) & TEST_ACTIVATION_HINTS:
-        require(any(isinstance(record, dict) and record.get("file") == ACTIVATION_PROBE_SOURCE
+        require(isinstance(value["diagnostics"], list)
+                and any(isinstance(record, dict) and record.get("file") == ACTIVATION_PROBE_SOURCE
                     for record in value["diagnostics"]), "Unanchored activation probe hint")
     records = value["diagnostics"]
     allowed = reviewed["rust_source_sha256"]

@@ -12,21 +12,64 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Safe test-reason diagnostic categories | Actual38008974895 fails message_order; safe artifact independently authenticated. Add only fixed enum hints and strict parser/readback regression tests in owned controls; preserve all74 gates/source inventory/pins, no push or rerun. |
-| Feynman | Review candidate late-bound migration lookups | PR64 CI watch complete, all five jobs PASS. Independently review four Rust files addressing the source OID hazard and strengthening same-connection roundtrip. No product writes, native execution or causal CI claim. |
+| Pascal | Diagnose recovered-activation authorization | Actual38011797295 fails at container_activation_pg62/74; parent authenticates receipt/cleanup. Add only read-only test precondition assertions at the two known positive authorize sites, preserving all13 cases/guards/leases. No local PG or public push; production fix needs proof. External refresh complete. |
+| Feynman | Update combined backend CI controls | Configuration integration is frozen at8c93f43 and normally integrated by parent at65b4f33. Own only the six backend build-only control files: preserve prior74 stages, add the six activation-intent cases and configuration/package/workflow scopes, and require the exact package checkout instead of silently skipping that branch. No product edits, push or dispatch until final source/API inputs are qualified. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
-| Parent | Correct the migration roundtrip and integrate release evidence | Authenticate actual380089 failure; implement parameterized current-object lookup and stable-connection/OID regression. Review worker controls, preserve every authority/ledger assertion and publish only after exact-source checks. |
+| Parent | API generation, integration and publication | Normal merge65b4f33 retains configuration candidate8c93f43 and earlier runtime history. Review Pascal's diagnostic patch; authenticate new Rust-generated API, regenerate the client, then bind and run Feynman's combined controls. Preserve every authority/ledger assertion; no qualified product publication before those gates. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
 integrates the generated API/type alias. Final integrated Rust parity is still
 required; code generation is not runtime acceptance.
 
-The three worker streams have disjoint write sets: backend gate controls,
-the existing PR47 approval patch, and frontend browser tests. Parent alone writes
-the combined product source and this release ledger. Completed work is not
-reassigned as a new audit. Deliverables are a concrete commit, exact commands and
-results, and a bounded blocker list, rather than a fresh broad plan.
+Pascal may edit only backend/infra/tests/container_activation.rs in his owned
+checkout: read-only assertions, not production behavior. Feynman owns only the
+six backend build-only controls. Parent owns generated API/client files,
+integration and this ledger. Historical worker scopes below
+are complete, not concurrent assignments. Deliverables identify exact commits,
+commands, results and bounded blockers rather than repeat completed broad audits.
+
+The current parent codegen bootstrap is the separate build-only commit
+5e57d5be967418530918b72c1e457d92a5df7588, with product source8c93f43,
+eight exact input blobs and282 canonical exported files. Its15 pure tests,
+source/export qualification, four shell syntax checks and diff check pass.
+[Run38015043570](https://github.com/FerrPOINT/fleet-control/actions/runs/38015043570)
+completes SUCCESS. Parent authenticates artifact11656020208, schema1167220e,
+containing both configuration routes and all four clarification command routes.
+Client generation/typecheck/drift and compatibility with mainb750e7b pass;
+all earlier paths/DTOs remain unchanged. No schema/client is manually combined.
+Publishing this build-only
+bootstrap does not make the combined product merge-ready or certify runtime/PM.
+
+Integration dependency: Pascal's diagnostic patch and the new API artifact can
+advance independently; parent reviews both before final control qualification.
+Feynman's inventory preparation need not wait for either, but dispatch does.
+If the diagnostic exposes a production defect, fix and requalify the source
+before executing the final combined gate. Local heavy jobs remain held by the
+resource guard; no worker may bypass it or alter shared Docker resources.
+
+The split review finds source688 lacks nine PR64 files, including workflow,
+package and API modules. No current configuration acceptance is inferred from
+PR64's separate CI. Normal integration has actual shared Rust/docs conflicts;
+the generated schema requires a fresh Rust receipt, not a manual union. Missing
+local Git ancestry09b35f1 is found in the existing canonical codegen object store
+and restored by a targeted normal local fetch; no history rewrite or foreign
+working-tree change is used to make the merge proceed.
+
+Current gate: [38011797295](https://github.com/FerrPOINT/fleet-control/actions/runs/38011797295),
+now terminal FAILURE at container_activation_pg62. Parent authenticates safe
+artifact11654672637/digest889a5ed28791e8d43c0fb5075dcad58d316433181b7bfa88d2396be412163999;
+scratch and synthetic DB cleanup pass. message_order19 passes by sequential
+ordering. Positive authorize locations107/133 identify the next diagnostic scope,
+not a root cause or permission to weaken recovery predicates. Controls preserve all74 stages,9 journal
+cases, canonical21/split24 migrations,167 ignored/294 ordinary cases and all
+dependency/API pins. Source-to-controls delta remains exactly six additions;
+gate.sh and init.sql are unchanged. The fixed-hint parser now clears previous
+panic detail at thread/test framing boundaries. Independent counterreview closes
+the synthetic false-attribution P2:14 focused cases and9 independent vectors
+pass. Parent full helper suite runs98 cases,96 PASS/two Linux-only skips. These
+are control-tool checks, not product Rust/PG or live SDLC acceptance. No hint
+alone establishes the cause of an earlier hosted failure.
 
 Integration order: review and integrate product corrections; publish the narrow
 PR successor independently; merge the final product source into backend controls

@@ -2,10 +2,32 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current tested-source candidate is5d91b13
-(runtime corrections, journal3b41, human guard, genuine generated API and private-
-approval ownership correction), not the historical heads below.
+The current source candidate is8c93f43, normally integrated at65b4f33;
+the last combined backend-tested source is6881c04. The union retains runtime
+corrections, journal3b41, human guard, private-approval ownership and PR64 config.
 Source integration is progress, not release acceptance. Its remaining gates are:
+
+Published controlsa7d7db2 now test that exact source in
+[run38011797295](https://github.com/FerrPOINT/fleet-control/actions/runs/38011797295).
+The run completes FAILURE at container_activation_pg62/74, exit101. Parent
+authenticates artifact11654672637, digest
+889a5ed28791e8d43c0fb5075dcad58d316433181b7bfa88d2396be412163999,
+with successful scratch/synthetic DB cleanup. message_order19 now passes by
+verified sequential ordering. Eight recovered-activation cases fail at positive
+authorize unwraps107/133; the safe receipt identifies no underlying predicate or
+database cause. Add read-only test precondition probes, not relaxed authority or
+longer leases. The full backend remains unaccepted; historical38008974895's
+message_order failure does not become a root-cause receipt for this successor.
+
+**Configuration integration:** normal merge8c93f43 retains PR64's standalone
+workflow/package unit and Docker custody/recovery guards. Owner/package readback
+precedes Docker effects; permanent binding failures enter HOLD. Genuine union
+Rust generation38015043570 and authenticated artifact11656020208 now provide
+schema1167220e, without manual schema splicing. Client generation/typecheck,
+OpenAPI drift and compatibility against mainb750e7b pass. The union still needs
+actual all-target/Clippy/tests/PG and native qualification; PR64's separate green
+CI does not accept the combined runtime. Diagnostic-only activation probes and
+an updated, exact-input combined backend inventory precede the next gate.
 
 Use the [current gate matrix](CURRENT_STATE.md#current-integration-snapshot-10-october-2026)
 for exact candidates and acceptance boundaries. Earlier failures below are

@@ -94,6 +94,125 @@ async fn recovered_ack(
     }
 }
 
+async fn assert_recovered_preconditions(
+    repo: &PostgresFleetRepository,
+    record: &Activation,
+    proof: &RecoveredProof,
+) {
+    let anchor = record.claim.anchor();
+    assert!(
+        proof.lease.request.agent_id == record.claim.agent_id
+            && proof.lease.request.launch_id == anchor.prepared.container.registration.generation
+            && proof.lease.request.original_controller_id == record.claim.controller_id
+            && proof.lease.request.controller_id != record.claim.controller_id,
+        "activation_probe_request_scope_exact"
+    );
+    assert!(
+        matches!(anchor.snapshot.as_ref(), Some(snapshot)
+            if !snapshot.is_null() && proof.observation.get("snapshot") == Some(snapshot)),
+        "activation_probe_observation_snapshot_exact"
+    );
+    let stored = repo
+        .get_container_activation(record.claim.agent_id, record.claim.revision)
+        .await;
+    assert!(
+        matches!(stored.as_ref(), Ok(Some(actual)) if json!(actual) == json!(record)),
+        "activation_probe_stored_record_exact"
+    );
+    let url = std::env::var("FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL")
+        .ok()
+        .expect("activation_probe_database_configured");
+    assert!(
+        reqwest::Url::parse(&url).is_ok_and(|url| url.path() == "/fleet_container_activation_test"),
+        "activation_probe_owned_database"
+    );
+    let connection = Database::connect(url).await;
+    assert!(connection.is_ok(), "activation_probe_database_connected");
+    let db = connection
+        .ok()
+        .expect("activation_probe_database_connected");
+    // One read-only snapshot diagnoses predicates; authorize still rechecks under locks.
+    let snapshot = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres, r#"
+WITH activation AS (
+ SELECT record FROM runtime_container_activations WHERE id=$1 AND agent_id=$2
+), recovery AS (
+ SELECT id,command,lease,receipt,lease_receipt,expires_at FROM runtime_container_recoveries
+ WHERE generation=$3 ORDER BY epoch DESC LIMIT 1
+), configuration AS (
+ SELECT h.desired_revision,h.effective_revision,h.draining,r.state,r.claimed_at,r.validation_errors,r.snapshot
+ FROM agent_config_heads h JOIN agent_config_revisions r
+ ON r.agent_id=h.agent_id AND r.revision=h.desired_revision WHERE h.agent_id=$2
+), probe_clock AS (SELECT clock_timestamp() AS observed_at)
+SELECT
+ (SELECT snapshot FROM configuration) AS configuration_snapshot,
+ EXISTS(SELECT 1 FROM activation WHERE record=$4::jsonb) AS activation_probe_record_snapshot_exact,
+ EXISTS(SELECT 1 FROM recovery WHERE id=$5 AND lease=$6::jsonb) AS activation_probe_stored_lease_exact,
+ EXISTS(SELECT 1 FROM recovery WHERE id=$5 AND command->'request'=$6::jsonb->'request'
+   AND command->>'epoch'=$6::jsonb->>'epoch') AS activation_probe_stored_request_exact,
+ EXISTS(SELECT 1 FROM recovery WHERE receipt IS NOT NULL) AS activation_probe_recovery_ack_present,
+ EXISTS(SELECT 1 FROM recovery WHERE lease_receipt IS NOT NULL) AS activation_probe_lease_ack_present,
+ EXISTS(SELECT 1 FROM recovery WHERE receipt->'recovery'=command
+   AND lease_receipt#>>'{ack,recovery_id}'=id::text
+   AND lease_receipt#>>'{ack,lease_version}'=lease->>'lease_version'
+   AND lease_receipt#>>'{ack,lease_expires_at}'=lease->>'lease_expires_at') AS activation_probe_ack_binding_exact,
+ EXISTS(SELECT 1 FROM recovery,probe_clock WHERE expires_at>observed_at
+   AND expires_at=($6::jsonb->>'lease_expires_at')::timestamptz) AS activation_probe_live_expiry,
+ EXISTS(SELECT 1 FROM runtime_container_launches WHERE generation=$3 AND agent_id=$2
+   AND controller_id::text=$8::jsonb->>'controller_id' AND prepared=$8::jsonb->'prepared'
+   AND snapshot=$8::jsonb->'snapshot' AND origin=$8::jsonb->>'origin'
+   AND stop_id::text=$8::jsonb->>'stop_id') AS activation_probe_anchor_custody_exact,
+ fleet_activation_anchor($3) AS activation_probe_anchor_valid,
+ EXISTS(SELECT 1 FROM configuration WHERE desired_revision=$7 AND draining) AS activation_probe_desired_draining,
+ EXISTS(SELECT 1 FROM configuration WHERE state='activating' AND claimed_at IS NOT NULL
+   AND validation_errors='[]'::jsonb
+   AND effective_revision::text IS NOT DISTINCT FROM $4::jsonb#>>'{claim,previous_revision}') AS activation_probe_configuration_valid,
+ NOT EXISTS(SELECT 1 FROM session_agent_runs WHERE agent_id=$2
+   AND state IN ('pending','running','waiting','stopping')) AS activation_probe_no_active_runs,
+ NOT EXISTS(SELECT 1 FROM hermes_dispatch_journal WHERE agent_id=$2
+   AND state IN ('prepared','submitted')) AS activation_probe_no_unfinished_dispatch,
+ NOT EXISTS(SELECT 1 FROM message_dispatch_outbox WHERE agent_id=$2
+   AND state IN ('dispatching','uncertain')) AS activation_probe_no_unknown_delivery,
+ NOT EXISTS(SELECT 1 FROM runtime_container_recoveries r JOIN runtime_container_launches l USING(generation)
+   WHERE l.agent_id=$2 AND l.generation<>$3) AS activation_probe_no_other_recovery
+"#, [record.claim.id.into(), record.claim.agent_id.into(),
+        anchor.prepared.container.registration.generation.into(), json!(record).into(),
+        proof.lease.request.id.into(), json!(proof.lease).into(), record.claim.revision.into(), json!(anchor).into()])).await;
+    let closed = db.close().await;
+    assert!(closed.is_ok(), "activation_probe_database_closed");
+    assert!(snapshot.is_ok(), "activation_probe_select_succeeded");
+    let row = snapshot
+        .ok()
+        .flatten()
+        .expect("activation_probe_snapshot_present");
+    assert!(
+        row.try_get::<Value>("", "configuration_snapshot")
+            .is_ok_and(|snapshot| hash(&snapshot) == record.claim.configuration_sha256),
+        "activation_probe_configuration_snapshot_exact"
+    );
+    for predicate in [
+        "activation_probe_record_snapshot_exact",
+        "activation_probe_stored_lease_exact",
+        "activation_probe_stored_request_exact",
+        "activation_probe_recovery_ack_present",
+        "activation_probe_lease_ack_present",
+        "activation_probe_ack_binding_exact",
+        "activation_probe_live_expiry",
+        "activation_probe_anchor_custody_exact",
+        "activation_probe_anchor_valid",
+        "activation_probe_desired_draining",
+        "activation_probe_configuration_valid",
+        "activation_probe_no_active_runs",
+        "activation_probe_no_unfinished_dispatch",
+        "activation_probe_no_unknown_delivery",
+        "activation_probe_no_other_recovery",
+    ] {
+        assert!(
+            matches!(row.try_get::<bool>("", predicate), Ok(true)),
+            "{predicate}"
+        );
+    }
+}
+
 async fn recovered_step(
     repo: &PostgresFleetRepository,
     record: &mut Activation,
@@ -102,6 +221,7 @@ async fn recovered_step(
 ) {
     let mut next = record.clone();
     next.phase = phase;
+    assert_recovered_preconditions(repo, record, proof).await;
     repo.authorize_recovered_activation(record, proof)
         .await
         .unwrap();
@@ -128,6 +248,7 @@ async fn recovered_activation_requires_original_plan_current_lease_and_exact_cas
             .is_err()
     );
     let proof = recovered_ack(&repo, &l, &c).await;
+    assert_recovered_preconditions(&repo, &record, &proof).await;
     repo.authorize_recovered_activation(&record, &proof)
         .await
         .unwrap();
