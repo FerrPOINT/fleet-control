@@ -44,9 +44,14 @@ confirmed in progress. All380 input files,167 ignored identities and migration
 registries are reverified; controls Linux110/110 pass, not product acceptance.
 No PG cause is inferred from either fixture failure.
 Frontend337/36 passes with threads, not the stopped default-fork
-attempt; the standard hosted frontend gate remains pending. Independent review
-of controls60eee4d finds two P2 issues in PNG pixel validation and command timeout
-cleanup. They must be fixed and rechecked before that gate is published.
+attempt. The standard hosted frontend gate now runs as38019603974 on reviewed
+controlsba60890/sourceb0. Independent PNG and timeout findings are closed at921;
+its first actual run38018831265 fails preparation before frontend execution.
+The definite Base19a CRLF materialization mismatch is corrected by exact
+revision/path/blob/physical-hash attestation, not normalization or changed SDK.
+Parent/reviewer verify2279 canonical blobs and the one-file materialized profile;
+Windows49/49 and Linux49/49 control tests pass. The new hosted result and browser
+evidence remain required; live PM/native/SDLC are not accepted by these controls.
 
 Use the [current gate matrix](CURRENT_STATE.md#current-integration-snapshot-10-october-2026)
 for exact candidates and acceptance boundaries. Earlier failures below are

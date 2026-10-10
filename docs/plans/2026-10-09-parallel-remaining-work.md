@@ -12,11 +12,11 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Close two frontend-control P2 findings | Independent review of60eee4d reproduced malformed PNG acceptance and an unbounded pipe-reader join. Authorized successor edits only helper/tests in the frozen frontend-control checkout; preserve workflow/source/gates and add negative regressions. No heavy jobs or publication before parent review. |
+| Pascal | Frontend control closure complete; frozen | Successor921 closes PNG/timeout findings. Independent review of parentba60890 validates exact Base19a CRLF attestation,2279 canonical blobs and materialized profile, with no P1/P2. No further edits or reruns before actual hosted result. |
 | Feynman | Narrow C11 credential release candidate | New owned checkout from the reviewed47/64 dependency baseline. Extract only credential modules/hunks, migration11 and related tests/docs/CI fromafc5bb4. Preserve configuration semantics; no migrations12..20, heavy jobs or publication before review. Backend controlsaa5ac3f remain frozen. |
 | Curie | Production Chats UX regression closure | New owned checkout at34858b3; write only chat-detail components and their focused tests. Verify draft retention, unsaved navigation, stale/conflict input, explicit choices and keyboard/focus behavior; fix reproduced defects or add missing regression coverage. No backend/schema/lock/control edits or live-PM claim. Frontend controls60eee4d remain frozen. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
-| Parent | Critical path, integration and publication | Authenticate active backend38018281445 on reviewed controls9e838718/source1303be6. Prior38017066472 has authenticated config_files_unit failure evidence. Review frontend-control fixes before publication; integrate worker candidates after review and publish narrow release units after their own gates. |
+| Parent | Critical path, integration and publication | Authenticate active backend38018281445 on controls9e/source1303 and frontend38019603974 on controlsba60890/sourceb0. Preserve terminal38017066472 and38018831265 failures. Integrate worker candidates after review and publish narrow release units after their own gates. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
@@ -24,7 +24,7 @@ integrates the generated API/type alias. Final integrated Rust parity is still
 required; code generation is not runtime acceptance.
 
 The prior diagnostic and backend controls are frozen. The new assignments above
-are independent: Pascal now owns only the two reviewed frontend-control fixes,
+are independent: Pascal's reviewed frontend controls are now frozen,
 Feynman uses a separate credential-release checkout, and Curie owns chat UX changes
 in a new checkout. Parent owns generated API/client files,
 integration and this ledger. Historical worker scopes below
@@ -68,6 +68,16 @@ files,170 Rust files, all81 stages/167 ignored identities and unchanged migratio
 registries. Windows108 PASS/two POSIX skips and Linux110/110 PASS qualify controls
 only. Public fast-forward starts actual run38018281445, confirmed in progress;
 do not restart or retarget it before terminal result and authenticated readback.
+
+Frontend source-to-controls delta remains exactly three additions.92124468 fixes
+the independently reproduced PNG/timeout P2s;47 pure tests and135 existing PNGs
+pass. Actual38018831265 fails preparation before frontend install/tests. Parent
+and reviewer identify the clean Base19a legacy SQL CRLF materialization contract;
+ba60890 attests its exact bytes and updates only that materialized input hash.
+All2279 canonical Base blobs remain verified; no migration is rewritten or SDK
+repinned. Windows49/49 and Linux49/49 controls tests pass, independent review has
+no P1/P2. Normal publication starts38019603974, currently in progress on all23
+standard frontend gates. Hosted frontend and live acceptance remain unproved.
 
 Current regenerated-client frontend suite passes337 tests/36 files using threads
 and one worker. The default local fork attempt was stopped without a test result

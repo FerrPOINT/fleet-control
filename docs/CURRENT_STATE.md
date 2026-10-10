@@ -15,7 +15,7 @@ merge-ready or live SDLC accepted**. Historical evidence qualifies only its own 
 | Combined backend | Source1303be6, controls9e838718, run38018281445 |81-stage gate in progress; priorafc config_files_unit failure authenticated; correction not yet Rust-qualified |
 | Config release PR64 | Head820a1af, normally merged into candidate8c93f43 | Separate five-job PASS; combined Rust/PG acceptance pending |
 | Union API/client | Source8c93f43, workflow5e57d5b, run38015043570 | Authenticated codegen PASS; typecheck/drift/compatibility PASS, not runtime acceptance |
-| Production Chats presentation | Frontend tree13ccbaba, regenerated union client |337 unit tests/36 files pass with threads; earlier six three-engine fixtures remain scoped; standard hosted gate pending |
+| Production Chats presentation | Frontend tree13ccbaba, hosted controlsba60890/sourceb0, run38019603974 |337 local tests/36 files pass with threads; standard hosted unit/build/three-browser gate in progress, not live PM |
 | PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
 | Forge full12 | Public-safe controls1dbedf8, maintenance pin commit null | Cannot start acceptance without published qualified Base inputs |
 | Physical runtimes | Reviewed Docker/config/recovery source | Exact images and actual native lifecycle remain unaccepted |
@@ -41,9 +41,22 @@ preserving assertions and redaction. Reviewed controlsaa5ac3f normally succeed
 ef3 and start38017066472 againstafc, with unchanged81 gates and distinct pins.
 Neither run diagnoses the earlier recovered-activation PG predicate yet.
 Current frontend threads337/36 PASS does not accept the stopped
-default-fork attempt; frozen hosted frontend controls60eee4d pass40 pure tests and
-have two independent P2 findings being fixed before publication: malformed PNG
-pixel streams and a pipe-reader join that can outlive a command timeout.
+default-fork attempt. Frontend controls92124468 close the independently reproduced
+PNG pixel-stream and command-timeout P2 findings;47 pure tests and all135 existing
+source fixture PNGs pass. Its actual run38018831265 fails preparation before
+install/tests/build/browsers, with no success artifact or sole-cause diagnostic.
+
+The clean pinned Base19a checkout reveals a definite qualification defect: its
+attributes require CRLF for one legacy SQL migration while the first helper
+requires canonical Git bytes everywhere. Normal successorba60890 attests only
+that exact Base revision/path/blob/physical hash, without rewriting migration
+bytes or relaxing other files. Both parent and independent reviewer verify2279
+canonical blobs and the resulting materialized inventory437244f3;49 pure tests
+pass on Windows and Linux, with no P1/P2. Closed failure hints do not echo private
+errors. Public normal fast-forward starts
+[run38019603974](https://github.com/FerrPOINT/fleet-control/actions/runs/38019603974),
+currently in progress on unchanged frontend/schema/SDK and all23 standard gates.
+Neither source reasoning nor control tests establish frontend/live acceptance.
 
 Actual run38017066472 completes FAILURE at config_files_unit, exit101. Parent
 authenticates artifact11657125102, ZIP SHA256
