@@ -1515,38 +1515,53 @@ class HostedBackendTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 gate.resource_guard(Path("owned"))
 
-    def resource_observation(self, body, *, current=2 * 1024 ** 3, available=5000000):
+    def resource_observation(self, body, *, current=2 * 1024 ** 3, available=5000000, event_body=b""):
         data = {"/proc/meminfo": f"MemAvailable: {available} kB\nCommitLimit: 7000000 kB\nCommitted_AS: 1000000 kB\n",
                 "/sys/fs/cgroup/memory.max": str(4 * 1024 ** 3), "/sys/fs/cgroup/memory.current": str(current)}
         stream = mock.MagicMock()
         stream.__enter__.return_value = stream
         stream.read.return_value = body
+        event_stream = mock.MagicMock()
+        event_stream.__enter__.return_value = event_stream
+        event_stream.read.return_value = event_body
+        def open_counter(path, mode):
+            self.assertEqual(mode, "rb")
+            value, handle = {Path("/sys/fs/cgroup/memory.stat"): (body, stream),
+                             Path("/sys/fs/cgroup/memory.events"): (event_body, event_stream)}[path]
+            if isinstance(value, Exception):
+                raise value
+            return handle
         output = io.StringIO()
         with mock.patch.object(Path, "read_text", autospec=True, side_effect=lambda path: data[path.as_posix()]), \
-                mock.patch.object(Path, "open", autospec=True, return_value=stream) as opened, \
+                mock.patch.object(Path, "open", autospec=True, side_effect=open_counter) as opened, \
                 mock.patch.object(gate.shutil, "disk_usage", return_value=SimpleNamespace(free=5 * 1024 ** 3)), \
                 mock.patch.object(sys, "stdout", output), mock.patch.object(gate, "command") as command:
-            if isinstance(body, Exception):
-                opened.side_effect = body
             with self.assertRaisesRegex(ValueError, "^Hosted initial cgroup headroom below 3 GiB$"):
                 gate.resource_guard(Path("owned"))
-        opened.assert_called_once_with(Path("/sys/fs/cgroup/memory.stat"), "rb")
+        self.assertEqual(opened.call_args_list, [mock.call(Path("/sys/fs/cgroup/memory.stat"), "rb"),
+                                                mock.call(Path("/sys/fs/cgroup/memory.events"), "rb")])
         if not isinstance(body, Exception):
             stream.read.assert_called_once_with(16 * 1024 + 1)
+        if not isinstance(event_body, Exception):
+            event_stream.read.assert_called_once_with(4 * 1024 + 1)
         command.assert_not_called()
-        self.assertLess(len(output.getvalue()), 1024)
+        self.assertLess(len(output.getvalue()), 2048)
         self.assertNotIn("PRIVATE_SENTINEL", output.getvalue())
         self.assertEqual(len(output.getvalue().splitlines()), 1)
         value = json.loads(output.getvalue())
         self.assertEqual(set(value), {"state", "reason", "cgroup_limit_bytes", "cgroup_current_bytes",
-            "cgroup_anon_bytes", "cgroup_file_bytes", "cgroup_slab_bytes", "proc_mem_available_bytes",
+            "cgroup_anon_bytes", "cgroup_file_bytes", "cgroup_shmem_bytes", "cgroup_kernel_bytes", "cgroup_inactive_file_bytes",
+            "cgroup_slab_bytes", "cgroup_slab_reclaimable_bytes", "cgroup_slab_unreclaimable_bytes", "proc_mem_available_bytes", "cgroup_events",
             "backend_quality_gate", "all_quality_gate", "sdlc_acceptance"})
         self.assertEqual((value["state"], value["reason"]), ("backend_resource_observation", "cgroup_headroom"))
         for key in ("backend_quality_gate", "all_quality_gate", "sdlc_acceptance"):
             self.assertIs(value[key], False)
         for key in ("cgroup_limit_bytes", "cgroup_current_bytes", "cgroup_anon_bytes", "cgroup_file_bytes",
-                    "cgroup_slab_bytes", "proc_mem_available_bytes"):
+                    "cgroup_shmem_bytes", "cgroup_kernel_bytes", "cgroup_inactive_file_bytes", "cgroup_slab_bytes",
+                    "cgroup_slab_reclaimable_bytes", "cgroup_slab_unreclaimable_bytes", "proc_mem_available_bytes"):
             self.assertTrue(value[key] is None or type(value[key]) is int and 0 <= value[key] <= 2 ** 63 - 1)
+        self.assertEqual(set(value["cgroup_events"]), {"low", "high", "max", "oom", "oom_kill", "oom_group_kill"})
+        self.assertTrue(all(item is None or type(item) is int and 0 <= item <= 2 ** 63 - 1 for item in value["cgroup_events"].values()))
         return value
 
     def test_resource_observation_reports_only_same_mount_bounded_byte_counters(self):
@@ -1594,14 +1609,37 @@ class HostedBackendTests(unittest.TestCase):
     def test_resource_observation_preserves_absolute_budget_timeout(self):
         data = {"/proc/meminfo": "MemAvailable: 5000000 kB\n", "/sys/fs/cgroup/memory.max": str(4 * 1024 ** 3),
                 "/sys/fs/cgroup/memory.current": str(2 * 1024 ** 3)}
-        output = io.StringIO()
-        with mock.patch.object(Path, "read_text", autospec=True, side_effect=lambda path: data[path.as_posix()]), \
-                mock.patch.object(Path, "open", side_effect=TimeoutError("PRIVATE_SENTINEL")), \
-                mock.patch.object(sys, "stdout", output), \
-                mock.patch.object(gate.shutil, "disk_usage", return_value=SimpleNamespace(free=5 * 1024 ** 3)):
-            with self.assertRaises(TimeoutError):
-                gate.resource_guard(Path("owned"))
-        self.assertEqual(output.getvalue(), "")
+        for timeout_at in ("memory.stat", "memory.events"):
+            output = io.StringIO()
+            def open_counter(path, mode):
+                if path.name == timeout_at:
+                    raise TimeoutError("PRIVATE_SENTINEL")
+                return io.BytesIO(b"anon 1\n")
+            with mock.patch.object(Path, "read_text", autospec=True, side_effect=lambda path: data[path.as_posix()]), \
+                    mock.patch.object(Path, "open", autospec=True, side_effect=open_counter), \
+                    mock.patch.object(sys, "stdout", output), \
+                    mock.patch.object(gate.shutil, "disk_usage", return_value=SimpleNamespace(free=5 * 1024 ** 3)):
+                with self.assertRaises(TimeoutError):
+                    gate.resource_guard(Path("owned"))
+            self.assertEqual(output.getvalue(), "")
+
+    def test_resource_observation_extended_stat_and_events_are_fixed_bounded_and_private(self):
+        value = self.resource_observation(
+            b"shmem 11\nkernel 12\ninactive_file 13\nslab 14\nslab_reclaimable 15\nslab_unreclaimable 16\nPRIVATE_SENTINEL 123\n",
+            event_body=b"low 1\nhigh 2\nmax 3\noom 0\noom_kill 0\noom_group_kill 0\nPRIVATE_SENTINEL 999\n")
+        self.assertEqual([value["cgroup_" + name + "_bytes"] for name in
+                          ("shmem", "kernel", "inactive_file", "slab", "slab_reclaimable", "slab_unreclaimable")], [11, 12, 13, 14, 15, 16])
+        self.assertEqual(value["cgroup_events"], dict(low=1, high=2, max=3, oom=0, oom_kill=0, oom_group_kill=0))
+        for body in (b"", b"low -1\nhigh 9223372036854775808\nmax 3\nmax PRIVATE_SENTINEL\noom 1.5\noom_kill true\n",
+                     b"low 1\nPRIVATE_SENTINEL \xff", b"low 1\n" + b"x" * (4 * 1024), FileNotFoundError("PRIVATE_SENTINEL")):
+            value = self.resource_observation(b"anon 77\n", event_body=body)
+            self.assertEqual(value["cgroup_anon_bytes"], 77)
+            self.assertTrue(all(item is None for item in value["cgroup_events"].values()))
+        import ast
+        frozen = ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", "40c28041a343b701063ea1762f07c1cf19126726"))
+        names = lambda tree: {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        self.assertEqual(len(names(frozen)), 169)
+        self.assertTrue(names(frozen) <= names(ast.parse(Path(__file__).read_bytes())))
 
     def test_resource_observation_successor_preserves_164_identities_guards_and_provenance(self):
         import ast
