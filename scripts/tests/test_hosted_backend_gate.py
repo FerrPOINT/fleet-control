@@ -57,7 +57,7 @@ class HostedBackendTests(unittest.TestCase):
         class RestoreCounts(ast.NodeTransformer):
             def visit_Constant(self, node):
                 if type(node.value) is int:
-                    node.value = {177: 174, 396: 382, 48: 34}.get(node.value, node.value)
+                    node.value = {177: 174, 397: 382, 74: 73, 48: 34}.get(node.value, node.value)
                 return node
 
         for name, node in previous.items():
@@ -90,8 +90,9 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual((ROOT / gate.INIT).read_bytes(), self.source_blob(gate.INIT, donor) + b"CREATE DATABASE fleet_pm_recovery_test;\n")
         previous_inventory = json.loads(self.source_blob(gate.INVENTORY, donor))
         for stage, names in previous_inventory["groups"].items():
-            self.assertEqual(REVIEWED["groups"][stage], names, stage)
-        for kind, count in (("workspace_default_declarations", 14), ("ignored", 3)):
+            expected = sorted(names + ["chat_controls_hold_each_bound_pending_identity"]) if stage == "foundation" else names
+            self.assertEqual(REVIEWED["groups"][stage], expected, stage)
+        for kind, count in (("workspace_default_declarations", 15), ("ignored", 3)):
             identities = lambda value: {(row["source"], row["name"]) for row in value[kind]}
             before_names, after_names = identities(previous_inventory), identities(REVIEWED)
             self.assertTrue(before_names <= after_names)
@@ -226,8 +227,9 @@ class HostedBackendTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "binding is pending"):
             gate.require_codegen_binding(pending)
         self.assertEqual(REVIEWED["config_union_preparation"]["prior_recovery_codegen_evidence"], evidence)
-        self.assertEqual(REVIEWED["config_union_preparation"]["codegen_evidence"], dict(
-            source_commit=gate.SOURCE_SHA, artifact_bound_source_commit=gate.SOURCE_SHA,
+        qualified = json.loads(self.source_blob(gate.INVENTORY, "566a5db30842e43e6552d8da8c2138145cf7ed71"))
+        self.assertEqual(qualified["config_union_preparation"]["codegen_evidence"], dict(
+            source_commit=qualified["source_commit"], artifact_bound_source_commit=qualified["source_commit"],
             workflow_commit="91a1c48c7a3f0cfad33586fb55c45f47ff864bc2", run_id=38052082418,
             run_attempt=1, artifact_id=11669374937,
             artifact_zip_sha256="8283b599e66dc66d5a05e961ae2b59bc5dffc1c408f7d2f35352608198730701",
@@ -235,10 +237,14 @@ class HostedBackendTests(unittest.TestCase):
             source_file_count=303,
             source_inventory_sha256="4ab1c70324a3b184096a69ed1dbdd72bcbf5f993fbdc1ecc6b01fb643f650457",
             source_tree="b975beb628bb68c03fb5bce45e7c43085837e41f"))
-        self.assertEqual(REVIEWED["openapi_binding"], dict(status="verified", sha256=gate.OPENAPI_SHA))
-        self.assertFalse(REVIEWED["config_union_preparation"]["authentic_union_codegen_pending"])
-        self.assertFalse(REVIEWED["config_union_preparation"]["compiled_inventory_includes_pre_regen_schema"])
-        gate.require_codegen_binding(REVIEWED)
+        self.assertEqual(REVIEWED["config_union_preparation"]["prior_exact_source_codegen_evidence"],
+                         qualified["config_union_preparation"]["codegen_evidence"])
+        self.assertEqual(REVIEWED["openapi_binding"], dict(status="pending_authentic_codegen", sha256=None))
+        self.assertIsNone(REVIEWED["config_union_preparation"]["codegen_evidence"])
+        self.assertTrue(REVIEWED["config_union_preparation"]["authentic_union_codegen_pending"])
+        self.assertTrue(REVIEWED["config_union_preparation"]["compiled_inventory_includes_pre_regen_schema"])
+        with self.assertRaisesRegex(ValueError, "binding is pending"):
+            gate.require_codegen_binding(REVIEWED)
 
     def synthetic_bound_inventory(self):
         return dict(REVIEWED, openapi_binding=dict(status="verified", sha256=gate.OPENAPI_SHA))
@@ -299,7 +305,8 @@ class HostedBackendTests(unittest.TestCase):
             self.assertEqual(ast.dump(before[name]), ast.dump(after[name]), name)
         previous = json.loads(self.source_blob(gate.INVENTORY, donor))
         for stage, names in previous["groups"].items():
-            self.assertEqual(REVIEWED["groups"][stage], names, stage)
+            expected = sorted(names + ["chat_controls_hold_each_bound_pending_identity"]) if stage == "foundation" else names
+            self.assertEqual(REVIEWED["groups"][stage], expected, stage)
         self.assertEqual((ROOT / gate.INIT).read_bytes().replace(b"CREATE DATABASE fleet_pm_recovery_test;\n", b""), self.source_blob(gate.INIT, donor))
 
     def test_human_five_pg_http_selectors_are_once_ignored_and_mandatory(self):
@@ -452,7 +459,7 @@ class HostedBackendTests(unittest.TestCase):
             binding_kind="verified_code_parity", source_delta=sorted(delta)))
         self.assertNotEqual(source, frozen_source)  # Artifact was produced on f7, not directly on d458.
         self.assertEqual(frozen["openapi_binding"], dict(status="verified", sha256=gate.OPENAPI_SHA))
-        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json")), gate.OPENAPI_SHA)
+        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", frozen_source)), gate.OPENAPI_SHA)
         gate.require_codegen_binding(frozen)
         for old in ("ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c",
                     "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953"):
@@ -557,6 +564,7 @@ class HostedBackendTests(unittest.TestCase):
                 expected |= new_pg
                 if stage == "foundation":
                     expected.add("message_receipts_and_replay_are_independent_of_history_limit")
+                    expected.add("chat_controls_hold_each_bound_pending_identity")
                     expected |= {"pm_dispatch::" + row["name"] for row in REVIEWED["workspace_default_declarations"]
                                  if row["source"] == "backend/infra/tests/support/pm_dispatch.rs"}
                     expected |= {"pm_events::" + row["name"] for row in REVIEWED["workspace_default_declarations"]
@@ -574,7 +582,7 @@ class HostedBackendTests(unittest.TestCase):
             self.assertEqual(set(REVIEWED["groups"][stage]), expected, stage)
         self.assertEqual({stage: len(REVIEWED["groups"][stage]) for stage in (
             "foundation", "credentials_pg", "credentials_unit", "real_auth")},
-            dict(foundation=73, credentials_pg=16, credentials_unit=8, real_auth=2))
+            dict(foundation=74, credentials_pg=16, credentials_unit=8, real_auth=2))
         self.assertIn("#[cfg(test)]\nmod tests;", self.source_blob("backend/shared/src/id.rs").decode())
         self.assertEqual(sum(row["source"] == "backend/shared/src/id/tests.rs" and row["name"] == "new_ids_are_plain_uuids"
                              for row in REVIEWED["workspace_default_declarations"]), 1)
@@ -587,10 +595,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "3c900b00f15aeda2016a45d080d850fa028cdcfd")
+        self.assertEqual(gate.SOURCE_SHA, "ce4153f453e730dad1e315131d65ca030243264c")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "b975beb628bb68c03fb5bce45e7c43085837e41f")
+        self.assertEqual(tree, "67ea7aa66bf66f803226abbd4893be7517ca3317")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -607,6 +615,28 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(source["ref"], gate.SOURCE_SHA)
         summary = self.workflow()["jobs"]["backend"]["steps"][-1]["run"]
         self.assertIn("printf 'Source: `%s`\\n\\n' " + gate.SOURCE_SHA, summary)
+        previous = json.loads(self.source_blob(gate.INVENTORY, "566a5db30842e43e6552d8da8c2138145cf7ed71"))
+        added = "chat_controls_hold_each_bound_pending_identity"
+        self.assertEqual(set(REVIEWED["groups"]["foundation"]) - set(previous["groups"]["foundation"]), {added})
+        self.assertTrue(set(previous["groups"]["foundation"]) < set(REVIEWED["groups"]["foundation"]))
+        source = self.source_blob("backend/infra/tests/sdlc_foundation.rs").decode()
+        self.assertIn("#[tokio::test]\nasync fn " + added + "()", source)
+        for name in (added, "message_receipts_and_replay_are_independent_of_history_limit",
+                     "message_history_returns_latest_page_and_scopes_cursor",
+                     "long_history_creation_replay_dispatch_and_terminal_mirror_return_exact_message",
+                     "task_binding_is_immutable_unique_and_replays_concurrent_requests"):
+            self.assertEqual(REVIEWED["groups"]["foundation"].count(name), 1)
+            text = self.log("foundation", 124)
+            line = "test " + name + " ... ok\n"
+            for bad in (text.replace(line, ""), text.replace(line, line.replace("ok", "ignored")), text + line):
+                with self.subTest(name=name), self.assertRaises(ValueError):
+                    gate.verify_test_log("foundation", bad, REVIEWED)
+        selectors = lambda text: {node.name for node in ast.walk(ast.parse(text))
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        import ast
+        inherited = selectors(self.source_blob("scripts/tests/test_hosted_backend_gate.py", "566a5db30842e43e6552d8da8c2138145cf7ed71"))
+        self.assertEqual(len(inherited), 148)
+        self.assertEqual(selectors(Path(__file__).read_bytes()), inherited)
 
     def test_union_additions_are_exact_three_unit_one_pg_and_one_foundation_case(self):
         frozen = json.loads(self.source_blob(gate.INVENTORY, "0d1e5a4361610c0a0728137731f54fa5ab12c481"))
@@ -633,7 +663,10 @@ class HostedBackendTests(unittest.TestCase):
                          ("infra", "test", "container_activation", "container_activation_pg"))
         self.assertEqual(len(frozen["groups"]["container_activation_pg"]), 14)
         for stage in ("container_activation_pg", "foundation"):
-            text = self.log(stage, 124 if stage == "foundation" else 0)
+            names = frozen["groups"][stage]
+            ignored = 124 if stage == "foundation" else 0
+            text = "".join("test " + name + " ... ok\n" for name in names)
+            text += f"test result: ok. {len(names)} passed; 0 failed; {ignored} ignored;\n"
             gate.verify_test_log(stage, text, frozen)
             for bad in ("\n".join(text.splitlines()[1:]), text.replace(" ... ok", " ... ignored", 1),
                         text + text.splitlines()[0] + "\n"):
@@ -929,10 +962,13 @@ class HostedBackendTests(unittest.TestCase):
         frozen = json.loads(self.source_blob(gate.INVENTORY, "0d1e5a4361610c0a0728137731f54fa5ab12c481"))
         self.assertEqual(frozen["openapi_binding"], dict(status="verified", sha256=prior_schema))
         self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", frozen["source_commit"])), prior_schema)
-        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json")), gate.OPENAPI_SHA)
+        qualified = json.loads(self.source_blob(gate.INVENTORY, "566a5db30842e43e6552d8da8c2138145cf7ed71"))
+        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", qualified["source_commit"])), gate.OPENAPI_SHA)
         with mock.patch.object(gate, "OPENAPI_SHA", prior_schema):
             gate.require_codegen_binding(frozen)
-        gate.require_codegen_binding(REVIEWED)
+        gate.require_codegen_binding(qualified)
+        with self.assertRaisesRegex(ValueError, "binding is pending"):
+            gate.require_codegen_binding(REVIEWED)
         with mock.patch.object(gate, "OPENAPI_SHA", prior_schema), self.assertRaisesRegex(ValueError, "binding is pending"):
             gate.require_codegen_binding(REVIEWED)
         evidence = REVIEWED["config_union_preparation"]["prior_codegen_evidence"]
@@ -1124,9 +1160,9 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(len({(x["source"], x["name"]) for x in records}), 177)
         self.assertEqual(Counter(x["gate"] for x in records)["runtime_controls"], 30)
         self.assertEqual(len(REVIEWED["groups"]["runtime_terminal"]), 14)
-        self.assertEqual(len(REVIEWED["groups"]["foundation"]), 73)
+        self.assertEqual(len(REVIEWED["groups"]["foundation"]), 74)
         self.assertEqual(REVIEWED["default_foundation_ignored"], 124)
-        self.assertEqual(len(REVIEWED["workspace_default_declarations"]), 396)
+        self.assertEqual(len(REVIEWED["workspace_default_declarations"]), 397)
         self.assertIn("activation_probe_hash_matches_base_unicode_snapshot",
                       {row["name"] for row in REVIEWED["workspace_default_declarations"]})
         self.assertEqual(REVIEWED["authority"]["old_ignored"], 130)
