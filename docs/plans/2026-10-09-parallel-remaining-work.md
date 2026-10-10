@@ -12,20 +12,21 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Diagnostic source and independent controls review | Read-only probesab222f0 normally integrated inb0ad56c; all13 activation cases/guards preserved. Independent ef3 controls review:25 targeted tests, nine negative vectors and all25 fixed hints pass, no P1/P2. Base180 exact published helper mismatches the required hash and lacks two cleanup files; no pin fallback. |
-| Feynman | Combined backend CI controls | Frozen successoraa5ac3f bindsafc5bb4,81 stages with all prior74,20 activation-intent cases, exact package4b9 and schema1167. Parent independently verifies380 compiled Git blobs/170 Rust files, then normally publishes after authenticating terminal38016562420. New run38017066472 is in progress; freeze inputs until its result. |
-| Curie | Dedicated hosted frontend controls | Own only frontend-build-only workflow/helper/tests in a separate checkout. Exactb0 frontend/schema, pinned SDK/Node/pnpm, unchanged default unit/browser gates and fixture-only evidence. No product/backend control edits or publication before parent review. |
+| Pascal | Independent review of frontend controls60eee4d | Read-only review of the three new workflow/helper/test files, exact source and private-token boundary, standard frontend gates and bounded artifact readback. Own report only; no control edits, heavy jobs or publication. |
+| Feynman | Narrow C11 credential release candidate | New owned checkout from the reviewed47/64 dependency baseline. Extract only credential modules/hunks, migration11 and related tests/docs/CI fromafc5bb4. Preserve configuration semantics; no migrations12..20, heavy jobs or publication before review. Backend controlsaa5ac3f remain frozen. |
+| Curie | Production Chats UX regression closure | New owned checkout at34858b3; write only chat-detail components and their focused tests. Verify draft retention, unsaved navigation, stale/conflict input, explicit choices and keyboard/focus behavior; fix reproduced defects or add missing regression coverage. No backend/schema/lock/control edits or live-PM claim. Frontend controls60eee4d remain frozen. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
-| Parent | API generation, integration and publication | Authenticated union schema/client integrated asc051319; probes normally merged inb0ad56c. Sourceafc5bb4 removes only two diagnostic ok-expect chains without exposing private errors. Review/authenticate actual backend/frontend results and publish narrow release units only after their own gates. |
+| Parent | Critical path, integration and publication | Authenticate the terminal result of active backend38017066472 without restarting it; review frontend controls60eee4d before hosted publication. Integrate worker candidates only after review, preserve source/evidence boundaries, and publish narrow release units after their own gates. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
 integrates the generated API/type alias. Final integrated Rust parity is still
 required; code generation is not runtime acceptance.
 
-Pascal's diagnostic patch and controls counterreview are frozen. Feynman owns only
-the six backend build-only controls; Curie owns three separate frontend controls.
-Parent owns generated API/client files,
+The prior diagnostic and backend controls are frozen. The new assignments above
+are independent: Pascal does not edit Curie's frozen frontend controls, Feynman
+uses a separate credential-release checkout, and Curie owns only chat UX changes
+in a new checkout. Parent owns generated API/client files,
 integration and this ledger. Historical worker scopes below
 are complete, not concurrent assignments. Deliverables identify exact commits,
 commands, results and bounded blockers rather than repeat completed broad audits.
