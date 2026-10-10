@@ -1,5 +1,26 @@
 # API
 
+## PM Human Controls Integration Candidate
+
+This candidate reuses the existing run stop/steer and clarification-command
+routes; it adds no second control API or scheduler. Workspace/PG/browser and
+authentic updated OpenAPI qualification remain required before release.
+
+`ClarificationAnswerCommand.continuation_state` separates `not_required`,
+`pending` and `confirmed` from Tracker delivery `state`. The pending-command
+GET also returns `delivered` answers whose PM continuation remains `pending`.
+Explicit delivery/recovery uses the original command ID and saved answer; a
+successful Tracker answer alone cannot confirm continuation. Confirmation
+requires the same execution/checkpoint, verified Workflow rebind and native
+acceptance. Neither delivery nor continuation publishes requirements.
+
+Task-bound PM stop/steer require the owner, fresh project access, the current
+assignment and supported native capabilities. Stop acknowledgement is not
+terminal or safe-process-stop proof. Unknown effects keep their original key
+and receipt, not a new submission. Idle PM free-form launch currently reports
+`pm_idle_prompt_contract_unavailable`; no fabricated clarification or unbound
+chat fallback is permitted. Operators cannot substitute for owner decisions.
+
 ## Hermes Recovery Candidate
 
 The recovery slice changes no public Fleet route, DTO or OpenAPI schema. The default-off original-key

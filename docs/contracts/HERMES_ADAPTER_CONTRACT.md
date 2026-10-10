@@ -1,5 +1,21 @@
 # Hermes Adapter Contract
 
+## PM Integration Candidate
+
+PM consumes unchanged Hermes through the same native run/control protocol and
+shared stream/recovery path. A task-bound steer is guidance for the already
+accepted run, not a Tracker clarification answer or another model run. Stop
+acknowledgement retains capacity until exact native terminal status and the
+committed Fleet mirror agree. Original-key control replay must not resend.
+
+Saved-answer delivery and PM continuation have independent durable states.
+Continuation needs the original answer/checkpoint, prior-run terminal proof,
+verified Workflow rebind and exact native acceptance; EOF, unavailable runtime
+or a successful Tracker answer cannot stand in for these receipts. Idle PM
+free-form launch remains unsupported under the inspected Workflow contract.
+This source integration is not native/live acceptance; no Hermes patch or
+custom pre-model handshake is required.
+
 ## Original-Key And Pinned Recovery Candidate
 
 The default-off [recovery extension](HERMES_RECOVERY_V1.md) freezes verified

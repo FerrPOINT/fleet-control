@@ -17,7 +17,8 @@ remain authoritative for later completion.
   source for the earlier backend run. Its result does not qualify PM integration.
 - Migration order in PM integration is authority repair021 followed by PM022:
   canonical23/split26. Frozen32b has canonical22/split25. Human controls023 are
-  separate work, not part of either tested source.
+  integrated in the local candidate (canonical24/split27), not part of either
+  tested source. Its source reviews and compiler corrections are not new CI proof.
 - Hermes is consumed unchanged through its existing API. No custom pre-model
   hook, reserved-run handshake, second scheduler or host-controller service is
   required. Fleet still checks owner/project/current assignment before dispatch.
@@ -31,7 +32,7 @@ remain authoritative for later completion.
 | --- | --- | --- |
 | Rust OpenAPI, PM source830 | [38040550767](https://github.com/FerrPOINT/fleet-control/actions/runs/38040550767) PASS; strict artifact11666035358 readback, schema SHA256 `ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c`; saved schema synchronized | New human-control API codegen and full backend/test qualification |
 | Backend, PM sourcefacb | [38041711484](https://github.com/FerrPOINT/fleet-control/actions/runs/38041711484), controls0d1e5a4, terminal FAIL at workspace check; strict artifact11666431970 readback identifies13 Rust compiler diagnostics; scratch/DB cleanup pass | Compiler corrections, isolated PG execution and complete current-source full81 success; earlier recovered-stop test correction has not yet passed PG |
-| Frontend, PM source34ee5f0 | [38041893267](https://github.com/FerrPOINT/fleet-control/actions/runs/38041893267), controls66a446c, terminal FAIL at three-browser fixture tests after successful typecheck, default units, lint, production build and format | Strict failure-artifact diagnosis, all engines, captures and visual acceptance; individual successful gates are not browser/live qualification |
+| Frontend, PM source34ee5f0 | [38041893267](https://github.com/FerrPOINT/fleet-control/actions/runs/38041893267), controls66a446c, terminal FAIL after20 gates; strict artifact11665858046 readback identifies directory timeout. One-line free-chat back-link locator correction is integrated locally | New browser proof, all engines, captures and visual acceptance; the bounded receipt does not prove the exact timed-out action |
 | PM integration | Shared stream/final persistence/restart attachment, typed continuation and phase cursor/report replay fixes merged; API-only Rust schema generation passes | Infra/runtime compilation currently fails; owner controls, delivered-answer resume discovery, Rust tests/PG/HTTP/live flow remain open. The API codegen crate does not depend on infra |
 | Forge | [38040722608](https://github.com/FerrPOINT/CI-CD/actions/runs/38040722608), controls970f785, terminal FAIL; strict artifact11666385445 readback identifies `cache_prepare`; cleanup/daemon stop pass, all first-job stages NOT_RUN | Cache preparation repair, physical per-stage limit readback and full12 receipt |
 | Base maintenance | Draft [PR183](https://github.com/FerrPOINT/services-base/pull/183), exact43d0205;92 focused checks; run38030482035 has10 no-runner/no-step jobs with billing/spending-limit annotations | Private CI has not tested this head; native installation and consumer acceptance remain; no installed packet promotion |
