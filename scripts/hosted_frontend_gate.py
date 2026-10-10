@@ -103,7 +103,7 @@ GATES = {
     "theme": [["bash", "-c", THEME]],
     "format": [["pnpm", "format:check"]],
     "browsers": [["pnpm", "exec", "playwright", "install", "--with-deps", "chromium", "firefox", "webkit"]],
-    "fixtures": [["pnpm", "exec", "playwright", "test", "--reporter=list,json"]],
+    "fixtures": [["pnpm", "exec", "playwright", "test", "--reporter=list,json", "--max-failures=1"]],
     "capture": [["pnpm", "screenshots:local"]],
     "screens-after": [["pnpm", "screenshots:verify"]],
 }

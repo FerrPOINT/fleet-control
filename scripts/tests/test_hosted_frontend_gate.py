@@ -451,6 +451,42 @@ class CompletionContracts(unittest.TestCase):
         self.assertEqual(counts["chromium"]["flaky"], 1)
         self.assertEqual(counts["webkit"]["skipped"], 1)
 
+    def test_fail_fast_cannot_complete_gate_on_nonzero_or_failed_report(self):
+        for code in (1, 0):
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as folder:
+                private = Path(folder)
+                prefix = list(gate.GATES)[:list(gate.GATES).index("fixtures")]
+                state = dict(gates=prefix.copy())
+                report = self.browser_report()
+                report["suites"][0]["specs"][0]["tests"][0].update(
+                    status="unexpected", results=[dict(status="failed")])
+                with patch.object(gate, "load_state", return_value=(ROOT, private, state)), \
+                        patch.object(gate, "verify_parity", return_value=(ROOT, ROOT)), \
+                        patch.object(gate.subprocess, "run", return_value=MagicMock(returncode=code)) as run, \
+                        patch.object(gate, "bounded_file", return_value=gate.canonical(report)), \
+                        patch.object(gate, "save_state") as save:
+                    with self.assertRaises(gate.GateFailure if code else ValueError) as caught:
+                        gate.gate("fixtures")
+                    if code:
+                        self.assertEqual((caught.exception.category, caught.exception.code), ("exit", code))
+                    self.assertEqual(state["gates"], prefix)
+                    save.assert_not_called()
+                    self.assertEqual(run.call_args.args[0], gate.GATES["fixtures"][0])
+                    self.assertEqual(run.call_args.kwargs["timeout"], 1200)
+
+    def test_fail_fast_timeout_still_cannot_complete_gate(self):
+        with tempfile.TemporaryDirectory() as folder:
+            state = dict(gates=list(gate.GATES)[:list(gate.GATES).index("fixtures")])
+            with patch.object(gate, "load_state", return_value=(ROOT, Path(folder), state)), \
+                    patch.object(gate, "verify_parity", return_value=(ROOT, ROOT)), \
+                    patch.object(gate.subprocess, "run", side_effect=subprocess.TimeoutExpired("private", 1200)), \
+                    patch.object(gate, "save_state") as save:
+                with self.assertRaises(gate.GateFailure) as caught:
+                    gate.gate("fixtures")
+                self.assertEqual((caught.exception.category, caught.exception.code), ("timeout", None))
+                self.assertNotIn("fixtures", state["gates"])
+                save.assert_not_called()
+
     def test_reordered_gate_never_executes(self):
         with patch.object(gate, "load_state", return_value=(ROOT, ROOT, dict(gates=[]))), \
                 patch.object(gate.subprocess, "run") as run, self.assertRaises(ValueError):
@@ -554,7 +590,7 @@ class WorkflowContracts(unittest.TestCase):
                     with self.subTest(gate=name):
                         self.assertIn(" ".join(command), self.original)
         self.assertEqual(gate.GATES["unit"], [["pnpm", "test", "--", "--run"]])
-        self.assertEqual(gate.GATES["fixtures"], [["pnpm", "exec", "playwright", "test", "--reporter=list,json"]])
+        self.assertEqual(gate.GATES["fixtures"], [["pnpm", "exec", "playwright", "test", "--reporter=list,json", "--max-failures=1"]])
         self.assertIn("pnpm exec playwright test", self.original)
         self.assertIn("pnpm openapi:compat", self.original)
         self.assertEqual(gate.GATES["compat"][-1], ["pnpm", "openapi:compat"])
@@ -563,6 +599,20 @@ class WorkflowContracts(unittest.TestCase):
         self.assertIn("pnpm theme:check http://127.0.0.1:4173", gate.THEME)
         self.assertIn("trap '", gate.THEME)
         self.assertIn("--strictPort", gate.THEME)
+
+    def test_fail_fast_preserves_all_fixture_sources_and_selection(self):
+        parent = "a909757575582dacc4e7b1c21eb7cef115aef3a8"
+        paths = ("frontend/e2e", "frontend/playwright.config.ts")
+        self.assertEqual(gate.git(ROOT, "ls-tree", "-rz", gate.SOURCE_SHA, *paths),
+                         gate.git(ROOT, "ls-tree", "-rz", parent, *paths))
+        self.assertEqual(gate.GATES["fixtures"][0][:-1],
+                         ["pnpm", "exec", "playwright", "test", "--reporter=list,json"])
+        self.assertEqual(gate.GATES["fixtures"][0][-1], "--max-failures=1")
+        config = gate.git(ROOT, "show", gate.SOURCE_SHA + ":frontend/playwright.config.ts").decode()
+        for setting in ("testDir: 'e2e'", "retries: process.env.CI ? 2 : 0,",
+                        "workers: process.env.CI ? 1 : undefined,", "name: 'chromium'",
+                        "name: 'firefox'", "name: 'webkit'"):
+            self.assertIn(setting, config)
 
     def test_workflow_gate_order_and_scope(self):
         names = re.findall(r"run: python3 -B controls/scripts/hosted_frontend_gate.py gate ([a-z-]+)", self.workflow)
