@@ -15,28 +15,28 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/fleet-openapi-pm-union-20261010"
-SOURCE_SHA = "83091f055e3b34fcfe6a6d59b1703c117261c027"
-SOURCE_PARENTS = ["af0a9d14360bc91875e54602c3340d5fcd8dbd59", "8e6c25b9f77ed5f43d52661d8fdd6b2019a93804"]
-SOURCE_TREE = "12f57611eae3d7b9bf73e3ebca41afd60cd36a1a"
+SOURCE_SHA = "31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e"
+SOURCE_PARENTS = ["3694cbd399113ee25bfaa5bae7ae009df96f1e57", "5cad61a38b29058581a9ce6a8a05426303d32e53"]
+SOURCE_TREE = "9b51d60334080a2486b7c232d03399ce5b89729f"
 SOURCE_BLOBS = {
     ".base-revision": "1716308f859d23508a6ca0bae105434221c00419",
     "backend/Cargo.lock": "1f2a6fee32bf3dabedafc3927c56c286e14c6daf",
     "backend/api/src/bin/gen_openapi.rs": "254b94c98ee232763c040fb50629080e4282af3f",
     "backend/api/src/lib.rs": "d5b488ca8ed99d4f7e1bddf8e0498e4490fce9f4",
-    "backend/api/src/routes/clarification_commands.rs": "b2f450d88fdbe0a4a56cda84fc15f1f9422ac457",
-    "backend/domain/src/clarification_commands.rs": "fd64e7a3600f0a4a93361029c7ba18693a2b7734",
+    "backend/api/src/routes/clarification_commands.rs": "51513bee1b4cf823bf48d4482a47f1729c33ca62",
+    "backend/domain/src/clarification_commands.rs": "0c5d1610f2cd649cf1754489df6bac556bb19686",
     "backend/api/src/routes/sdlc_configuration.rs": "a9478a23db4e6f9d7db35b8342f382d1fa50775b",
     "backend/api/src/routes/agents.rs": "f512a6f5e4a0fb2c5e86e9c64fca8d827bb828da",
     "backend/domain/src/lib.rs": "2a397f3aa00db7ae1d31cf65a2e9bb66a080c7cf",
-    "backend/api/src/routes/sessions.rs": "06e2dd55e3dbd7a151827242e1adc7e792daa6e7",
+    "backend/api/src/routes/sessions.rs": "a66dd4165c8d44fef9277325f0b479b8eadfd660",
 }
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 QUALIFIED_EXPORT = {
     "base_lock_sha256": "9712da389d3bdc3224fb5185011814b14993a5341250ffd93a6bd8d2cdc1c235",
     "base_tree": "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc",
     "fleet_lock_sha256": "7ca269c7cd50cd0e9f0ca9173630353a231bf718004181e6f08bd97f495edb78",
-    "source_file_count": 294,
-    "source_inventory_sha256": "2f9240f7c8c5ca1da152aed05a50d6748122490463332e7b41fb1e17da4bf842"
+    "source_file_count": 297,
+    "source_inventory_sha256": "48077b8901381fa9609fc88e0e864dc04a19817f3ae83f1e63f90459c72253ff"
 }
 WORKFLOW = ".github/workflows/openapi-codegen-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/openapi_codegen.py", "scripts/tests/test_openapi_codegen.py"}

@@ -161,9 +161,12 @@ class CodegenTests(unittest.TestCase):
     def test_readback_rejects_forged_source_acceptance_and_unsafe_zip(self):
         for changes in ({"source_sha": "b" * 40}, {"source_sha": "32b9f063f9b5099ff61bca24ecdfeb9952889034"},
                         {"source_sha": "212d07391b83b8a5081c946b87b4215053c4a153"},
+                        {"source_sha": "83091f055e3b34fcfe6a6d59b1703c117261c027"},
+                        {"source_inventory_sha256": "2f9240f7c8c5ca1da152aed05a50d6748122490463332e7b41fb1e17da4bf842"},
                         {"source_inventory_sha256": "6105d3c5d660201536c9f06e91c7622d8ebabd54b83f5440f5cddd204bcdfceb"},
                         {"source_inventory_sha256": "c94d72c164e26e7cab2e9810f99cdcf8a960e9716c27cc2f63632df83337dec6"},
                         {"source_file_count": 292},
+                        {"source_file_count": 294},
                         {"source_file_count": 283}, {"base_sha": "b" * 40}, {"all_quality_gate": True},
                         {"sdlc_acceptance": True}, {"schema_generator_success": 1}, {"helper_sha256": "b" * 64},
                         {"source_parents": "b" * 40}, {"source_parents": []},
@@ -190,7 +193,7 @@ class CodegenTests(unittest.TestCase):
         return value
 
     def test_exact_journal_source_parent_tree_and_blobs(self):
-        self.assertEqual(codegen.SOURCE_SHA, "83091f055e3b34fcfe6a6d59b1703c117261c027")
+        self.assertEqual(codegen.SOURCE_SHA, "31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e")
         self.assertEqual(codegen.BASE_SHA, "19a7a381ae6dbea61a643bb96189e483fa64df5c")
         codegen.qualify_source(ROOT)
         results = [" ".join([codegen.SOURCE_SHA, *codegen.SOURCE_PARENTS]).encode(), codegen.SOURCE_TREE.encode()]
