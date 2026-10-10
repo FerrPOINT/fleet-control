@@ -142,6 +142,32 @@ class PluginTest(unittest.TestCase):
                                    model="model", provider="provider", api_mode="chat_completions"))
         self.assertEqual(len(provider), 1)
 
+    def test_parallel_session_admissions_keep_each_run_inventory(self):
+        routes = {}
+        app = SimpleNamespace(router=SimpleNamespace(add_get=lambda path, handler: routes.update({path: handler})))
+        def agent(session_id, model, provider):
+            return SimpleNamespace(session_id=session_id, model=model, provider=provider,
+                api_mode="chat_completions", base_url="http://model.test/", context_compressor=SimpleNamespace(context_length=8192),
+                max_iterations=10, valid_tool_names=PLUGIN.TOOLS, skip_background_review=True,
+                _memory_enabled=False, _user_profile_enabled=False)
+        first, second = agent("session-a", "model-a", "provider-a"), agent("session-b", "model-b", "provider-b")
+        adapter = SimpleNamespace(_active_run_agents={"run-a": first, "run-b": second}, _check_auth=lambda request: None)
+        web = SimpleNamespace(json_response=lambda value, status=200: {"body": value, "status": status})
+        with patch.dict(sys.modules, {"aiohttp": SimpleNamespace(web=web),
+            "agent.title_generator": SimpleNamespace(_auto_title_enabled=lambda: False)}):
+            self.ctx.platform_handler(app, adapter)
+        gate = self.ctx.middleware["llm_execution"]
+        with patch.object(PLUGIN, "owner_request", return_value={"ok": True, "allowed": True}):
+            for session, model, provider in [("session-a", "model-a", "provider-a"), ("session-b", "model-b", "provider-b")]:
+                self.assertEqual(gate(self.request(), lambda request: "ok", platform="api_server", session_id=session,
+                    model=model, provider=provider, api_mode="chat_completions", base_url="http://model.test/"), "ok")
+        inventory = routes["/fleet/v1/pm/inventory/{run_id}"]
+        for run_id, model, provider in [("run-a", "model-a", "provider-a"), ("run-b", "model-b", "provider-b")]:
+            result = asyncio.run(inventory(SimpleNamespace(match_info={"run_id": run_id})))
+            self.assertEqual(result["status"], 200)
+            self.assertEqual(result["body"]["model"], model)
+            self.assertEqual(result["body"]["provider"], provider)
+
     def test_invalid_fixed_origins_and_missing_identity_fail_before_network(self):
         for origin in ["file:///tmp/", "http://token@fleet.test/", "http://fleet.test/path", "http://fleet.test/?x=1"]:
             with patch.dict(os.environ, {"FLEET_PM_FLEET_ORIGIN": origin}):

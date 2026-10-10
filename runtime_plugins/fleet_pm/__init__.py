@@ -190,7 +190,6 @@ def register(ctx):
                 "route_sha256": hashlib.sha256(base_url.encode()).hexdigest(), "tools": names,
                 "output_limit": output_limit}
             with request_lock:
-                latest_request.clear()
                 latest_request[session_id] = observed
             approved = owner_request(config, "admit", session_id, {"native_configuration": {
                 "model": model, "provider": provider, "api_mode": api_mode,
@@ -229,14 +228,15 @@ def register(ctx):
             if (tools != sorted(TOOLS) or any(type(value) is not int or value <= 0
                                              for value in (context_limit, actual_output_limit, turn_budget))):
                 return web.json_response({"error": "native_inventory_unsupported"}, status=409)
-            return web.json_response({"contract_version": 1, "agent_id": config[0], "native_run_ref": run_id,
+            result = {"contract_version": 1, "agent_id": config[0], "native_run_ref": run_id,
                 "session_id": agent.session_id, "model": agent.model, "provider": agent.provider, "api_mode": agent.api_mode,
                 "context_limit": context_limit, "output_limit": actual_output_limit, "turn_budget": turn_budget,
                 "tools": tools, "route_sha256": hashlib.sha256(agent.base_url.encode()).hexdigest(),
                 "background_review_disabled": getattr(agent, "skip_background_review", None) is True,
                 "automatic_titles_disabled": _auto_title_enabled() is False,
                 "memory_disabled": getattr(agent, "_memory_enabled", None) is False
-                    and getattr(agent, "_user_profile_enabled", None) is False})
+                    and getattr(agent, "_user_profile_enabled", None) is False}
+            return web.json_response(result)
 
         async def quiescence(request):
             denied = adapter._check_auth(request)
