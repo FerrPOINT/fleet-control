@@ -824,8 +824,8 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "4358dea9d62f6d26cafcd6da8de7b533ac65fe56",
-  "source_tree": "acae77505e8a55b4c42f95c65be657a33b41f2f5",
+  "source_commit": "2a1b20b2db022391025540074f53034270eca3a2",
+  "source_tree": "cd1e86288e0a50a2e5dbbd7283923cf0353e492a",
   "workspace_default_declarations": [
     {
       "ignored": false,

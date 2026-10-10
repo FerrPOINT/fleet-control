@@ -1232,9 +1232,19 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(len(gate.GATES), 28)
         self.assertEqual((gate.DEFAULT_COUNT, gate.IGNORED_COUNT), (248, 18))
         self.assertEqual(len(REVIEWED["compiled_source_sha256"]), 309)
-        self.assertEqual(gate.SOURCE_SHA, "4358dea9d62f6d26cafcd6da8de7b533ac65fe56")
-        self.assertEqual(gate.SOURCE_TREE, "acae77505e8a55b4c42f95c65be657a33b41f2f5")
+        self.assertEqual(gate.SOURCE_SHA, "2a1b20b2db022391025540074f53034270eca3a2")
+        self.assertEqual(gate.SOURCE_TREE, "cd1e86288e0a50a2e5dbbd7283923cf0353e492a")
         self.assertEqual(gate.SOURCE_INVENTORY_SHA, "bf10f571dd0f8d8794264dac4213752906ddfab4be6f1e31929df4bfa9b0e331")
+
+    def test_ci_only_product_successor_preserves_exact_compiled_and_declaration_inventory(self):
+        prior = json.loads(self.source_blob(gate.INVENTORY, "bdd1da4e97497f13d0cfd17d1e28c087b52c2051"))
+        prior.update(source_commit=gate.SOURCE_SHA, source_tree=gate.SOURCE_TREE)
+        self.assertEqual(REVIEWED, prior)
+        changed = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
+            "4358dea9d62f6d26cafcd6da8de7b533ac65fe56", gate.SOURCE_SHA],
+            capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+        self.assertEqual(changed, [".github/workflows/ci.yml"])
+        self.assertEqual(self.source_blob(".github/workflows/ci.yml"), (ROOT / ".github/workflows/ci.yml").read_bytes())
 
     def test_regression_source_preserves_every_prior_declaration_and_adds_exact_seven(self):
         prior = json.loads(self.source_blob(gate.INVENTORY, "42447728419b69011efbd69f9f7ff5935c1e271f"))
