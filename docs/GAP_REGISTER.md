@@ -2,6 +2,37 @@
 
 ## Current Open Release Gates: 10 October 2026
 
+Latest verified state: full backend38021438217 fails eight recovered-activation
+cases at container_activation_pg; safe artifact11658528950 identifies the
+configuration snapshot hash probe, not successful activation. The fixture hash
+uses UTF-8 while Base/production and its independent golden require ASCII
+escaping. Test-only correction/default golden regression are prepared and need
+a new exact-source full Linux/PG gate. Production authority predicates stay intact.
+
+C11 run38021888246 fails runtime_inventory with both cleanup checks successful.
+Closed authenticated terminal telemetry, not raw logs, establishes the stage;
+no failure artifact or actual credential/Auth result exists. Diagnose the strict
+source/compiler inventory without waiving unknown tests. Worker successor6870ea0
+adds five PG/one unit credential regressions but has formatting/static evidence
+only; it is not qualified by the earlier frozen994 run.
+
+Frontend38022762729 fails preparation, with authenticated failure artifact
+11658544399. The reproduced Windows archive conversion affected only the local
+source inventory oracle. Normal successorbea500d pins all835 canonical Git blobs
+and retains23 standard gates/default pool/engines. Its67 pure tests pass on both
+platforms; run38023185173 is active, not accepted. Earlier browser failure38019603974
+and live PM/native/Forge gaps remain open. See the current
+[delivery matrix](REMAINING_DELIVERY_WORK.md) for dependencies and stop/go.
+
+## Earlier Release Checkpoints
+
+Newest checkpoint: e369fed corrects per-page recovery idle latency and retains
+the historical regression selector while strengthening it to101 records. Reviewed
+controlseb214954 are normally published and run38021438217 is active. The full
+product/PG result remains open;110 Linux control tests do not resolve the old
+failure. New frontendf2e8495 passes348/348 unit tests in36 files, but its seven
+new browser fixtures, full browser gate and fresh screenshots remain unexecuted.
+
 Latest terminal checkpoint supersedes historical in-progress text below.
 Backend38018281445 fails approval_recovery, with authenticated safe artifact
 11657906403/ZIP62d8e61e25cb71f61e38f5f7a95316c8a8267bc6d18c367289ddd662a80a4fb4.
@@ -12,6 +43,12 @@ New product58facc6 integratesc48d4fb. Parent53/53 focused tests, TypeScript and
 scoped ESLint pass; full new-source/browser/screens/live gates remain required.
 C11 Linux-controls preparation and independent security review are separate
 worker tasks, not completed credential acceptance.
+
+C11 frozen product994f29d now has independently verified/published controlsc5ee9bc
+and actual28-stage run38021888246. Parent revalidates309 canonical inputs,105 Rust
+files,242 default/17 ignored declarations and12/15 migrations, then runs99/99 pure
+Linux tests. Actual product/Auth/PG/OpenAPI results and dependency PR47/64 merges
+remain open; a later credential regression successor needs its own qualification.
 
 The current source candidate is1303be6, retaining8c93f43 normally integrated at65b4f33;
 the last completed81-stage source isafc5bb4 (config_files_unit failure). The union retains runtime

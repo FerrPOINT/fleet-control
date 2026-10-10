@@ -2,6 +2,52 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
+Latest terminal results supersede the earlier checkpoints below. Full backend
+run38021438217/sourcee369fed/controlseb214954 reaches container_activation_pg and
+fails eight recovered-activation cases. Parent authenticates safe artifact
+11658528950, ZIP SHA256
+6619b8d1ec4329ea0147aa4c131fd59d533db67bda3a1ec740db7694b32eede7;
+both scratch and synthetic DB cleanup pass. The fixed diagnostic identifies
+`activation_probe_configuration_snapshot_exact` at container_activation.rs184.
+Source inspection and independent Python hashing reproduce the fixture helper's
+UTF-8 versus Base ASCII-escaping mismatch. A test-only correction and default
+golden regression are prepared; a new full backend gate is still required.
+
+C11 run38021888246/source994f29d/controlsc5ee9bc completes FAILURE at
+runtime_inventory. Authenticated, closed terminal telemetry identifies validation
+in gate_receipts and both cleanup checks; no compiler/test failure artifact was
+published. This is not a credential test result or real-Auth acceptance. Strict
+compiler/source inventory mismatch diagnosis is in progress, without dropping
+tests or changing counts to an unknown compiler listing.
+
+Frontend run38022762729/source5cc1fbb/controlsdb82829 fails preparation before
+tests. Parent authenticates failure artifact11658544399, ZIP SHA256
+dd76db8f5469ca11717fc6b51f994d781c3c03a6e23d41488994e4a8e87eee37.
+The closed input_inventory hint leads to a reproduced local qualification error:
+Windows git archive applied line-ending conversion. Canonical Git batch objects
+give all835 source hashes and aggregate
+2a35bedc6542643277496ad2f7816d0bcc89e3780e632d94139c6acd0a421677.
+Normal controls successorbea500d changes only that pin. Its67 pure tests pass
+on Windows and Linux; all23 commands/default pool/three engines remain unchanged.
+[Run38023185173](https://github.com/FerrPOINT/fleet-control/actions/runs/38023185173)
+is confirmed active. No current browser/screens/live PM pass is claimed.
+
+The [remaining delivery map](REMAINING_DELIVERY_WORK.md) records independent
+owners, dependencies and stop/go criteria. Task Tracker/Workflow remain read-only.
+The current runtime assembly is not merge-ready or live SDLC accepted.
+
+## Earlier Integration Checkpoints
+
+Newest source checkpoint: normal mergef2e8495 integrates8c2d3c's seven additional
+Chats browser fixtures. The real generated-client frontend suite passes348/348
+tests in36 files using Node22/threads/one worker. No browser pass is claimed.
+Backend producte369fed and reviewed controlseb214954 are normally published;
+[run38021438217](https://github.com/FerrPOINT/fleet-control/actions/runs/38021438217)
+is confirmed active in the full81-stage Linux/PG gate. All167 ignored identities,
+migration registries and input pins are retained. Control tests pass110/110 on
+Linux, not product acceptance. The scan-pacing correction and stronger101-record
+regression still require the actual hosted result.
+
 Latest terminal checkpoint supersedes historical in-progress text below:
 backend38018281445 (source1303be6, controls9e838718) fails approval_recovery;
 frontend38019603974 (sourceb0ad56c, controlsba60890) fails the original three-browser
@@ -26,10 +72,11 @@ merge-ready or live SDLC accepted**. Historical evidence qualifies only its own 
 
 | Current gate | Exact source / authority | State |
 | --- | --- | --- |
-| Combined backend | Source1303be6, controls9e838718, run38018281445 |81-stage gate in progress; priorafc config_files_unit failure authenticated; correction not yet Rust-qualified |
+| Combined backend | Sourcee369fed, controlseb214954, run38021438217 |81-stage gate active; prior1303 approval_recovery failure authenticated, correction not yet product-qualified |
 | Config release PR64 | Head820a1af, normally merged into candidate8c93f43 | Separate five-job PASS; combined Rust/PG acceptance pending |
 | Union API/client | Source8c93f43, workflow5e57d5b, run38015043570 | Authenticated codegen PASS; typecheck/drift/compatibility PASS, not runtime acceptance |
-| Production Chats presentation | Frontend tree13ccbaba, hosted controlsba60890/sourceb0, run38019603974 |337 local tests/36 files pass with threads; standard hosted unit/build/three-browser gate in progress, not live PM |
+| Production Chats presentation | Integratedf2e8495; earlier hostedba60890/sourceb0 fails38019603974 |348/348 unit tests in36 files pass with threads; new browser fixtures and full hosted successor pending, not live PM |
+| Narrow C11 credential candidate | Product994f29d, controlsc5ee9bc, run38021888246 | Published28-stage gate created; parent309-input verification and99 Linux control tests pass, actual backend/Auth/PG result pending |
 | PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
 | Forge full12 | Public-safe controls1dbedf8, maintenance pin commit null | Cannot start acceptance without published qualified Base inputs |
 | Physical runtimes | Reviewed Docker/config/recovery source | Exact images and actual native lifecycle remain unaccepted |

@@ -35,9 +35,44 @@ fn generation() -> Generation {
 
 fn hash(value: &impl serde::Serialize) -> String {
     use sha2::{Digest, Sha256};
+    use std::fmt::Write;
+
     let mut value = serde_json::to_value(value).unwrap();
     value.sort_all_objects();
-    hex::encode(Sha256::digest(serde_json::to_vec(&value).unwrap()))
+    // Base receipts use compact sorted JSON with ensure_ascii=True.
+    let json = serde_json::to_string(&value).unwrap();
+    let mut ascii = String::with_capacity(json.len());
+    for c in json.chars() {
+        if c < '\u{7f}' {
+            ascii.push(c);
+        } else {
+            for unit in c.encode_utf16(&mut [0; 2]) {
+                write!(ascii, "\\u{unit:04x}").unwrap();
+            }
+        }
+    }
+    hex::encode(Sha256::digest(ascii.as_bytes()))
+}
+
+#[test]
+fn activation_probe_hash_matches_base_unicode_snapshot() {
+    use sha2::{Digest, Sha256};
+
+    let value = json!({"config":{"config_json":{},"soul_md":"\u{43f}\u{440}\u{438}\u{432}\u{435}\u{442} \u{1f600}","env_json":{}},"skills":[]});
+    // Independent Python json.dumps(sort_keys=True, separators=(',', ':'), ensure_ascii=True).
+    assert_eq!(
+        hash(&value),
+        "a5de7dfacd6c2771ef639bb9cbbfe24b3f38b4eeb5170ad7f6c7a6c6b2404e69"
+    );
+    assert_ne!(
+        hash(&value),
+        hex::encode(Sha256::digest(serde_json::to_vec(&value).unwrap()))
+    );
+    let controls = json!({"z":{"\\":"\"\\\n\t\u{7f}","\u{1f600}":"/srv/\u{430}\u{433}\u{435}\u{43d}\u{442}\u{44b}"},"\u{e9}":"\u{2028}\u{2029}"});
+    assert_eq!(
+        hash(&controls),
+        "9f8e9d6aa4038a3f5ee775ae03966955cbb132701da1266358b48d5af159b8a6"
+    );
 }
 
 fn recovered_command(l: &ContainerLaunch) -> ContainerRecoveryCommand {

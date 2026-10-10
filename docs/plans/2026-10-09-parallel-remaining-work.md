@@ -27,8 +27,8 @@ Current independently dispatched work:
 
 | Owner | Write scope / deliverable | Completion criterion |
 | ----- | ------------------------- | -------------------- |
-| Curie | Own checkout; frontend/e2e/fleet-control.spec.ts | Browser regressions for stale-answer explicit recheck, draft retention, keyboard/focus/URL and uncertain custody. Preserve existing tests and engines; static checks locally, actual browser gate separately. |
-| Feynman | Own C11 hosted-controls checkout | Exact994f29d Linux gate covering its real workspace, ignored PG tests, migration lineages, real Auth and API generation. No migrations12..20, local heavy jobs or publication before review. |
+| Curie | Own C11 successor checkout; credential regression tests | Browser patch8c2d3c is integrated normally atf2e8495, not browser-qualified. New task closes review-identified tests for replay child UUID/expiry and exact parent/child subject/scopes, without retargeting frozen994 controls. No local heavy jobs or push. |
+| Feynman | Own report; read-only recovery pacing counterreview | C11 controlsc5ee9bc are prepared with99 Linux pure passes, pending parent review/publication. New task reviews e369fed paging fairness/backpressure and101-record regression, without changing active81-stage run38021438217. |
 | Pascal | Own frontend-controls successor; only workflow/helper/helper tests | C11 read-only review complete with no P1/P2, not live acceptance. New task: bounded authenticated failure receipts exposing only fixed gates/codes and source-attested test locations/browser states, never private output. Preserve23 gates and source pins until parent integration. |
 | Parent | Integration, CI diagnosis, docs and publication | Correct concrete CI causes, integrate reviewed commits, qualify exact successors and publish narrow release units. Do not attribute older results to new source. |
 
@@ -40,6 +40,14 @@ five-second idle delay. The strengthened101-run PostgreSQL test preserves
 invalid-run holds and exact terminal proof. This addresses deterministic
 per-page scheduling latency; it is not yet the proven cause or resolution of
 38018281445. Rust1.88 formatting passes; fresh compiled/PG gates remain required.
+
+Reviewed backend controlseb214954 normally publish sourcee369fed and start
+actual run38021438217, confirmed active in full Linux/PG. Independent input
+verification preserves380/170 files, all167 ignored identities, all81 stages and
+migration registries. Linux110/110 pure passes; product acceptance remains open.
+After normal browser-fixture mergef2e8495, parent actually runs the complete
+frontend suite:348/348 tests in36 files, Node22/threads/one worker. No browser,
+live-PM or native-runtime acceptance is inferred from that result.
 
 These assignments supersede the historical table below. Workers use separate
 owned checkouts; Tracker and Workflow remain read-only references.
