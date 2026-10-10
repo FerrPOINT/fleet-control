@@ -14,20 +14,20 @@ import tarfile
 import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
-BRANCH = "build-only/fleet-openapi-authority-union-20261010"
-SOURCE_SHA = "32b9f063f9b5099ff61bca24ecdfeb9952889034"
-SOURCE_PARENT = "d71b14f5f61bc58200a085d97aac0b80a891c324"
-SOURCE_TREE = "f2e319df5875bbd05d08f503c8727376498969cb"
+BRANCH = "build-only/fleet-openapi-pm-union-20261010"
+SOURCE_SHA = "212d07391b83b8a5081c946b87b4215053c4a153"
+SOURCE_PARENT = "3b234a198073fc33d2c5ca16d835397ca113691e"
+SOURCE_TREE = "adb0e0856362989d12f5e6527ec44204c046b98f"
 SOURCE_BLOBS = {
     ".base-revision": "1716308f859d23508a6ca0bae105434221c00419",
     "backend/Cargo.lock": "1f2a6fee32bf3dabedafc3927c56c286e14c6daf",
     "backend/api/src/bin/gen_openapi.rs": "254b94c98ee232763c040fb50629080e4282af3f",
-    "backend/api/src/lib.rs": "68c468a597d174f7413e786f01c1416e30896733",
-    "backend/api/src/routes/clarification_commands.rs": "7e8787c9234f99bec8742ed327f33ff3975af425",
+    "backend/api/src/lib.rs": "d5b488ca8ed99d4f7e1bddf8e0498e4490fce9f4",
+    "backend/api/src/routes/clarification_commands.rs": "b2f450d88fdbe0a4a56cda84fc15f1f9422ac457",
     "backend/domain/src/clarification_commands.rs": "fd64e7a3600f0a4a93361029c7ba18693a2b7734",
     "backend/api/src/routes/sdlc_configuration.rs": "a9478a23db4e6f9d7db35b8342f382d1fa50775b",
     "backend/api/src/routes/agents.rs": "f512a6f5e4a0fb2c5e86e9c64fca8d827bb828da",
-    "backend/domain/src/lib.rs": "7d3a65c48ad4974620b05b0b3529c8a3bf22b149",
+    "backend/domain/src/lib.rs": "2a397f3aa00db7ae1d31cf65a2e9bb66a080c7cf",
     "backend/api/src/routes/sessions.rs": "06e2dd55e3dbd7a151827242e1adc7e792daa6e7",
 }
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
@@ -35,8 +35,8 @@ QUALIFIED_EXPORT = {
     "base_lock_sha256": "9712da389d3bdc3224fb5185011814b14993a5341250ffd93a6bd8d2cdc1c235",
     "base_tree": "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc",
     "fleet_lock_sha256": "7ca269c7cd50cd0e9f0ca9173630353a231bf718004181e6f08bd97f495edb78",
-    "source_file_count": 283,
-    "source_inventory_sha256": "6105d3c5d660201536c9f06e91c7622d8ebabd54b83f5440f5cddd204bcdfceb"
+    "source_file_count": 292,
+    "source_inventory_sha256": "c94d72c164e26e7cab2e9810f99cdcf8a960e9716c27cc2f63632df83337dec6"
 }
 WORKFLOW = ".github/workflows/openapi-codegen-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/openapi_codegen.py", "scripts/tests/test_openapi_codegen.py"}
@@ -254,7 +254,7 @@ def validate_readback(run, artifact, payload, *, run_id, attempt, workflow_sha, 
             and run["repository"]["full_name"] == REPOSITORY, "Unexpected/unsuccessful workflow identity")
     require(not artifact["expired"] and artifact["workflow_run"]["id"] == run_id
             and artifact["workflow_run"]["head_sha"] == workflow_sha
-            and artifact["name"] == f"fleet-openapi-authority-union-{run_id}-{attempt}"
+            and artifact["name"] == f"fleet-openapi-pm-union-{run_id}-{attempt}"
             and artifact["digest"] == "sha256:" + artifact_digest
             and digest(payload) == artifact_digest, "Artifact identity/digest mismatch")
     require(len(payload) <= 8 * 1024 ** 2, "Oversized artifact ZIP")

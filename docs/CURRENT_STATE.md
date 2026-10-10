@@ -4,67 +4,36 @@
 
 ### Current Integration Work
 
-Normal merge `9e0bb49` with GitHub main `c39ff84` is published and preserves
-both the standalone Chats delivery safeguards and
-the PM dialogue/clarification/requirements interface. Backend source review has
-no confirmed P1/P2 findings; six source checks and focused rustfmt pass. This is
-not compiled Rust/PostgreSQL acceptance. The added exact-row receipt regression
-also checks redaction on replay and dispatch.
+Published product `32b9f06` preserves main `c39ff84` Chats safeguards and the PM
+three-tab interface. Candidate merge `3b234a1` adds structured MCP tools and
+saved-answer continuation from `899ec22`, without rewriting history. Independent
+preservation review confirms all58 main-only changes,150 frontend files and
+historical migration blobs. Authority021 precedes PM022: canonical23/split26.
+PM logic, compilation and live acceptance are not established by that review.
 
-The union's merged OpenAPI generates its client successfully. The Base
-generated-client drift check and compatibility check against freshly fetched
-main `c39ff84` pass; four native capture-contract tests pass and retain45 views
-at each of three viewports. Documentation links pass across128 Markdown files.
-Focused merged React tests pass102/102 across four files, with Node22,
-threads/one worker and384MiB heap. This follows fixes for the failed-context
-observer remount loop and explicit readiness waits before keyboard/control
-interactions; all original behavior assertions remain. A denied session also
-has an explicit no-composer/no-POST regression. Scoped ESLint and formatting pass.
-Full TypeScript checking exhausts the384MiB local heap, so typecheck remains
-unverified. These checks do not regenerate OpenAPI from compiled Rust, execute
-the full/default-pool or browser suite, or produce fresh screenshots.
+| Scope | Current evidence | Remaining gate |
+| --- | --- | --- |
+| Rust OpenAPI, source32b9 | [run38036399848](https://github.com/FerrPOINT/fleet-control/actions/runs/38036399848) PASS; authenticated artifact11664003013, schema `ac545326e9b4ffca4378aee0aaaf9c2dd8c75faf02deb868cda0c87d7764b85a` equals committed schema | Not PM candidate codegen or full backend acceptance |
+| Frontend, source32b9 | [run38036497333](https://github.com/FerrPOINT/fleet-control/actions/runs/38036497333): typecheck, default unit stage, lint, compatibility, build and formatting PASS; focused local102/102 PASS | FAIL: fixture stage reaches1200-second timeout. Authenticated failure artifact11665170160 has no completed browser report or assertion locations; cleanup passes. Browser/capture/visual acceptance remains open |
+| Backend, source32b9 | [run38037641800](https://github.com/FerrPOINT/fleet-control/actions/runs/38037641800), controls6f23fd84, executing81 gates; actual inventory348 ordinary/169 ignored, activation PG14, migrations22/25 | Authority INSERT repair021 not yet verified by a successful PG receipt |
+| PM candidate3b234a1 | Ordinary unchanged Hermes `/v1/runs`, six scoped MCP tools, saved-answer continuation, sole owned PM migration022; rustfmt/source checks pass | Streaming/final persistence/restart attachment, owner composer/controls and delivered-answer resume visibility are being completed; authored Rust/PG/HTTP cases unexecuted |
+| Forge | [run38037085181](https://github.com/FerrPOINT/CI-CD/actions/runs/38037085181), controlseb91d4f, fails at manager bootstrap; authenticated artifact11663449669; all five first-job stages NOT_RUN, cleanup and daemon stop pass | Supported systemd delegation setup, physical CPU/memory/PID readback and full12 acceptance |
 
-- Frontend [run38032377582](https://github.com/FerrPOINT/fleet-control/actions/runs/38032377582),
-  controls `ea0d633`, source `59d00fe`: default unit stage passes; the run fails
-  at OpenAPI compatibility against the newer main. Browser/capture acceptance
-  is not established. The main integration must retain its pending-delivery and
-  original-payload-hash fields, then regenerate/check the actual union client.
-- Backend [run38033313593](https://github.com/FerrPOINT/fleet-control/actions/runs/38033313593),
-  controls `084d9f0`, source `7c7f9dd`, fails the same eight recovered-activation
-  cases. Authenticated artifact11663304119, ZIP SHA256
-  `bcc0fa122c70956765852fba111673ff483b2c1a06b2b3052f0758bbc4aa2839`,
-  identifies `activation_authorize_authority_insert`; both cleanup checks pass.
-  The fixed label narrows the failing operation, not its SQL/schema root cause.
-  Source repair `ec03093`, integrated by normal merge `d71b14f`, changes the
-  conflicting SQL alias `old` to `prior_authority` through additive migration021.
-  Historical migrations and authorization predicates are unchanged. Independent
-  review has no confirmed P1/P2 findings; eight source checks and rustfmt pass.
-  The three new Rust unit cases and one PostgreSQL regression remain unexecuted.
-  Canonical/split migration inventories are now22/25; activation PG inventory14.
-- Forge [run38032103574](https://github.com/FerrPOINT/CI-CD/actions/runs/38032103574),
-  controls `b9375dc`: authenticated artifact11662920813, ZIP SHA256
-  `c81ddfb2e17b6dc3a01eb254311d7419eaaa204117688b8a297ea093094ba1c0`,
-  reports failure during bootstrap before the admission seal. All five first-job
-  test stages are NOT_RUN; later jobs are skipped. Owned cleanup and daemon stop
-  pass. The receipt does not identify a Docker timeout or other root cause.
-- PM bootstrap candidate `fc29a9d` uses ordinary Hermes `/v1/runs` and the
-  existing Workflow assign/bind/step endpoints. It is disabled by default and
-  remains unintegrated: tool credential configuration, answer delivery and
-  checkpoint/resume are in work. Its written Rust/PG cases have not run.
+OpenAPI artifact ZIP SHA256:
+`73d381e51080ddfce4c24b49d265db13584412fb614bc91fd4191ea38acf1860`.
+Forge failure ZIP SHA256:
+`23030b51f4bea1d98ccf423582d2d532386bee90577869765ebed15faa4efd92`.
+Frontend failure ZIP SHA256:
+`2f66eac2ecf98e9bf58676048f52010f65c9659e725e95111ef3c8d182886005`.
+Neither a fixture, a runtime ACK nor a successful run is SDLC acceptance.
+Hermes is unchanged; no custom pre-model gate is required. Tracker and Workflow
+remain read-only. Existing screenshots are historical; fresh captures are pending.
+The standard CI activation count now requires14 and the exact new regression.
 
-Parallel ownership: Curie handed off the inherited browser fixtures and19 source
-preservation checks; Feynman reviewed the Forge diagnostic successor and alias
-repair without confirmed P1/P2 findings; Pascal prepares exact-source backend gates;
-Planck implements PM
-tools and continuation. Parent owns the normal merge, final tests, docs and
-publication. Hermes itself is unchanged; no custom pre-model access gate is
-required. Tracker and Workflow remain read-only. Existing screenshots are
-historical evidence, not fresh screenshots of this union.
+### Historical Verified Checkpoints
 
-### Latest Verified Checkpoint
-
-Product source is `59d00fe` (normal successor of `60f35db`). This checkpoint
-supersedes the same-day in-progress statements below; it is not full acceptance.
+Earlier product source `59d00fe` (normal successor of `60f35db`) and the results
+below are historical checkpoints, not the current integration or full acceptance.
 
 - C11 [run38028716924](https://github.com/FerrPOINT/fleet-control/actions/runs/38028716924)
   succeeds on controls7296506/source0e49430. Strict authenticated readback accepts

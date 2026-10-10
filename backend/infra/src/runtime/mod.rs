@@ -36,7 +36,10 @@ mod container_replacement;
 mod container_workers;
 mod hermes_wire;
 mod native_context;
+mod pm_continuation;
+mod pm_dispatch;
 mod pm_readback;
+mod pm_tools;
 pub(crate) mod recovery_wire;
 mod run_control;
 mod sse_wire;
@@ -1903,6 +1906,44 @@ impl LocalRuntimeSupervisor {
 
 #[async_trait]
 impl RuntimeSupervisor for LocalRuntimeSupervisor {
+    fn authorize_pm_tool(&self, agent: Uuid, bearer: &str) -> Result<(), AppError> {
+        use hmac::Mac;
+        let expected = crate::agent_runtime_token(&self.config, agent)?;
+        let mut expected_mac = crate::HmacSha256::new_from_slice(expected.as_bytes())
+            .map_err(|_| AppError::Unauthorized)?;
+        let mut supplied_mac = crate::HmacSha256::new_from_slice(bearer.as_bytes())
+            .map_err(|_| AppError::Unauthorized)?;
+        expected_mac.update(b"fleet-pm-mcp-v1");
+        supplied_mac.update(b"fleet-pm-mcp-v1");
+        expected_mac
+            .verify_slice(&supplied_mac.finalize().into_bytes())
+            .map_err(|_| AppError::Unauthorized)
+    }
+
+    async fn call_pm_tool(
+        &self,
+        agent: Uuid,
+        name: &str,
+        call: domain::PmToolCall,
+    ) -> Result<Value, AppError> {
+        pm_tools::call(self, agent, name, call).await
+    }
+
+    async fn resume_pm_answer(
+        &self,
+        actor: &domain::ClarificationCommandActor,
+        command: &domain::ClarificationAnswerCommand,
+    ) -> Result<(), AppError> {
+        pm_continuation::resume(self, actor, command).await
+    }
+
+    async fn dispatch_pm_draft(
+        &self,
+        operation: &domain::PmDraftOperation,
+        tracker: &dyn app::pm_draft::PmDraftTracker,
+    ) -> Result<(), AppError> {
+        pm_dispatch::dispatch(self, operation, tracker).await
+    }
     async fn resolve_targeted_approval(
         &self,
         agent: &Agent,

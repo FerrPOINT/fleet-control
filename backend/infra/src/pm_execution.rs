@@ -193,6 +193,10 @@ pub(super) async fn accept(
             "PM runtime run no longer matches reservation",
         ));
     }
+    txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE agent_sessions SET state='active',updated_at=now() WHERE id=$1 AND agent_id=$2 AND state='draft'",
+        [record.reservation.session_id.into(),record.reservation.identity.agent_id()?.into()]))
+        .await.map_err(AppError::database)?;
     let result = load(&txn, id, false).await?;
     if record.hermes_run_ref.is_none() {
         audit(&txn, id, "pm.run.accepted", json!({"session_id":record.reservation.session_id,"agent_id":record.reservation.identity.agent_ref,"runtime_run_id":result.hermes_run_ref})).await?;
@@ -276,5 +280,286 @@ async fn audit<C: ConnectionTrait>(
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,payload,created_at) VALUES($1,NULL,$2,'session_run',$3,$4,now())",
         [Uuid::new_v4().into(), action.into(), id.to_string().into(), payload.into()])).await.map_err(AppError::database)?;
+    Ok(())
+}
+
+pub(super) async fn prepare_dispatch(
+    repo: &PostgresFleetRepository,
+    intent: domain::PmDispatchIntent,
+) -> Result<domain::PmDispatchIntent, AppError> {
+    if intent.submitted || intent.hermes_run_ref.is_some() {
+        return Err(AppError::validation("PM dispatch must start unsubmitted"));
+    }
+    let record = get(repo, intent.session_run_id).await?;
+    record.reservation.validate()?;
+    let body: Value = serde_json::from_str(&intent.request_body)
+        .map_err(|_| AppError::validation("invalid PM request"))?;
+    if intent.request_body.len() > 1_048_576
+        || body.as_object().is_none_or(|map| map.len() != 2)
+        || body["input"].as_str().is_none_or(str::is_empty)
+        || body["session_id"].as_str() != Some(record.reservation.runtime_session_id().as_str())
+    {
+        return Err(AppError::validation("invalid PM exact request"));
+    }
+    let frozen = serde_json::to_value(&intent).map_err(AppError::internal)?;
+    repo.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO pm_dispatch_journal(session_run_id,intent) VALUES($1,$2) ON CONFLICT DO NOTHING",
+        [intent.session_run_id.into(),frozen.clone().into()])).await.map_err(AppError::database)?;
+    let row = repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT intent,submitted,hermes_run_ref FROM pm_dispatch_journal WHERE session_run_id=$1",
+        [intent.session_run_id.into()])).await.map_err(AppError::database)?
+        .ok_or_else(|| AppError::internal("missing PM dispatch journal"))?;
+    if row
+        .try_get::<Value>("", "intent")
+        .map_err(AppError::database)?
+        != frozen
+    {
+        return Err(AppError::conflict(
+            "PM original dispatch request or context changed",
+        ));
+    }
+    Ok(domain::PmDispatchIntent {
+        submitted: row.try_get("", "submitted").map_err(AppError::database)?,
+        hermes_run_ref: row
+            .try_get("", "hermes_run_ref")
+            .map_err(AppError::database)?,
+        ..intent
+    })
+}
+
+pub(super) fn dispatch_error(error: AppError) -> AppError {
+    match error {
+        AppError::Database(_) => {
+            AppError::Database("PM dispatch journal database operation failed".into())
+        }
+        other => other,
+    }
+}
+
+pub(super) fn dispatch_error_db(_: sea_orm::DbErr) -> AppError {
+    AppError::Database("PM custody database operation failed".into())
+}
+
+pub(super) async fn prepare_tool(
+    repo: &PostgresFleetRepository,
+    command: domain::PmToolCommand,
+) -> Result<domain::PmToolCommand, AppError> {
+    domain::pm_tool_key(&command.key)?;
+    if command.attempted
+        || command.result.is_some()
+        || !matches!(command.kind.as_str(), "question" | "revision" | "stop")
+        || !command.request.is_object()
+        || command.request.to_string().len() > 262144
+    {
+        return Err(AppError::validation("invalid PM tool custody"));
+    }
+    repo.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO pm_tool_commands(session_run_id,operation_key,kind,request) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+        [command.session_run_id.into(),command.key.clone().into(),command.kind.clone().into(),command.request.clone().into()])).await.map_err(dispatch_error_db)?;
+    let row = repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT kind,request,result,attempted FROM pm_tool_commands WHERE session_run_id=$1 AND operation_key=$2",
+        [command.session_run_id.into(),command.key.clone().into()])).await.map_err(dispatch_error_db)?.ok_or_else(||AppError::conflict("missing PM tool custody"))?;
+    if row
+        .try_get::<String>("", "kind")
+        .map_err(dispatch_error_db)?
+        != command.kind
+        || row
+            .try_get::<Value>("", "request")
+            .map_err(dispatch_error_db)?
+            != command.request
+    {
+        return Err(AppError::conflict(
+            "PM tool key has a different original request",
+        ));
+    }
+    Ok(domain::PmToolCommand {
+        attempted: row.try_get("", "attempted").map_err(dispatch_error_db)?,
+        result: row.try_get("", "result").map_err(dispatch_error_db)?,
+        ..command
+    })
+}
+
+pub(super) async fn claim_tool(
+    repo: &PostgresFleetRepository,
+    run: Uuid,
+    key: &str,
+) -> Result<bool, AppError> {
+    let txn = repo.db.begin().await.map_err(dispatch_error_db)?;
+    let record = load(&txn, run, false).await?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agents WHERE id=$1 FOR NO KEY UPDATE",
+        [record.reservation.identity.agent_id()?.into()],
+    ))
+    .await
+    .map_err(dispatch_error_db)?;
+    let result = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE pm_tool_commands c SET attempted=true FROM pm_run_bindings b,session_agent_runs r,agent_sessions s,users u,task_chat_bindings t,agents a
+         WHERE c.session_run_id=$1 AND c.operation_key=$2 AND NOT c.attempted
+         AND b.session_run_id=c.session_run_id AND b.hermes_run_ref IS NOT NULL AND b.terminal_status IS NULL
+         AND r.id=b.session_run_id AND r.state IN ('running','waiting','stopping')
+         AND s.id=b.session_id AND s.agent_id=b.agent_id AND s.state='active'
+         AND u.id=s.user_id AND u.is_active AND t.session_id=s.id AND t.agent_id=b.agent_id AND t.owner_subject=u.central_sub
+         AND a.id=b.agent_id AND a.kind='hermes' AND a.status='running' AND a.sdlc_role='project_manager'
+         AND NOT EXISTS(SELECT 1 FROM agent_config_heads WHERE agent_id=b.agent_id AND draining)",
+        [run.into(),key.into()])).await.map_err(dispatch_error_db)?;
+    txn.commit().await.map_err(dispatch_error_db)?;
+    Ok(result.rows_affected() == 1)
+}
+
+pub(super) async fn finish_tool(
+    repo: &PostgresFleetRepository,
+    run: Uuid,
+    key: &str,
+    result: Value,
+) -> Result<(), AppError> {
+    if result.to_string().len() > 262144 {
+        return Err(AppError::validation("PM tool result exceeds its bound"));
+    }
+    let updated = repo.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE pm_tool_commands SET result=$3 WHERE session_run_id=$1 AND operation_key=$2 AND attempted AND (result IS NULL OR result=$3)",
+        [run.into(),key.into(),result.into()])).await.map_err(dispatch_error_db)?;
+    if updated.rows_affected() != 1 {
+        return Err(AppError::conflict("PM tool acknowledgement changed"));
+    }
+    Ok(())
+}
+
+pub(super) async fn claim_submission(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+) -> Result<bool, AppError> {
+    let txn = repo.db.begin().await.map_err(AppError::database)?;
+    let record = load(&txn, id, false).await?;
+    let agent = record.reservation.identity.agent_id()?;
+    // Same agent lock as capacity reservation/configuration drain, before consuming the one-shot permit.
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agents WHERE id=$1 FOR NO KEY UPDATE",
+        [agent.into()],
+    ))
+    .await
+    .map_err(AppError::database)?;
+    let result = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE pm_dispatch_journal j SET submitted=true FROM pm_run_bindings b,session_agent_runs r,
+            agent_sessions s,users u,task_chat_bindings t,agents a
+         WHERE j.session_run_id=$1 AND NOT j.submitted AND b.session_run_id=j.session_run_id
+            AND r.id=b.session_run_id AND r.state='pending' AND r.runtime_run_id IS NULL
+            AND b.hermes_run_ref IS NULL AND b.terminal_status IS NULL
+            AND s.id=b.session_id AND s.agent_id=b.agent_id AND s.state IN ('draft','active')
+            AND u.id=s.user_id AND u.is_active AND t.session_id=s.id AND t.agent_id=b.agent_id
+            AND t.owner_subject=u.central_sub AND a.id=b.agent_id AND a.kind='hermes'
+            AND a.status='running' AND a.sdlc_role='project_manager'
+            AND NOT EXISTS(SELECT 1 FROM agent_config_heads WHERE agent_id=b.agent_id AND draining)
+            AND NOT EXISTS(SELECT 1 FROM message_dispatch_outbox WHERE agent_id=b.agent_id AND state IN ('dispatching','uncertain'))",
+        [id.into()])).await.map_err(AppError::database)?;
+    txn.commit().await.map_err(AppError::database)?;
+    Ok(result.rows_affected() == 1)
+}
+
+pub(super) async fn get_dispatch(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+) -> Result<Option<domain::PmDispatchIntent>, AppError> {
+    let row = repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT intent || jsonb_build_object('submitted',submitted,'hermes_run_ref',hermes_run_ref) AS intent FROM pm_dispatch_journal WHERE session_run_id=$1",
+        [id.into()])).await.map_err(AppError::database)?;
+    row.map(|row| {
+        serde_json::from_value(
+            row.try_get::<Value>("", "intent")
+                .map_err(AppError::database)?,
+        )
+        .map_err(|_| AppError::conflict("invalid PM dispatch journal"))
+    })
+    .transpose()
+}
+
+pub(super) async fn record_submission(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+    run_ref: String,
+) -> Result<(), AppError> {
+    if !valid_hermes_ref(&run_ref) {
+        return Err(AppError::validation("invalid Hermes PM ACK"));
+    }
+    let result = repo
+        .db
+        .execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE pm_dispatch_journal SET hermes_run_ref=$2 WHERE session_run_id=$1 AND submitted
+            AND (hermes_run_ref IS NULL OR hermes_run_ref=$2)",
+            [id.into(), run_ref.into()],
+        ))
+        .await
+        .map_err(AppError::database)?;
+    if result.rows_affected() != 1 {
+        return Err(AppError::conflict(
+            "PM ACK is not for the original submitted request",
+        ));
+    }
+    Ok(())
+}
+
+pub(super) async fn claim_guidance(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+    body: String,
+) -> Result<domain::PmGuidancePermit, AppError> {
+    if body.is_empty() || body.len() > 32768 {
+        return Err(AppError::validation("PM guidance exceeds its bound"));
+    }
+    let txn = repo.db.begin().await.map_err(AppError::database)?;
+    let record = load(&txn, id, false).await?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agents WHERE id=$1 FOR NO KEY UPDATE",
+        [record.reservation.identity.agent_id()?.into()],
+    ))
+    .await
+    .map_err(AppError::database)?;
+    let result = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE pm_dispatch_journal j SET guidance_attempted=true,guidance_body=$2
+         FROM pm_run_bindings b,session_agent_runs r,agent_sessions s,users u,agents a
+         WHERE j.session_run_id=$1 AND NOT j.guidance_attempted
+            AND b.session_run_id=j.session_run_id AND b.hermes_run_ref=j.hermes_run_ref
+            AND b.terminal_status IS NULL AND r.id=b.session_run_id AND r.state='running'
+            AND s.id=b.session_id AND s.agent_id=b.agent_id AND s.state='active'
+            AND u.id=s.user_id AND u.is_active
+            AND a.id=b.agent_id AND a.kind='hermes' AND a.sdlc_role='project_manager' AND a.status='running'
+            AND NOT EXISTS(SELECT 1 FROM agent_config_heads WHERE agent_id=b.agent_id AND draining)",
+        [id.into(),body.clone().into()])).await.map_err(AppError::database)?;
+    txn.commit().await.map_err(AppError::database)?;
+    if result.rows_affected() == 1 {
+        return Ok(domain::PmGuidancePermit::Claimed);
+    }
+    let row = repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT guidance_body,guidance_delivered FROM pm_dispatch_journal WHERE session_run_id=$1", [id.into()]))
+        .await.map_err(AppError::database)?.ok_or_else(|| AppError::conflict("missing PM guidance journal"))?;
+    let saved: Option<String> = row
+        .try_get("", "guidance_body")
+        .map_err(AppError::database)?;
+    if saved.as_ref().is_some_and(|saved| saved != &body) {
+        return Err(AppError::conflict("PM original Workflow guidance changed"));
+    }
+    if row
+        .try_get::<bool>("", "guidance_delivered")
+        .map_err(AppError::database)?
+    {
+        Ok(domain::PmGuidancePermit::Delivered)
+    } else {
+        Ok(domain::PmGuidancePermit::Unknown)
+    }
+}
+
+pub(super) async fn finish_guidance(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+) -> Result<(), AppError> {
+    let result = repo.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE pm_dispatch_journal SET guidance_delivered=true WHERE session_run_id=$1 AND guidance_attempted", [id.into()]))
+        .await.map_err(AppError::database)?;
+    if result.rows_affected() != 1 {
+        return Err(AppError::conflict("missing attempted PM guidance"));
+    }
     Ok(())
 }

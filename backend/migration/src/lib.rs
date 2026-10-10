@@ -28,6 +28,7 @@ mod m20261009_000018_container_activation;
 mod m20261009_000019_recovered_activation;
 mod m20261010_000020_clarification_commands;
 mod m20261010_000021_activation_authority_alias;
+mod m20261010_000022_pm_dispatch;
 
 pub struct Migrator;
 
@@ -111,6 +112,7 @@ impl MigratorTrait for CanonicalMigrator {
         migrations.push(Box::new(
             m20261010_000021_activation_authority_alias::Migration,
         ));
+        migrations.push(Box::new(m20261010_000022_pm_dispatch::Migration));
         migrations
     }
 }
@@ -138,6 +140,7 @@ impl MigratorTrait for LegacyMigrator {
             Box::new(m20261009_000019_recovered_activation::Migration),
             Box::new(m20261010_000020_clarification_commands::Migration),
             Box::new(m20261010_000021_activation_authority_alias::Migration),
+            Box::new(m20261010_000022_pm_dispatch::Migration),
         ]);
         migrations
     }

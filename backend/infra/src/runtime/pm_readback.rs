@@ -33,13 +33,20 @@ pub(super) async fn probe(
             "PM runtime mapping does not match reservation".into(),
         ));
     }
+    let base = if let Some(intent) = supervisor.repo.get_pm_dispatch(run.id).await? {
+        if !intent.submitted || intent.hermes_run_ref.as_deref() != Some(raw_id) {
+            return Err(AppError::conflict(
+                "PM original dispatch ACK does not match",
+            ));
+        }
+        pm_dispatch::verify_context(supervisor, agent, &intent).await?
+    } else {
+        supervisor.run_base_url(agent, &run).await?
+    };
     // A fresh authenticated read, never a cached Fleet status or an SSE EOF.
     let response = supervisor
         .client
-        .get(format!(
-            "{}/v1/runs/{raw_id}",
-            supervisor.run_base_url(agent, &run).await?
-        ))
+        .get(format!("{}/v1/runs/{raw_id}", base))
         .timeout(Duration::from_secs(10))
         .bearer_auth(crate::agent_runtime_token(&supervisor.config, agent.id)?)
         .send()

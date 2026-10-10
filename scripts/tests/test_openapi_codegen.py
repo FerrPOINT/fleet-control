@@ -140,7 +140,7 @@ class CodegenTests(unittest.TestCase):
         run = dict(id=123, run_attempt=1, status="completed", conclusion="success", event="push", head_sha=workflow_sha,
                    head_branch=codegen.BRANCH, path=codegen.WORKFLOW, repository={"full_name": codegen.REPOSITORY})
         artifact = dict(expired=False, workflow_run={"id": 123, "head_sha": workflow_sha},
-                        name="fleet-openapi-authority-union-123-1", digest="sha256:" + codegen.digest(payload))
+                        name="fleet-openapi-pm-union-123-1", digest="sha256:" + codegen.digest(payload))
         args = dict(run_id=123, attempt=1, workflow_sha=workflow_sha, artifact_digest=codegen.digest(payload))
         return run, artifact, payload, args
 
@@ -159,7 +159,9 @@ class CodegenTests(unittest.TestCase):
             codegen.validate_readback(run, artifact, payload + b"tampered", **args)
 
     def test_readback_rejects_forged_source_acceptance_and_unsafe_zip(self):
-        for changes in ({"source_sha": "b" * 40}, {"base_sha": "b" * 40}, {"all_quality_gate": True},
+        for changes in ({"source_sha": "b" * 40}, {"source_sha": "32b9f063f9b5099ff61bca24ecdfeb9952889034"},
+                        {"source_inventory_sha256": "6105d3c5d660201536c9f06e91c7622d8ebabd54b83f5440f5cddd204bcdfceb"},
+                        {"source_file_count": 283}, {"base_sha": "b" * 40}, {"all_quality_gate": True},
                         {"sdlc_acceptance": True}, {"schema_generator_success": 1}, {"helper_sha256": "b" * 64},
                         {"source_parent": "b" * 40}, {"source_tree": "b" * 40}, {"qualified_source_blobs": {}},
                         {"source_inventory_sha256": "b" * 64}, {"base_tree": "b" * 40},
@@ -182,8 +184,9 @@ class CodegenTests(unittest.TestCase):
         return value
 
     def test_exact_journal_source_parent_tree_and_blobs(self):
-        self.assertEqual(codegen.SOURCE_SHA, "32b9f063f9b5099ff61bca24ecdfeb9952889034")
+        self.assertEqual(codegen.SOURCE_SHA, "212d07391b83b8a5081c946b87b4215053c4a153")
         self.assertEqual(codegen.BASE_SHA, "19a7a381ae6dbea61a643bb96189e483fa64df5c")
+        codegen.qualify_source(ROOT)
         results = [f"{codegen.SOURCE_SHA} {codegen.SOURCE_PARENT}".encode(), codegen.SOURCE_TREE.encode()]
         results += [blob.encode() for blob in codegen.SOURCE_BLOBS.values()]
         with patch.object(codegen, "git", side_effect=results) as git:
@@ -202,7 +205,7 @@ class CodegenTests(unittest.TestCase):
         self.assertIn("printf 'Source: `%s`\\n\\n' " + codegen.SOURCE_SHA, summary)
         artifact = next(step for step in steps if step.get("id") == "artifact")
         self.assertEqual(artifact["with"]["name"],
-                         "fleet-openapi-authority-union-${{ github.run_id }}-${{ github.run_attempt }}")
+                         "fleet-openapi-pm-union-${{ github.run_id }}-${{ github.run_attempt }}")
         self.assertNotIn("8c93f43f", (ROOT / codegen.WORKFLOW).read_text())
 
     def test_pending_delivery_is_optional_nullable_boolean_not_stale(self):
@@ -222,9 +225,10 @@ class CodegenTests(unittest.TestCase):
 
     def test_readback_rejects_previous_artifact_namespace(self):
         run, artifact, payload, args = self.fixture()
-        artifact["name"] = "fleet-openapi-config8c93-123-1"
-        with self.assertRaises(ValueError):
-            codegen.validate_readback(run, artifact, payload, **args)
+        for name in ("fleet-openapi-config8c93-123-1", "fleet-openapi-authority-union-123-1"):
+            artifact["name"] = name
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                codegen.validate_readback(run, artifact, payload, **args)
 
     def test_journal_operations_and_dtos_required_not_stale_schema(self):
         codegen.schema_valid(codegen.canonical(self.schema_fixture()))
