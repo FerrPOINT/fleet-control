@@ -35,7 +35,7 @@ NODE = "22.20.0"
 PNPM = "10.28.1"
 QUALIFIED_UNIT_COUNTS = dict(files_passed=36, tests_passed=348, files_skipped=0, tests_skipped=0)
 QUALIFIED_INPUTS = {
-    "source_inventory_sha256": "738f30b0671b5b7cc602fbf849f60d6247da47b9db7b8b93f88187315df81558",
+    "source_inventory_sha256": "2a35bedc6542643277496ad2f7816d0bcc89e3780e632d94139c6acd0a421677",
     "base_inventory_sha256": "437244f3861d17356cbe33162dceca877aea74d82dccae9b9b1a2915b62ee444",
     "frontend_lock_sha256": "37918d9d24852a14f24c43a593777e99d36e0e58de2e7b9a58a4415fd927fb67",
     "base_lock_sha256": "149adc7015cd1b7fa1d093e5501156ed6e149efbc82b222c82a2797912261fb4",
