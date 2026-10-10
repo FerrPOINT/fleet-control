@@ -1,0 +1,6 @@
+
+> fleet-control-frontend@0.2.0 openapi:check C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend
+> node node_modules/@sdlc/ui/scripts/sdlc-openapi-check.mjs --spec ../openapi/openapi.json --schema src/api/generated.ts
+
+✨ openapi-typescript 7.13.0
+🚀 C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\openapi\openapi.json → C:\Users\ferru\AppData\Local\Temp\sdlc-openapi-r5eH6H\schema-check.d.ts [179.2ms]

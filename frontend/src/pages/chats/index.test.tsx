@@ -96,7 +96,10 @@ function renderPage(url = '/chats') {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  sessionStorage.clear()
   useAuthStore.setState({
+    token: 'fixture-token',
+    signingOut: false,
     userId: owner,
     displayName: 'Owner',
     email: 'owner@example.test',

@@ -9,7 +9,10 @@ import { createSession } from '@/api/fleet'
 import { getChatsDirectory } from '@/api/chats-directory'
 import type { AgentDirectoryItem, CreateSessionRequest } from '@/api/types'
 import { useSessionUserFilter, SessionUserFilter } from '@/shared/session-user-filter'
-import { useAuthStore } from '@/shared/auth/store'
+import { ssoConfig, useAuthStore } from '@/shared/auth/store'
+import { apiBaseUrl } from '@/api/client'
+import { ControlPreparationError, controlRecoveryService } from '@/shared/chat-control-recovery'
+import { useDispatchRecovery } from '../chat-detail/dispatch-recovery'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { sdlcRoleLabel } from '@/shared/sdlc-roles'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
@@ -322,10 +325,30 @@ function CreatePrivateChat({
   const [title, setTitle] = useState('')
   const [key, setKey] = useState(() => crypto.randomUUID())
   const [uncertain, setUncertain] = useState(false)
+  const dispatch = useDispatchRecovery('create:chats')
   const mutation = useMutation({
-    mutationFn: (command: { input: CreateSessionRequest; agentName: string }) =>
-      createSession(command.input),
-    onSuccess: async (session) => {
+    mutationFn: async (command: { input: CreateSessionRequest; agentName: string }) => {
+      await dispatch.prepare(
+        command.input,
+        command.input.idempotency_key!,
+        command.input.primary_agent_id!,
+        controlRecoveryService(apiBaseUrl, ssoConfig.issuer),
+        () =>
+          Boolean(useAuthStore.getState().token) &&
+          useAuthStore.getState().permissions.includes('sessions:write_own'),
+      )
+      return createSession(command.input)
+    },
+    onSuccess: async (session, command) => {
+      const matching = Boolean(
+        session?.id &&
+        session.user_id === useAuthStore.getState().userId &&
+        session.primary_agent_id === command.input.primary_agent_id,
+      )
+      if (!dispatch.finish(matching)) {
+        setUncertain(true)
+        return
+      }
       setUncertain(false)
       await client.invalidateQueries({ queryKey: ['chats-directory'] })
       onOpenChange(false)
@@ -334,11 +357,18 @@ function CreatePrivateChat({
       navigate(`/chats/${session.id}?returnTo=${encodeURIComponent(returnTo)}`)
     },
     onError: (error) => {
-      if (!(error instanceof ApiError) || error.status === 408 || error.status >= 500)
+      dispatch.fail(error)
+      if (
+        !(error instanceof ControlPreparationError) &&
+        (!(error instanceof ApiError) ||
+          error.status < 400 ||
+          error.status === 408 ||
+          error.status >= 500)
+      )
         setUncertain(true)
     },
   })
-  const held = mutation.isPending || uncertain
+  const held = mutation.isPending || uncertain || dispatch.restored
   if (!agent && !held) return null
   return (
     <Dialog
@@ -358,7 +388,7 @@ function CreatePrivateChat({
           aria-busy={mutation.isPending}
           onSubmit={(event) => {
             event.preventDefault()
-            if (mutation.isPending) return
+            if (mutation.isPending || dispatch.restored) return
             if (uncertain && mutation.variables) mutation.mutate(mutation.variables)
             else if (
               title.trim() &&
@@ -394,7 +424,13 @@ function CreatePrivateChat({
             <ErrorState message={t('sessions.createError')} />
           ) : null}
           {uncertain ? <ErrorState message={t('chats.creationUnknown')} /> : null}
-          <Button type="submit" disabled={mutation.isPending || !title.trim()}>
+          {dispatch.restored && (
+            <p role="status">
+              Создание исходного чата требует сверки после перезагрузки. Новый чат заблокирован;
+              приватный текст не сохранён.
+            </p>
+          )}
+          <Button type="submit" disabled={mutation.isPending || dispatch.restored || !title.trim()}>
             <Plus className="h-4 w-4" />
             {mutation.isPending ? t('sessions.creating') : t('sessions.create')}
           </Button>

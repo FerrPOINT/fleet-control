@@ -1,0 +1,9 @@
+
+> fleet-control-frontend@0.2.0 lint C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend
+> eslint . --max-warnings=0 && pnpm lint:semantic
+
+
+> fleet-control-frontend@0.2.0 lint:semantic C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend
+> node scripts/sdlc-semantic-classes-check.mjs --css src/index.css --src src
+
+Semantic color classes match C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend\src\index.css

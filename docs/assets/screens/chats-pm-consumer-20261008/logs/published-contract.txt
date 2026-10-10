@@ -1,0 +1,1 @@
+Verified seven Fleet DTOs against the accepted snapshot and provided Tracker source.

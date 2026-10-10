@@ -1,0 +1,65 @@
+
+> fleet-control-frontend@0.2.0 openapi:compat C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend
+> node --test scripts/base-openapi-compat.test.mjs && node scripts/base-openapi-compat.mjs "--base" "origin/feat/hermes-runtime-integration-20261004"
+
+TAP version 13
+# Subtest: key migration adjusts only two missing legacy headers and never mutates the baseline
+ok 1 - key migration adjusts only two missing legacy headers and never mutates the baseline
+  ---
+  duration_ms: 2.9287
+  type: 'test'
+  ...
+# Subtest: key migration rejects absent, duplicate, optional, renamed, typed or referenced headers
+ok 2 - key migration rejects absent, duplicate, optional, renamed, typed or referenced headers
+  ---
+  duration_ms: 3.5339
+  type: 'test'
+  ...
+# Subtest: key migration still rejects restoring unkeyed controls after the baseline upgrade
+ok 3 - key migration still rejects restoring unkeyed controls after the baseline upgrade
+  ---
+  duration_ms: 0.3464
+  type: 'test'
+  ...
+# Subtest: Base still rejects other control header, response and sibling operation changes
+ok 4 - Base still rejects other control header, response and sibling operation changes
+  ---
+  duration_ms: 370.8235
+  type: 'test'
+  ...
+# Subtest: retires only the exact historical response without mutating the source
+ok 5 - retires only the exact historical response without mutating the source
+  ---
+  duration_ms: 0.3305
+  type: 'test'
+  ...
+# Subtest: does not forgive removal, changed refusal, different schema or restored success
+ok 6 - does not forgive removal, changed refusal, different schema or restored success
+  ---
+  duration_ms: 0.369
+  type: 'test'
+  ...
+# Subtest: security guard remains enforced after the baseline includes retirement
+ok 7 - security guard remains enforced after the baseline includes retirement
+  ---
+  duration_ms: 0.3196
+  type: 'test'
+  ...
+# Subtest: Base still rejects removed sibling operations and changes on the retired route
+ok 8 - Base still rejects removed sibling operations and changes on the retired route
+  ---
+  duration_ms: 489.0529
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 966.4993
+Explicit security migration: run-wide approval 200 -> 409; see docs/API.md.
+Explicit security migration: steer/stop requires Idempotency-Key; see docs/API_VERSIONING.md.
+OK: OpenAPI compatibility check passed
