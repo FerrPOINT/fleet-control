@@ -64,7 +64,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual({name for name in before if before[name] != after[name]}, {
             "reviewed_inventory", "expected_migration_receipt", "verify_migration_snapshots",
             "verify_test_log", "verify_runtime_inventory", "execute", "validate_evidence_files",
-            "safe_test_diagnostics", "test_failure_logs", "validate_failure_evidence"})
+            "safe_test_diagnostics", "test_failure_logs", "validate_failure_evidence", "main"})
 
     def test_additive024_requires_exact_ignored_upgrade_selector_and_owned_cleanup(self):
         name = "pm_ack_bounds_repairs_installed_022_preserving_custody_and_empty_roundtrip"
@@ -2096,10 +2096,12 @@ class HostedBackendTests(unittest.TestCase):
         old, new = functions(before), functions(after)
         self.assertEqual(old.keys(), new.keys())
         self.assertEqual({name for name in old if old[name] != new[name]},
-                         {"safe_test_diagnostics", "test_failure_logs", "validate_failure_evidence"})
+                         {"safe_test_diagnostics", "test_failure_logs", "validate_failure_evidence", "execute", "main"})
         constants = lambda tree: {node.targets[0].id: ast.dump(node.value) for node in tree.body
                                   if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)}
-        self.assertEqual(constants(before), constants(after))
+        old_constants, new_constants = constants(before), constants(after)
+        self.assertEqual(set(new_constants) - set(old_constants), {"CONTROL_PHASE"})
+        self.assertEqual(old_constants, {key: value for key, value in new_constants.items() if key != "CONTROL_PHASE"})
         tests = lambda tree: {node.name for node in ast.walk(tree)
                               if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
         original = tests(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)))
@@ -2107,6 +2109,155 @@ class HostedBackendTests(unittest.TestCase):
         self.assertTrue(original <= tests(ast.parse(Path(__file__).read_bytes())))
         for path in (gate.WORKFLOW, gate.GATE, gate.INIT, gate.INVENTORY):
             self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen), path)
+
+    def catch_projection(self, run):
+        budget = SimpleNamespace(arm=lambda: None, close=lambda: None, cleanup=lambda **_: None)
+        output = io.StringIO()
+        with mock.patch.object(sys, "argv", [gate.HELPER, "execute"]), mock.patch.object(gate, "hosted_budget", return_value=budget), \
+                mock.patch.object(sys, "stdout", output), mock.patch.object(gate.signal, "setitimer", create=True), \
+                mock.patch.object(gate.signal, "ITIMER_REAL", 0, create=True):
+            code = run()
+        self.assertEqual(code, 1)
+        lines = output.getvalue().splitlines()
+        self.assertEqual(lines[0], "Backend control failed; no private diagnostics emitted; acceptance withheld")
+        self.assertEqual(len(lines), 2)
+        value = json.loads(lines[1])
+        self.assertEqual(set(value), {"state", "control_phase", "exception_class", "reason", "http_status",
+                                     "backend_quality_gate", "all_quality_gate", "sdlc_acceptance"})
+        self.assertEqual(value["state"], "backend_control_exception")
+        for key in ("backend_quality_gate", "all_quality_gate", "sdlc_acceptance"):
+            self.assertIs(value[key], False)
+        self.assertNotIn("PRIVATE_SENTINEL", output.getvalue())
+        self.assertTrue(value["http_status"] is None or type(value["http_status"]) is int
+                        and value["http_status"] in {400, 401, 403, 404, 408, 409, 422, 429, 500, 502, 503, 504})
+        self.assertIsNone(gate.BUDGET)
+        return value
+
+    def test_outer_catch_early_execute_predicates_emit_only_closed_phase_class_reason(self):
+        cases = [("preflight", "execute_preflight", ValueError("PRIVATE_SENTINEL"), "value_error", "unknown"),
+                 ("clean_head", "checkout_qualification", ValueError("Dirty checkout"), "value_error", "checkout_dirty"),
+                 ("command", "compiler_version", gate.CommandFailed(1), "command_failed", "unknown"),
+                 ("reviewed_inventory", "inventory_binding", ValueError("Input fingerprint drift"), "value_error", "inventory_hash"),
+                 ("qualify_utility", "utility_qualification", ValueError("Utility source/worktree drift"), "value_error", "utility_bytes"),
+                 ("qualify_package", "package_qualification", ValueError("Canonical package origin required"), "value_error", "package_origin"),
+                 ("resource_guard", "resource_guard", ValueError("Hosted compiler cgroup must be bounded at 4 GiB"), "value_error", "cgroup_limit"),
+                 ("resource_guard", "resource_guard", ValueError("Hosted initial cgroup headroom below 3 GiB"), "value_error", "cgroup_headroom"),
+                 ("resource_guard", "resource_guard", ValueError("Disposable hosted CI requires 5 GiB free; no waiver"), "value_error", "disk_floor")]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "fleet-control").mkdir()
+            (root / "fleet-control/.base-revision").write_text(gate.BASE_SHA)
+            for name, phase, error, kind, reason in cases:
+                mocks = dict(preflight=mock.Mock(return_value=(root, ROOT, "a" * 40)), clean_head=mock.Mock(),
+                             command=mock.Mock(return_value=b"rustc 1.88.0"), reviewed_inventory=mock.Mock(return_value=REVIEWED),
+                             qualify_utility=mock.Mock(), qualify_package=mock.Mock(), resource_guard=mock.Mock())
+                mocks[name].side_effect = error
+                with self.subTest(name=name, reason=reason), mock.patch.multiple(gate, **mocks), \
+                        mock.patch.dict(os.environ, RUNNER_TEMP=str(root)):
+                    value = self.catch_projection(gate.main)
+                    self.assertEqual((value["control_phase"], value["exception_class"], value["reason"]), (phase, kind, reason))
+
+    def test_outer_catch_unknown_private_messages_subclasses_and_phase_stay_unknown(self):
+        class Foreign(ValueError):
+            pass
+
+        for error in (RuntimeError("PRIVATE_SENTINEL SQL TOKEN"), ValueError("Dirty checkout PRIVATE_SENTINEL"),
+                      ValueError("x" * 10000), Foreign("Dirty checkout"), TypeError("PRIVATE_SENTINEL")):
+            def fail():
+                gate.CONTROL_PHASE = "PRIVATE_SENTINEL"
+                raise error
+            with mock.patch.object(gate, "execute", side_effect=fail):
+                value = self.catch_projection(gate.main)
+            self.assertEqual(value["control_phase"], "unknown")
+            self.assertEqual(value["reason"], "unknown")
+            self.assertIn(value["exception_class"], {"unknown", "value_error", "type_error"})
+
+    def test_outer_catch_budget_failures_remain_closed_and_never_invoke_execute(self):
+        for phase in ("hosted_budget", "budget_arm"):
+            def run():
+                if phase == "hosted_budget":
+                    with mock.patch.object(gate, "hosted_budget", side_effect=PermissionError("PRIVATE_SENTINEL")):
+                        return gate.main()
+                budget = SimpleNamespace(arm=mock.Mock(side_effect=TimeoutError("PRIVATE_SENTINEL")), close=lambda: None)
+                with mock.patch.object(gate, "hosted_budget", return_value=budget):
+                    return gate.main()
+            with mock.patch.object(gate, "execute") as execute:
+                value = self.catch_projection(run)
+                execute.assert_not_called()
+            self.assertEqual(value["control_phase"], phase)
+            self.assertEqual(value["reason"], "unknown")
+            self.assertEqual(value["exception_class"], "permission_error" if phase == "hosted_budget" else "timeout")
+
+    def test_outer_catch_reason_labels_are_literal_source_attested_not_error_fragments(self):
+        import ast
+        tree = ast.parse((ROOT / gate.HELPER).read_bytes())
+        main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
+        reasons = next(ast.literal_eval(node.value) for node in ast.walk(main) if isinstance(node, ast.Assign)
+                       and any(isinstance(target, ast.Name) and target.id == "reasons" for target in node.targets))
+        frozen = ast.parse(self.source_blob(gate.HELPER, "73b33f4422df8aa19fc81e45dabf901c00e792df"))
+        labels = {node.args[1].value for node in ast.walk(frozen) if isinstance(node, ast.Call)
+                  and isinstance(node.func, ast.Name) and node.func.id == "require" and len(node.args) == 2
+                  and isinstance(node.args[1], ast.Constant)}
+        labels.update(node.args[0].value for node in ast.walk(frozen) if isinstance(node, ast.Call)
+                      and isinstance(node.func, ast.Name) and node.func.id in ("ValueError", "TimeoutError")
+                      and len(node.args) == 1 and isinstance(node.args[0], ast.Constant))
+        self.assertTrue(set(reasons) <= labels)
+        self.assertEqual(len(reasons), 30)
+        self.assertTrue(all(re.fullmatch(r"[a-z_]{1,40}", code) for code in reasons.values()))
+
+    def test_outer_catch_hosted_metadata_labels_and_http_status_are_closed(self):
+        import urllib.error
+        labels = {
+            "Execution restricted to the exact dedicated hosted branch push": "hosted_identity",
+            "Missing workflow SHA": "workflow_sha", "Missing run/attempt": "run_attempt",
+            "Unexpected hosted job inventory": "job_inventory", "Hosted job identity drift": "job_identity",
+            "Invalid hosted job clock": "job_clock", "Hosted job elapsed budget exhausted": "job_exhausted",
+            "Invalid hosted job budget": "job_budget", "Hosted elapsed budget exhausted": "budget_exhausted",
+            "Hosted metadata credentials missing": "metadata_credentials", "Hosted metadata redirect forbidden": "metadata_redirect",
+            "Hosted metadata deadline exhausted": "metadata_deadline", "Hosted metadata unavailable": "metadata_unavailable",
+            "Hosted metadata oversized": "metadata_oversized"}
+        for label, reason in labels.items():
+            kind = TimeoutError if label in ("Hosted elapsed budget exhausted", "Hosted metadata deadline exhausted") else ValueError
+            def fail():
+                with mock.patch.object(gate, "hosted_budget", side_effect=kind(label)):
+                    return gate.main()
+            value = self.catch_projection(fail)
+            self.assertEqual((value["control_phase"], value["reason"], value["http_status"]), ("hosted_budget", reason, None))
+        for code in (400, 401, 403, 404, 408, 409, 422, 429, 500, 502, 503, 504, 200, 999, True, "403"):
+            error = urllib.error.HTTPError("https://PRIVATE_SENTINEL", code, "PRIVATE_SENTINEL", {"Authorization": "PRIVATE_SENTINEL"}, None)
+            def fail_http():
+                with mock.patch.object(gate, "hosted_budget", side_effect=error):
+                    return gate.main()
+            value = self.catch_projection(fail_http)
+            self.assertEqual(value["exception_class"], "http_error")
+            self.assertEqual(value["reason"], "unknown")
+            self.assertEqual(value["http_status"], code if type(code) is int and code not in (200, 999) else None)
+
+    def test_outer_catch_successor_keeps_every_original_guard_and_158_test_identity(self):
+        import ast
+        frozen = "73b33f4422df8aa19fc81e45dabf901c00e792df"
+        old_tree = ast.parse(self.source_blob(gate.HELPER, frozen))
+        new_tree = ast.parse((ROOT / gate.HELPER).read_bytes())
+        functions = lambda tree: {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
+        before, after = functions(old_tree), functions(new_tree)
+        self.assertEqual(before.keys(), after.keys())
+        self.assertEqual({name for name in before if ast.dump(before[name]) != ast.dump(after[name])}, {"execute", "main"})
+
+        class RemoveCheckpoints(ast.NodeTransformer):
+            def visit_Global(self, node):
+                node.names = [name for name in node.names if name != "CONTROL_PHASE"]
+                return node if node.names else None
+
+            def visit_Assign(self, node):
+                return None if any(isinstance(target, ast.Name) and target.id == "CONTROL_PHASE" for target in node.targets) else node
+
+        self.assertEqual(ast.dump(before["execute"]), ast.dump(RemoveCheckpoints().visit(copy.deepcopy(after["execute"]))))
+        for path in (gate.WORKFLOW, gate.GATE, gate.INIT, gate.INVENTORY):
+            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen))
+        names = lambda tree: {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        original = names(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)))
+        self.assertEqual(len(original), 158)
+        self.assertTrue(original <= names(ast.parse(Path(__file__).read_bytes())))
 
     def failure_value(self):
         return dict(version=1, kind="safe_compiler_failure", status="failure", repository=gate.REPOSITORY, branch=gate.BRANCH,

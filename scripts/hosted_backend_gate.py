@@ -21,6 +21,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -185,6 +186,7 @@ UPLOAD_SECONDS = 240
 FALLBACK_SECONDS = 60  # Included in the final 240 seconds; three artifact/summary steps keep 180.
 GATE_SECONDS = 6600
 BUDGET = None
+CONTROL_PHASE = "startup"
 VERIFY_IN_GATE = False
 
 
@@ -1062,20 +1064,31 @@ def failure_stage(rows):
 
 
 def execute():
+    global CONTROL_PHASE
+    CONTROL_PHASE = "execute_preflight"
     workspace, controls, workflow_sha = preflight()
     checkouts = ((workspace / "fleet-control", SOURCE_SHA), (workspace / "services-base", BASE_SHA),
                  (workspace / "base-auth-source", AUTH_SHA), (workspace / "fleet-runtime-contract-base", UTILITY_SHA),
                  (workspace / "base-role-package", PACKAGE_SHA))
+    CONTROL_PHASE = "checkout_qualification"
     for checkout, commit in checkouts:
         clean_head(checkout, commit)
+    CONTROL_PHASE = "compiler_version"
     require(command(["rustc", "--version"]).decode().split()[1] == "1.88.0", "Rust drift")
+    CONTROL_PHASE = "source_base_pin"
     require((checkouts[0][0] / ".base-revision").read_text().strip() == BASE_SHA, "Source Base drift")
+    CONTROL_PHASE = "inventory_binding"
     reviewed = reviewed_inventory(controls)
+    CONTROL_PHASE = "utility_qualification"
     utility_before = qualify_utility(checkouts[3][0], reviewed)
+    CONTROL_PHASE = "package_qualification"
     package_before = qualify_package(checkouts[4][0], reviewed)
+    CONTROL_PHASE = "temporary_root"
     temporary = Path(os.environ["RUNNER_TEMP"]).resolve()
     require(temporary.is_dir(), "Hosted temporary root missing")
+    CONTROL_PHASE = "resource_guard"
     resources = resource_guard(temporary)
+    CONTROL_PHASE = "scratch_initialization"
     root, evidence = temporary / "fleet-backend-config-union8c", temporary / "fleet-backend-evidence"
     evidence.mkdir(exist_ok=False)
     root.mkdir(exist_ok=False)
@@ -1088,6 +1101,7 @@ def execute():
     contracts, migration_ledger = {}, {}
     cleanup, success = dict(scratch=False, synthetic_databases=False), False
     phase, failure = "source_export_fleet", None
+    CONTROL_PHASE = "execute_protected"
     try:
         export(checkouts[0][0], SOURCE_SHA, root / "src/fleet-control", FLEET_ROOTS)
         phase = "source_export_sdk"
@@ -1414,7 +1428,8 @@ def verify_log_cli(stage):
 
 
 def main():
-    global BUDGET, VERIFY_IN_GATE
+    global BUDGET, VERIFY_IN_GATE, CONTROL_PHASE
+    CONTROL_PHASE = "startup"
     parser = argparse.ArgumentParser(__doc__)
     modes = parser.add_subparsers(dest="mode", required=True)
     for name in ("preflight", "execute", "cleanup"):
@@ -1431,11 +1446,15 @@ def main():
     args = parser.parse_args()
     try:
         if args.mode in ("preflight", "execute", "cleanup"):
+            CONTROL_PHASE = "hosted_budget"
             BUDGET = hosted_budget()
             if args.mode == "cleanup":
+                CONTROL_PHASE = "budget_cleanup"
                 BUDGET.cleanup(fallback=True)
             else:
+                CONTROL_PHASE = "budget_arm"
                 BUDGET.arm()
+        CONTROL_PHASE = args.mode if args.mode in ("readback", "readback-failure", "preflight", "cleanup", "verify-log") else "execute"
         if args.mode in ("readback", "readback-failure"):
             readback(args)
         elif args.mode == "preflight":
@@ -1447,8 +1466,43 @@ def main():
             verify_log_cli(args.stage)
         else:
             return execute()
-    except Exception:
+    except Exception as error:
         print("Backend control failed; no private diagnostics emitted; acceptance withheld")
+        # Exact fixed codes only; exception text/args and private paths never leave the process.
+        classes = {ValueError: "value_error", TypeError: "type_error", KeyError: "key_error",
+                   FileNotFoundError: "file_not_found", PermissionError: "permission_error",
+                   OSError: "os_error", TimeoutError: "timeout", CommandFailed: "command_failed",
+                   urllib.error.HTTPError: "http_error", urllib.error.URLError: "url_error",
+                   json.JSONDecodeError: "json_decode"}
+        reasons = {"Checkout SHA mismatch": "checkout_sha", "Dirty checkout": "checkout_dirty",
+                   "Rust drift": "compiler_version", "Source Base drift": "source_base_pin",
+                   "Inventory pin drift": "inventory_pin", "Input fingerprint drift": "inventory_hash",
+                   "Utility source/worktree drift": "utility_bytes", "Canonical package origin required": "package_origin",
+                   "Hosted temporary root missing": "temporary_root",
+                   "Hosted compiler cgroup must be bounded at 4 GiB": "cgroup_limit",
+                   "Hosted initial cgroup headroom below 3 GiB": "cgroup_headroom",
+                   "Disposable hosted CI requires 5 GiB free; no waiver": "disk_floor",
+                   "Execution restricted to the exact dedicated hosted branch push": "hosted_identity",
+                   "Missing workflow SHA": "workflow_sha", "Missing run/attempt": "run_attempt",
+                   "Unexpected hosted job inventory": "job_inventory", "Hosted job identity drift": "job_identity",
+                   "Invalid hosted job clock": "job_clock", "Hosted job elapsed budget exhausted": "job_exhausted",
+                   "Invalid hosted job budget": "job_budget", "Hosted elapsed budget exhausted": "budget_exhausted",
+                   "Hosted metadata credentials missing": "metadata_credentials",
+                   "Hosted metadata redirect forbidden": "metadata_redirect",
+                   "Hosted metadata deadline exhausted": "metadata_deadline",
+                   "Hosted metadata unavailable": "metadata_unavailable", "Hosted metadata oversized": "metadata_oversized",
+                   "Build branch may add only the six reviewed controls": "control_write_set",
+                   "Base pin drift": "base_pin", "Schema pin drift": "schema_pin",
+                   "Authentic generated OpenAPI/source binding is pending; prepared controls cannot execute": "codegen_binding"}
+        reason = reasons.get(error.args[0], "unknown") if type(error) in (ValueError, TimeoutError) and len(error.args) == 1 and type(error.args[0]) is str and len(error.args[0]) <= 128 else "unknown"
+        http_status = error.code if type(error) is urllib.error.HTTPError and type(error.code) is int and error.code in {400, 401, 403, 404, 408, 409, 422, 429, 500, 502, 503, 504} else None
+        phases = {"startup", "hosted_budget", "budget_cleanup", "budget_arm", "readback", "readback-failure",
+                  "preflight", "cleanup", "verify-log", "execute", "execute_preflight", "checkout_qualification",
+                  "compiler_version", "source_base_pin", "inventory_binding", "utility_qualification",
+                  "package_qualification", "temporary_root", "resource_guard", "scratch_initialization", "execute_protected"}
+        print(json.dumps(dict(state="backend_control_exception", control_phase=CONTROL_PHASE if isinstance(CONTROL_PHASE, str) and CONTROL_PHASE in phases else "unknown",
+                              exception_class=classes.get(type(error), "unknown"), reason=reason, http_status=http_status,
+                              backend_quality_gate=False, all_quality_gate=False, sdlc_acceptance=False)))
         return 1
     finally:
         VERIFY_IN_GATE = False
