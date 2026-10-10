@@ -447,7 +447,7 @@ async fn bounded_submit(
 #[tokio::test]
 #[ignore = "requires isolated PostgreSQL, canonical utility9b and owned private HTTP bind"]
 async fn production_lost_ack_reload_reuses_original_journal_and_persists_same_native_ack() {
-    let f = fixture(true, false).await;
+    let f = Box::pin(fixture(true, false)).await;
     assert!(bounded_submit(&f, &f.supervisor, &f.intent).await.is_err());
     let unknown = f
         .repo
@@ -502,7 +502,7 @@ async fn production_lost_ack_reload_reuses_original_journal_and_persists_same_na
 #[tokio::test]
 #[ignore = "requires isolated PostgreSQL, canonical utility9b and owned private HTTP bind"]
 async fn production_concurrent_submission_cas_and_ack_keep_one_native_effect() {
-    let f = fixture(false, true).await;
+    let f = Box::pin(fixture(false, true)).await;
     let other_repo = repository().await;
     let other = supervisor(
         f.supervisor.config.clone(),
@@ -567,7 +567,7 @@ async fn production_concurrent_submission_cas_and_ack_keep_one_native_effect() {
 #[tokio::test]
 #[ignore = "requires isolated PostgreSQL, canonical utility9b and owned private HTTP bind"]
 async fn production_unknown_replay_rejects_current_token_context_revocation_before_post() {
-    let f = fixture(true, false).await;
+    let f = Box::pin(fixture(true, false)).await;
     assert!(bounded_submit(&f, &f.supervisor, &f.intent).await.is_err());
     let unknown = f
         .repo
