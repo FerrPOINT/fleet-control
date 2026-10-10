@@ -24,6 +24,13 @@ platforms; run38023185173 is active, not accepted. Earlier browser failure380196
 and live PM/native/Forge gaps remain open. See the current
 [delivery matrix](REMAINING_DELIVERY_WORK.md) for dependencies and stop/go.
 
+Follow-up publication: source56daff9/controls6f648430 starts full81-stage
+run38023648801, confirmed active. All167 ignored tests and prior337 default
+identities remain; new canonical-hash golden raises defaults to338. Independent
+380-input verification and110 Linux pure tests pass, not actual activation PG.
+Frontend38023185173 has reached the three-browser fixture step after default348
+unit/build gates; full browser/screens/live evidence remains open.
+
 ## Earlier Release Checkpoints
 
 Newest checkpoint: e369fed corrects per-page recovery idle latency and retains

@@ -36,6 +36,16 @@ The [remaining delivery map](REMAINING_DELIVERY_WORK.md) records independent
 owners, dependencies and stop/go criteria. Task Tracker/Workflow remain read-only.
 The current runtime assembly is not merge-ready or live SDLC accepted.
 
+The reviewed test-only correction is now committed in56daff9 and normally
+published through controls6f648430. Independent qualification retains380 compiled
+Git inputs/170 Rust files,167 ignored identities and all81 stages; it adds exactly
+one default declaration (338 total). Final110 Linux pure control tests pass.
+[Run38023648801](https://github.com/FerrPOINT/fleet-control/actions/runs/38023648801)
+is confirmed active on that exact source, not product acceptance. Frontend
+38023185173 has reached the original three-browser fixture step, after the
+standard default348 unit, typecheck/lint/build/theme/format gates. Its terminal
+browser/screens result remains open. Neither run is silently retargeted by docs.
+
 ## Earlier Integration Checkpoints
 
 Newest source checkpoint: normal mergef2e8495 integrates8c2d3c's seven additional
