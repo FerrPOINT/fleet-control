@@ -20,10 +20,47 @@ struct Remote {
     subject: String,
     scopes: Vec<String>,
     receipt: Mutex<Option<Value>>,
+    parent_principal: Mutex<Option<Value>>,
+    child_principal: Mutex<Option<Value>>,
+    parent_checks: AtomicUsize,
+    child_checks: AtomicUsize,
     posts: AtomicUsize,
     children: AtomicUsize,
     contexts: AtomicUsize,
     mode: AtomicUsize,
+}
+
+impl Remote {
+    fn valid_principal(&self, parent: bool) -> Value {
+        json!({"sub":self.subject,"email":"machine@example.test","display_name":"PM machine",
+            "scopes":if parent {vec!["task-tracker:read".to_string(),"task-tracker:write".to_string()]} else {self.scopes.clone()}})
+    }
+}
+
+fn invalid_principals(valid: &Value) -> Vec<(String, Value)> {
+    let mut wrong_subject = valid.clone();
+    wrong_subject["sub"] = json!(Uuid::new_v4());
+    let mut extra = valid.clone();
+    extra["scopes"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("task-tracker:admin"));
+    let mut cases = vec![
+        ("wrong subject".into(), wrong_subject),
+        ("extra scope".into(), extra),
+    ];
+    for (index, scope) in valid["scopes"].as_array().unwrap().iter().enumerate() {
+        let mut missing = valid.clone();
+        missing["scopes"].as_array_mut().unwrap().remove(index);
+        cases.push((format!("missing {scope}"), missing));
+        let mut duplicate = valid.clone();
+        duplicate["scopes"]
+            .as_array_mut()
+            .unwrap()
+            .push(scope.clone());
+        cases.push((format!("duplicate {scope}"), duplicate));
+    }
+    cases
 }
 
 async fn introspection(
@@ -31,6 +68,11 @@ async fn introspection(
     headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
     let root = headers["authorization"] == format!("Bearer {PARENT}");
+    if root {
+        remote.parent_checks.fetch_add(1, Ordering::SeqCst);
+    } else {
+        remote.child_checks.fetch_add(1, Ordering::SeqCst);
+    }
     if root && remote.mode.load(Ordering::SeqCst) == 8 {
         return (
             StatusCode::UNAUTHORIZED,
@@ -46,12 +88,14 @@ async fn introspection(
             );
         }
     }
+    let principal = if root {
+        remote.parent_principal.lock().await.clone()
+    } else {
+        remote.child_principal.lock().await.clone()
+    };
     (
         StatusCode::OK,
-        Json(
-            json!({"sub":remote.subject,"email":"machine@example.test","display_name":"PM machine",
-        "scopes":if root {vec!["task-tracker:read".to_string(),"task-tracker:write".to_string()]} else {remote.scopes.clone()}}),
-        ),
+        Json(principal.unwrap_or_else(|| remote.valid_principal(root))),
     )
 }
 
@@ -166,6 +210,10 @@ async fn fixture() -> Option<Fixture> {
         subject: subject.clone(),
         scopes,
         receipt: Mutex::new(None),
+        parent_principal: Mutex::new(None),
+        child_principal: Mutex::new(None),
+        parent_checks: AtomicUsize::new(0),
+        child_checks: AtomicUsize::new(0),
         posts: AtomicUsize::new(0),
         children: AtomicUsize::new(0),
         contexts: AtomicUsize::new(0),
@@ -223,6 +271,265 @@ impl Fixture {
             .await
             .map(|_| ())
     }
+
+    async fn audits(&self) -> Vec<Value> {
+        let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        db.query_all(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT to_jsonb(audit_log) AS row FROM audit_log WHERE entity_type='pm_draft_operation' AND entity_id=$1 ORDER BY id",
+            [self.remote.operation.id.to_string().into()],
+        ))
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| row.try_get("", "row").unwrap())
+        .collect()
+    }
+}
+
+async fn assert_changed_valid_receipt_conflicts(field: &str) {
+    let Some(fixture) = fixture().await else {
+        return;
+    };
+    // Retain an ACK without ever authorizing a Tracker context request.
+    fixture.remote.mode.store(4, Ordering::SeqCst);
+    assert!(matches!(
+        fixture.prepare().await,
+        Err(shared::AppError::Forbidden)
+    ));
+    let saved = fixture.operation().await;
+    let original = saved
+        .credentials
+        .as_ref()
+        .unwrap()
+        .receipt
+        .as_ref()
+        .unwrap();
+    let audits = fixture.audits().await;
+    assert_eq!(audits.len(), 2);
+    fixture.remote.mode.store(0, Ordering::SeqCst);
+    {
+        let mut response = fixture.remote.receipt.lock().await;
+        let response = response.as_mut().unwrap();
+        match field {
+            "token_id" => response[field] = json!(Uuid::new_v4()),
+            "expires_at" => {
+                response[field] = json!(original.expires_at - chrono::Duration::seconds(1))
+            }
+            _ => unreachable!(),
+        }
+        let changed: domain::PmCredentialReceipt = serde_json::from_value(json!({
+            "token_id": response["token_id"], "expires_at": response["expires_at"], "scopes": response["scopes"]
+        })).unwrap();
+        assert!(!changed.token_id.is_nil());
+        assert!(changed.expires_at > chrono::Utc::now());
+        assert!(changed.expires_at <= chrono::Utc::now() + chrono::Duration::seconds(300));
+        assert_eq!(changed.scopes, fixture.remote.scopes);
+        assert_ne!(&changed, original);
+        // The domain guard must reject a valid but different receipt too, not just SQL tampering.
+        let mut operation = saved.clone();
+        assert!(matches!(
+            operation.apply(domain::PmDraftProof::CredentialAcknowledged(changed)),
+            Err(shared::AppError::Conflict(_))
+        ));
+        assert_eq!(operation.credentials, saved.credentials);
+    }
+    for attempt in 1..=2 {
+        assert!(matches!(
+            fixture.prepare().await,
+            Err(shared::AppError::Conflict(_))
+        ));
+        assert_eq!(fixture.operation().await.credentials, saved.credentials);
+        assert_eq!(fixture.audits().await, audits);
+        assert_eq!(fixture.remote.posts.load(Ordering::SeqCst), 1 + attempt);
+        assert_eq!(
+            fixture.remote.parent_checks.load(Ordering::SeqCst),
+            1 + attempt
+        );
+        assert_eq!(fixture.remote.child_checks.load(Ordering::SeqCst), 1);
+        assert_eq!(fixture.remote.children.load(Ordering::SeqCst), 1);
+        assert_eq!(fixture.remote.contexts.load(Ordering::SeqCst), 0);
+    }
+    *fixture.remote.receipt.lock().await =
+        Some(json!({"secret":CHILD,"token_id":original.token_id,
+        "expires_at":original.expires_at,"scopes":original.scopes}));
+    fixture.prepare().await.unwrap();
+    assert_eq!(fixture.remote.contexts.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.remote.children.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.operation().await.credentials, saved.credentials);
+    assert_eq!(fixture.audits().await, audits);
+}
+
+#[tokio::test]
+async fn pm_credentials_pg_changed_valid_child_uuid_replay_conflicts_without_context_or_mutation() {
+    assert_changed_valid_receipt_conflicts("token_id").await;
+}
+
+#[tokio::test]
+async fn pm_credentials_pg_changed_valid_child_expiry_replay_conflicts_without_context_or_mutation()
+{
+    assert_changed_valid_receipt_conflicts("expires_at").await;
+}
+
+#[tokio::test]
+async fn pm_credentials_pg_parent_principal_mismatch_prevents_first_post() {
+    let Some(fixture) = fixture().await else {
+        return;
+    };
+    let cases = invalid_principals(&fixture.remote.valid_principal(true));
+    *fixture.remote.parent_principal.lock().await = Some(cases[0].1.clone());
+    assert!(matches!(
+        fixture.prepare().await,
+        Err(shared::AppError::Forbidden)
+    ));
+    let saved = fixture.operation().await;
+    assert!(saved.credentials.as_ref().unwrap().receipt.is_none());
+    let audits = fixture.audits().await;
+    assert_eq!(audits.len(), 1);
+    for (index, (label, principal)) in cases.into_iter().enumerate() {
+        *fixture.remote.parent_principal.lock().await = Some(principal);
+        assert!(
+            matches!(fixture.prepare().await, Err(shared::AppError::Forbidden)),
+            "{label}"
+        );
+        assert_eq!(
+            fixture.operation().await.credentials,
+            saved.credentials,
+            "{label}"
+        );
+        assert_eq!(fixture.audits().await, audits, "{label}");
+        assert_eq!(
+            fixture.remote.parent_checks.load(Ordering::SeqCst),
+            index + 2,
+            "{label}"
+        );
+        assert_eq!(
+            fixture.remote.child_checks.load(Ordering::SeqCst),
+            0,
+            "{label}"
+        );
+        assert_eq!(fixture.remote.posts.load(Ordering::SeqCst), 0, "{label}");
+        assert_eq!(fixture.remote.children.load(Ordering::SeqCst), 0, "{label}");
+        assert_eq!(fixture.remote.contexts.load(Ordering::SeqCst), 0, "{label}");
+    }
+    *fixture.remote.parent_principal.lock().await = None;
+    fixture.prepare().await.unwrap();
+    assert_eq!(fixture.remote.posts.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.remote.contexts.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.remote.children.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        fixture.operation().await.credentials.unwrap().intent,
+        saved.credentials.unwrap().intent
+    );
+    assert_eq!(fixture.audits().await.len(), 2);
+}
+
+#[tokio::test]
+async fn pm_credentials_pg_parent_principal_mismatch_retains_ack_without_another_post() {
+    let Some(fixture) = fixture().await else {
+        return;
+    };
+    fixture.remote.mode.store(4, Ordering::SeqCst);
+    assert!(matches!(
+        fixture.prepare().await,
+        Err(shared::AppError::Forbidden)
+    ));
+    let saved = fixture.operation().await;
+    assert!(saved.credentials.as_ref().unwrap().receipt.is_some());
+    let audits = fixture.audits().await;
+    assert_eq!(audits.len(), 2);
+    fixture.remote.mode.store(0, Ordering::SeqCst);
+    for (index, (label, principal)) in invalid_principals(&fixture.remote.valid_principal(true))
+        .into_iter()
+        .enumerate()
+    {
+        *fixture.remote.parent_principal.lock().await = Some(principal);
+        assert!(
+            matches!(fixture.prepare().await, Err(shared::AppError::Forbidden)),
+            "{label}"
+        );
+        assert_eq!(
+            fixture.operation().await.credentials,
+            saved.credentials,
+            "{label}"
+        );
+        assert_eq!(fixture.audits().await, audits, "{label}");
+        assert_eq!(
+            fixture.remote.parent_checks.load(Ordering::SeqCst),
+            index + 2,
+            "{label}"
+        );
+        assert_eq!(fixture.remote.posts.load(Ordering::SeqCst), 1, "{label}");
+        assert_eq!(
+            fixture.remote.child_checks.load(Ordering::SeqCst),
+            1,
+            "{label}"
+        );
+        assert_eq!(fixture.remote.children.load(Ordering::SeqCst), 1, "{label}");
+        assert_eq!(fixture.remote.contexts.load(Ordering::SeqCst), 0, "{label}");
+    }
+    *fixture.remote.parent_principal.lock().await = None;
+    fixture.prepare().await.unwrap();
+    assert_eq!(fixture.remote.posts.load(Ordering::SeqCst), 2);
+    assert_eq!(fixture.remote.contexts.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.remote.children.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.operation().await.credentials, saved.credentials);
+    assert_eq!(fixture.audits().await, audits);
+}
+
+#[tokio::test]
+async fn pm_credentials_pg_child_principal_mismatch_retains_ack_without_usable_credential() {
+    let Some(fixture) = fixture().await else {
+        return;
+    };
+    let cases = invalid_principals(&fixture.remote.valid_principal(false));
+    *fixture.remote.child_principal.lock().await = Some(cases[0].1.clone());
+    assert!(matches!(
+        fixture.prepare().await,
+        Err(shared::AppError::Forbidden)
+    ));
+    let saved = fixture.operation().await;
+    assert!(saved.credentials.as_ref().unwrap().receipt.is_some());
+    let audits = fixture.audits().await;
+    assert_eq!(audits.len(), 2);
+    for (index, (label, principal)) in cases.into_iter().enumerate() {
+        *fixture.remote.child_principal.lock().await = Some(principal);
+        assert!(
+            matches!(fixture.prepare().await, Err(shared::AppError::Forbidden)),
+            "{label}"
+        );
+        assert_eq!(
+            fixture.operation().await.credentials,
+            saved.credentials,
+            "{label}"
+        );
+        assert_eq!(fixture.audits().await, audits, "{label}");
+        assert_eq!(
+            fixture.remote.parent_checks.load(Ordering::SeqCst),
+            index + 2,
+            "{label}"
+        );
+        assert_eq!(
+            fixture.remote.child_checks.load(Ordering::SeqCst),
+            index + 2,
+            "{label}"
+        );
+        assert_eq!(
+            fixture.remote.posts.load(Ordering::SeqCst),
+            index + 2,
+            "{label}"
+        );
+        assert_eq!(fixture.remote.children.load(Ordering::SeqCst), 1, "{label}");
+        assert_eq!(fixture.remote.contexts.load(Ordering::SeqCst), 0, "{label}");
+    }
+    *fixture.remote.child_principal.lock().await = None;
+    fixture.prepare().await.unwrap();
+    assert_eq!(fixture.remote.contexts.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.remote.children.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.operation().await.credentials, saved.credentials);
+    assert_eq!(fixture.audits().await, audits);
 }
 
 #[tokio::test]
