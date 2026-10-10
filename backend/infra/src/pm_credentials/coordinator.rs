@@ -268,6 +268,101 @@ impl PmDraftCredentials for PmCredentialCoordinator {
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn introspection_rejects_wrong_subject_and_non_exact_parent_or_child_scopes() {
+        use axum::{Json, Router, extract::State, http::HeaderMap, routing::get};
+        use serde_json::{Value, json};
+        use std::sync::Arc;
+        use tokio::sync::Mutex;
+
+        const PARENT: &str = "sdlc_pat_parent-test-secret-1234567890";
+        const CHILD: &str = "sdlc_pat_child-test-secret-1234567890";
+        let subject = Uuid::new_v4().to_string();
+        let response = Arc::new(Mutex::new(Value::Null));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let issuer = PmCredentialIssuer::new(
+            &format!("http://{}/", listener.local_addr().unwrap()),
+            "https://tracker/",
+            PARENT,
+        )
+        .unwrap();
+        let router = Router::new()
+            .route(
+                "/auth/tokens/introspect",
+                get(
+                    |State(response): State<Arc<Mutex<Value>>>, headers: HeaderMap| async move {
+                        let authorization = headers["authorization"].to_str().unwrap();
+                        assert!(
+                            authorization == format!("Bearer {PARENT}")
+                                || authorization == format!("Bearer {CHILD}")
+                        );
+                        Json(response.lock().await.clone())
+                    },
+                ),
+            )
+            .with_state(response.clone());
+        let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        let coordinator = PmCredentialCoordinator {
+            issuer,
+            subject: subject.clone(),
+            ttl_seconds: 300,
+        };
+        let parent_scopes = vec![
+            "task-tracker:read".to_string(),
+            "task-tracker:write".to_string(),
+        ];
+        let mut child_scopes = parent_scopes.clone();
+        child_scopes.push(format!(
+            "task-tracker:sdlc:pm:{}:{}:{}:{}:1",
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4()
+        ));
+        child_scopes.sort_unstable();
+        for (secret, scopes) in [(PARENT, parent_scopes), (CHILD, child_scopes)] {
+            let valid = json!({"sub":subject,"email":"machine@example.test","display_name":"PM machine","scopes":scopes});
+            let mut wrong_subject = valid.clone();
+            wrong_subject["sub"] = json!(Uuid::new_v4());
+            let mut extra = valid.clone();
+            extra["scopes"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!("task-tracker:admin"));
+            let mut invalid = vec![wrong_subject, extra];
+            for index in 0..scopes.len() {
+                let mut missing = valid.clone();
+                missing["scopes"].as_array_mut().unwrap().remove(index);
+                invalid.push(missing);
+                let mut duplicate = valid.clone();
+                duplicate["scopes"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(json!(scopes[index]));
+                invalid.push(duplicate);
+            }
+            for value in invalid {
+                // All negatives are valid closed DTOs, not deserialization failures.
+                assert!(serde_json::from_value::<Principal>(value.clone()).is_ok());
+                *response.lock().await = value;
+                assert!(matches!(
+                    coordinator
+                        .principal(bearer(secret).unwrap(), &scopes)
+                        .await,
+                    Err(AppError::Forbidden)
+                ));
+            }
+            let mut reordered = valid;
+            reordered["scopes"].as_array_mut().unwrap().reverse();
+            *response.lock().await = reordered;
+            coordinator
+                .principal(bearer(secret).unwrap(), &scopes)
+                .await
+                .unwrap();
+        }
+        server.abort();
+    }
+
     #[test]
     fn introspection_accepts_the_pinned_base_dto_without_weakening_closed_fields() {
         let value = serde_json::json!({
