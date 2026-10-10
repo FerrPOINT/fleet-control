@@ -913,6 +913,18 @@ def finish():
     if results.is_dir():
         for path in sorted(results.rglob("*.png")):
             name = "fixtures/" + path.relative_to(results).as_posix()
+            # Playwright attach({path}) copies the same screenshot into attachments/.
+            attachment = re.fullmatch(
+                r"fixtures/([A-Za-z0-9_.-]+)/attachments/(chat-ux-fixture-[a-z0-9-]+)-([0-9a-f]{40})\.png", name)
+            if attachment:
+                original = results / attachment[1] / (attachment[2] + ".png")
+                require(artifact_name("fixtures/" + original.relative_to(results).as_posix())
+                        and hashlib.sha1(str(original).encode()).hexdigest() == attachment[3],
+                        "Unexpected fixture screenshot path")
+                require(bounded_file(results, path.relative_to(results).as_posix())
+                        == bounded_file(results, original.relative_to(results).as_posix()),
+                        "Unexpected fixture screenshot path")
+                continue
             require(artifact_name(name), "Unexpected fixture screenshot path")
             files[name] = bounded_file(results, path.relative_to(results).as_posix())
     files["screens/manifest.json"] = canonical(dict(kind="fresh_chromium_fixture_screens",

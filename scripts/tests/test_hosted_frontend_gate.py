@@ -785,6 +785,70 @@ class CompletionContracts(unittest.TestCase):
                 self.assertRaises(ValueError):
             gate.finish()
 
+    def test_finish_deduplicates_only_exact_playwright_path_attachments(self):
+        picture = png()
+        for variant in ("exact", "changed-bytes", "wrong-hash", "missing-original",
+                        "foreign-prefix", "nested", "oversized"):
+            with self.subTest(variant=variant), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder).resolve()
+                source = root / "source"
+                results = source / "frontend/test-results"
+                for browser in ("chromium", "firefox", "webkit"):
+                    original = results / f"example-{browser}" / "chat-ux-fixture-uncertain-custody-375.png"
+                    original.parent.mkdir(parents=True)
+                    original.write_bytes(picture)
+                    path_hash = hashlib.sha1(str(original).encode()).hexdigest()
+                    attachment = original.parent / "attachments" / f"{original.stem}-{path_hash}.png"
+                    attachment.parent.mkdir()
+                    attachment.write_bytes(picture)
+                    if browser != "chromium" or variant == "exact":
+                        continue
+                    if variant == "changed-bytes":
+                        attachment.write_bytes(b"PRIVATE_SENTINEL")
+                    elif variant == "wrong-hash":
+                        attachment.rename(attachment.with_name(f"{original.stem}-{'0' * 40}.png"))
+                    elif variant == "missing-original":
+                        original.unlink()
+                    elif variant == "foreign-prefix":
+                        attachment.rename(attachment.with_name(f"private-{path_hash}.png"))
+                    elif variant == "nested":
+                        nested = attachment.parent / "nested"
+                        nested.mkdir()
+                        attachment.rename(nested / attachment.name)
+                    elif variant == "oversized":
+                        attachment.write_bytes(b"x" * (len(picture) + 1))
+                state = dict(gates=list(gate.GATES), screens=[], unit={}, browsers={}, build={},
+                             generated_sha256="a" * 64, workflow_sha="b" * 40,
+                             source={"frontend/pnpm-lock.yaml": "c" * 64},
+                             base={"frontend/pnpm-lock.yaml": "d" * 64},
+                             compat_main_sha="e" * 40, compat_schema_sha256="f" * 64)
+                bounded = gate.bounded_file
+
+                def read(directory, name):
+                    if name == gate.SCREEN_MANIFEST:
+                        return b""
+                    if directory == ROOT / "controls":
+                        return bounded(ROOT, name)
+                    return bounded(directory, name, limit=len(picture))
+
+                with patch.object(gate, "load_state", return_value=(ROOT, root, state)), \
+                        patch.object(gate, "verify_parity", return_value=(source, ROOT)), \
+                        patch.object(gate, "bounded_file", side_effect=read), \
+                        patch.object(gate, "workspace_temp", return_value=root), \
+                        patch.object(gate, "evidence_contract") as contract, \
+                        patch.dict(os.environ, GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="1"), redirect_stdout(io.StringIO()):
+                    if variant == "exact":
+                        gate.finish()
+                        files = contract.call_args.args[0]
+                        self.assertEqual(len([n for n in files if n.startswith("fixtures/")]), 3)
+                        self.assertTrue(all("/attachments/" not in n for n in files))
+                        self.assertTrue(all(data == picture for n, data in files.items() if n.startswith("fixtures/")))
+                    else:
+                        with self.assertRaises((ValueError, FileNotFoundError)):
+                            gate.finish()
+                        contract.assert_not_called()
+                        self.assertFalse((root / "fleet-frontend-public").exists())
+
     def test_schema_and_client_parity_after_tests(self):
         state = dict(source={}, base={}, generated_sha256=gate.digest(b"generated"))
         with patch.object(gate, "checkout"), patch.object(gate, "git", return_value=b""), \
