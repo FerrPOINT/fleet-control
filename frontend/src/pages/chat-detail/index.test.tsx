@@ -801,6 +801,12 @@ describe('production chat', () => {
       await screen.findByRole('heading', { name: 'Сохранённый ответ: ожидает доставки' })
       const original = structuredClone(vi.mocked(chats.answerClarification).mock.calls[0])
       const persisted = structuredClone(stored[0]!)
+      const markerKey = 'fleet-control.chat-dispatch.v1:session1:answer'
+      const marker = sessionStorage.getItem(markerKey)
+      expect(marker).not.toBeNull()
+      expect(marker).not.toContain(command.request.text!)
+      expect(marker).not.toContain(command.request.comment!)
+      expect(marker).not.toContain('fixture-token')
       expect(screen.getByLabelText('Свой вариант или детали')).toHaveValue(command.request.text)
       expect(screen.getByLabelText('Комментарий')).toHaveValue(command.request.comment)
       expect(screen.getByLabelText('Комментарий')).toBeDisabled()
@@ -835,7 +841,8 @@ describe('production chat', () => {
         screen.queryByText('Ответ сохранён. Требования ещё не опубликованы.'),
       ).not.toBeInTheDocument()
       expect(chats.confirmRequirements).not.toHaveBeenCalled()
-      expect(sessionStorage.length).toBe(0)
+      expect(sessionStorage.length).toBe(1)
+      expect(sessionStorage.getItem(markerKey)).toBe(marker)
     })
 
     it('does not let a read-only operator confirm the owner revision despite cached permissions', async () => {
@@ -2118,7 +2125,7 @@ describe('production runtime control authority', () => {
     await screen.findByText(
       'Исход уточнения запуску неизвестен. Нельзя повторить его как новый prompt; требуется сверка runtime.',
     )
-    expect(screen.getByRole('button', { name: 'Передать уточнение запуску' })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: 'Передать уточнение запуску' })).toBeDisabled()
     expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1)
     expect(fleet.createSessionMessage).not.toHaveBeenCalled()
   })
