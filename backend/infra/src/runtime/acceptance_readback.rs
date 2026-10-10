@@ -46,7 +46,6 @@ impl LocalRuntimeSupervisor {
             || run.session_id != session.id
             || session.primary_agent_id != agent.id
             || message.session_id != session.id
-            || self.repo.get_task_chat_binding(session.id).await?.is_some()
         {
             return Err(AppError::conflict(
                 "Hermes acceptance does not match its free chat",
@@ -66,6 +65,12 @@ impl LocalRuntimeSupervisor {
             ));
         }
         hermes_wire::verify_intent(&intent, &base, &token)?;
+        let task_bound = self.repo.get_task_chat_binding(session.id).await?.is_some();
+        if task_bound && intent.capabilities.get("fleet_pm").is_none() {
+            return Err(AppError::conflict(
+                "Task acceptance has no PM owner journal",
+            ));
+        }
         if intent.run.runtime_run_id.is_none() {
             if !self.config.fleet.hermes_recovery_extension_enabled {
                 return Err(AppError::Unavailable("Hermes acceptance is unknown".into()));
@@ -101,6 +106,50 @@ impl LocalRuntimeSupervisor {
             SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled
         ) {
             return Ok(intent.run);
+        }
+        if task_bound {
+            let original = self.repo.get_pm_run(run.id).await?;
+            let first = original.hermes_session_ref.is_none();
+            let payload =
+                hermes_wire::read_accepted_run(&self.client, &base, &token, &runtime_run_id)
+                    .await?;
+            let effective = hermes_wire::effective_session(&payload, &runtime_run_id)?;
+            let record = self
+                .repo
+                .accept_pm_run(run.id, runtime_run_id.clone(), effective)
+                .await?;
+            let workflow = crate::pm_workflow::PmWorkflowClient::configured(&self.config)?
+                .ok_or_else(|| AppError::Unavailable("PM Workflow unavailable".into()))?;
+            if workflow.execution_snapshot(&record).await?.is_none() {
+                pm_dispatch::accepted(self, agent, &intent.run, &runtime_run_id).await?;
+            }
+            let current = self.repo.get_session_agent_run(run.id).await?;
+            if matches!(
+                payload["status"].as_str(),
+                Some("completed" | "failed" | "cancelled" | "interrupted" | "stopped")
+            ) {
+                let event = hermes_wire::terminal_readback(&payload, &runtime_run_id)?;
+                self.handle_hermes_event(
+                    agent,
+                    session,
+                    message,
+                    &current,
+                    &runtime_run_id,
+                    Some(event.to_owned()),
+                    payload.to_string(),
+                    &mut sse_wire::Transcript::default(),
+                )
+                .await?;
+            } else if first {
+                self.spawn_hermes_event_worker(
+                    agent.clone(),
+                    session.clone(),
+                    message.clone(),
+                    current.clone(),
+                    runtime_run_id,
+                );
+            }
+            return self.repo.get_session_agent_run(run.id).await;
         }
         let payload =
             hermes_wire::read_accepted_run(&self.client, &base, &token, &runtime_run_id).await?;

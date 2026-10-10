@@ -38,7 +38,29 @@ pub(super) async fn prepare(
         locked_run(&txn, column(row, "run_id")?).await?
     } else {
         // Reuse the seeded pending run, keeping its model/provider/options in the exact request.
-        let seeded = session_agent_run::Entity::find()
+        let expected_resume_run =
+            if let Some(raw) = draft.capabilities["fleet_pm"]["resume_old_run_id"].as_str() {
+                let old = Uuid::parse_str(raw)
+                    .map_err(|_| AppError::conflict("PM resume reference invalid"))?;
+                let row = txn
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT new_run_id,message_id,journal FROM pm_run_resumes WHERE old_run_id=$1",
+                    [old.into()],
+                ))
+                .await
+                .map_err(database_error)?
+                .ok_or_else(|| AppError::conflict("PM original resume missing"))?;
+                if column::<Uuid>(&row, "message_id")? != draft.message_id
+                    || !column::<Value>(&row, "journal")?["receipt"].is_object()
+                {
+                    return Err(AppError::conflict("PM resume message or ACK differs"));
+                }
+                Some(column::<Uuid>(&row, "new_run_id")?)
+            } else {
+                None
+            };
+        let mut seeded_query = session_agent_run::Entity::find()
             .filter(session_agent_run::Column::SessionId.eq(draft.session_id))
             .filter(session_agent_run::Column::AgentId.eq(draft.agent_id))
             .filter(session_agent_run::Column::State.eq("pending"))
@@ -46,12 +68,16 @@ pub(super) async fn prepare(
             .filter(session_agent_run::Column::RuntimeSessionId.is_null())
             .order_by_asc(session_agent_run::Column::CreatedAt)
             .order_by_asc(session_agent_run::Column::Id)
-            .lock_exclusive()
-            .one(&txn)
-            .await
-            .map_err(database_error)?;
+            .lock_exclusive();
+        if let Some(run) = expected_resume_run {
+            seeded_query = seeded_query.filter(session_agent_run::Column::Id.eq(run));
+        }
+        let seeded = seeded_query.one(&txn).await.map_err(database_error)?;
         match seeded {
             Some(run) => run,
+            None if expected_resume_run.is_some() => {
+                return Err(AppError::conflict("PM reserved next run is missing"));
+            }
             None => pending_session_run(
                 draft.session_id,
                 draft.agent_id,
@@ -63,7 +89,7 @@ pub(super) async fn prepare(
             .map_err(database_error)?,
         }
     };
-    free_scope(&txn, &session, &run).await?;
+    free_scope(&txn, &session, &run, &draft.capabilities).await?;
     let (message, outbox) =
         lock_message(&txn, draft.message_id, draft.session_id, draft.agent_id).await?;
     if let Some(row) = previous {
@@ -98,7 +124,12 @@ pub(super) async fn prepare(
             SessionRunRole::Primary
         };
     if draft.run_role != expected_role
-        || draft.requested_session_id != format!("fleet:{}:{}", draft.session_id, draft.agent_id)
+        || draft.requested_session_id
+            != if draft.capabilities.get("fleet_pm").is_some() {
+                domain::pm_native_session_key(draft.session_id, draft.agent_id, message.id)
+            } else {
+                format!("fleet:{}:{}", draft.session_id, draft.agent_id)
+            }
         || draft.input != runtime_input(&session, &message, agent.id)
         || message.runtime_message_id.is_some()
         || message.delivery_state != "pending"
@@ -161,7 +192,8 @@ pub(super) async fn claim(
     let agent = lock_agent(&txn, column(&seed, "agent_id")?).await?;
     let session = lock_session(&txn, column(&seed, "session_id")?, agent.id).await?;
     let run = locked_run(&txn, column(&seed, "run_id")?).await?;
-    free_scope(&txn, &session, &run).await?;
+    let seed_capabilities: Value = column(&seed, "capabilities")?;
+    free_scope(&txn, &session, &run, &seed_capabilities).await?;
     let (message, outbox) = lock_message(&txn, message_id, session.id, agent.id).await?;
     let row = journal(&txn, message_id, true)
         .await?
@@ -419,6 +451,7 @@ async fn free_scope(
     txn: &DatabaseTransaction,
     session: &agent_session::Model,
     run: &session_agent_run::Model,
+    capabilities: &Value,
 ) -> Result<(), AppError> {
     if run.session_id != session.id || run.agent_id != session.agent_id {
         return Err(AppError::conflict("Hermes run scope changed"));
@@ -429,9 +462,63 @@ async fn free_scope(
         [session.id.into(),run.id.into()])).await.map_err(database_error)?
         .ok_or_else(|| AppError::internal("missing Hermes scope check"))?;
     if column::<bool>(&row, "bound")? {
-        return Err(AppError::conflict(
-            "task-bound and PM dispatch require separate authority",
-        ));
+        let op_id = capabilities["fleet_pm"]["operation_id"]
+            .as_str()
+            .and_then(|v| Uuid::parse_str(v).ok())
+            .ok_or_else(|| {
+                AppError::conflict("task-bound and PM dispatch require separate authority")
+            })?;
+        let op = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT operation FROM pm_draft_creation_operations WHERE id=$1",
+                [op_id.into()],
+            ))
+            .await
+            .map_err(database_error)?
+            .ok_or_else(|| AppError::conflict("PM original operation is missing"))?;
+        let op: domain::PmDraftOperation =
+            serde_json::from_value(column(&op, "operation")?).map_err(AppError::internal)?;
+        if op.session_id != Some(session.id)
+            || op.request.agent_id != run.agent_id
+            || op.owner_user_id != session.user_id
+            || op
+                .workflow_assignment
+                .as_ref()
+                .and_then(|v| v.receipt.as_ref())
+                .is_none()
+            || op
+                .execution_lease
+                .as_ref()
+                .and_then(|v| v.receipt.as_ref())
+                .is_none()
+            || capabilities["fleet_pm"]["identity"]
+                != serde_json::to_value(op.execution_identity()?).map_err(AppError::internal)?
+        {
+            return Err(AppError::conflict(
+                "PM dispatch authority differs from original preparation",
+            ));
+        }
+        if let Some(raw) = capabilities["fleet_pm"]["resume_old_run_id"].as_str() {
+            let old = Uuid::parse_str(raw)
+                .map_err(|_| AppError::conflict("PM resume reference invalid"))?;
+            let row = txn
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT new_run_id,journal FROM pm_run_resumes WHERE old_run_id=$1",
+                    [old.into()],
+                ))
+                .await
+                .map_err(database_error)?
+                .ok_or_else(|| AppError::conflict("PM original resume missing"))?;
+            if column::<Uuid>(&row, "new_run_id")? != run.id
+                || !column::<Value>(&row, "journal")?["receipt"].is_object()
+            {
+                return Err(AppError::conflict(
+                    "PM resumed run differs from acknowledged reservation",
+                ));
+            }
+        }
     }
     Ok(())
 }

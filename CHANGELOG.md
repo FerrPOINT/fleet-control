@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- Prepare Workflow PM Draft assignment through its actual reservation/input
+  contract, journaling the original command before HTTP and retaining its ACK
+  through current-state failures. Add migration 000024 and an opt-in native PM
+  plugin through the existing configuration lifecycle. Wire original intake
+  dispatch, actual native admission, same-generation lease renewal and scoped
+  owner tools. Migration 000025 journals the original clarification checkpoint.
+  Separate native sessions and real conversation-finalizer proof fence late
+  calls and cancellation. Answer/resume delivery and live acceptance remain open.
+
 - Journal the original Tracker PM execution-lease claim before mutation and
   reconcile lost acknowledgements by its original key. Guard immutable claim/ACK
   metadata with additive migration 000023; preserve existing operations and the

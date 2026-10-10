@@ -1178,8 +1178,353 @@ async fn pm_fixture() -> Option<(PostgresFleetRepository, domain::PmRunReservati
             checkpoint_ref: None,
             fence: 1,
             runtime_binding: Some(runtime_binding),
+            native_session_key: None,
+            native_message_id: None,
         },
     ))
+}
+
+#[tokio::test]
+async fn pm_checkpoint_journal_is_original_monotonic_and_survives_lost_ack() {
+    use migration::MigratorTrait;
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    repo.reserve_pm_run(reservation.clone()).await.unwrap();
+    let record = repo
+        .accept_pm_run(
+            reservation.session_run_id,
+            "run_checkpoint".into(),
+            "native-checkpoint-session".into(),
+        )
+        .await
+        .unwrap();
+    let mut command = serde_json::to_value(&reservation.identity).unwrap();
+    command.as_object_mut().unwrap().extend([
+        (
+            "operation_key".into(),
+            serde_json::json!("checkpoint-original"),
+        ),
+        ("expected_version".into(), serde_json::json!(1)),
+        (
+            "expected_fence".into(),
+            serde_json::json!(reservation.fence),
+        ),
+        (
+            "binding_ref".into(),
+            serde_json::json!(reservation.binding_ref),
+        ),
+        ("hermes_run_ref".into(), serde_json::json!("run_checkpoint")),
+        (
+            "session_run_id".into(),
+            serde_json::json!(reservation.session_run_id),
+        ),
+        ("checkpoint_ref".into(), serde_json::json!(Uuid::new_v4())),
+        (
+            "clarification_request_ref".into(),
+            serde_json::json!(Uuid::new_v4()),
+        ),
+        ("clarification_version".into(), serde_json::json!(3)),
+        ("requirements_revision".into(), serde_json::json!(2)),
+    ]);
+    let journal = domain::PmCheckpointJournal {
+        request_sha256: domain::pm_canonical_hash(&command),
+        command: command.clone(),
+        receipt: None,
+    };
+    let (a, b) = tokio::join!(
+        repo.save_pm_checkpoint(&record, journal.clone()),
+        repo.save_pm_checkpoint(&record, journal.clone())
+    );
+    assert!(a.unwrap().receipt.is_none());
+    assert!(b.unwrap().receipt.is_none());
+    assert_eq!(
+        repo.pending_pm_checkpoints(reservation.session_id)
+            .await
+            .unwrap(),
+        vec![reservation.session_run_id]
+    );
+    let receipt = serde_json::json!({"contract_version":1,"identity":reservation.identity,"state":"waiting","version":2,"fence":reservation.fence,
+        "session_run_id":reservation.session_run_id,"binding_ref":reservation.binding_ref,"hermes_run_ref":"run_checkpoint",
+        "checkpoint":{"checkpoint_ref":command["checkpoint_ref"],"clarification_request_ref":command["clarification_request_ref"],
+            "clarification_version":3,"requirements_revision":2},"resume_operation_key":null,"resume_session_run_id":null,
+        "terminal_readback":null,"workflow_step_allowed":false,"resume_delivered":false});
+    let mut wrong = journal.clone();
+    wrong.receipt = Some(receipt.clone());
+    wrong.receipt.as_mut().unwrap()["fence"] = serde_json::json!(2);
+    assert!(repo.save_pm_checkpoint(&record, wrong).await.is_err());
+    let mut ack = journal.clone();
+    ack.receipt = Some(receipt.clone());
+    repo.save_pm_checkpoint(&record, ack).await.unwrap();
+    assert_eq!(
+        repo.save_pm_checkpoint(&record, journal.clone())
+            .await
+            .unwrap()
+            .receipt,
+        Some(receipt.clone())
+    );
+    assert!(
+        repo.pending_pm_checkpoints(reservation.session_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let reread = PostgresFleetRepository::new(
+        sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap(),
+    )
+    .pm_checkpoint(reservation.session_run_id)
+    .await
+    .unwrap()
+    .unwrap();
+    reread.validate(&record).unwrap();
+    assert_eq!(reread.receipt, Some(receipt));
+    let mut conflict = journal;
+    conflict.command["operation_key"] = serde_json::json!("replacement");
+    conflict.request_sha256 = domain::pm_canonical_hash(&conflict.command);
+    assert!(repo.save_pm_checkpoint(&record, conflict).await.is_err());
+    for sql in [
+        "UPDATE pm_run_checkpoints SET receipt=NULL WHERE session_run_id=$1",
+        "DELETE FROM pm_run_checkpoints WHERE session_run_id=$1",
+    ] {
+        assert!(
+            db.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                sql,
+                [reservation.session_run_id.into()]
+            ))
+            .await
+            .is_err()
+        );
+    }
+    let checkpoint_migration = migration::Migrator::migrations()
+        .into_iter()
+        .find(|item| item.name() == "m20261009_000025_pm_checkpoints")
+        .unwrap();
+    assert!(
+        checkpoint_migration
+            .down(&migration::SchemaManager::new(&db))
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.pm_checkpoint(reservation.session_run_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .receipt
+            .is_some()
+    );
+}
+
+#[tokio::test]
+async fn pm_resume_journal_preserves_original_ids_and_refuses_replacement_or_lossy_down() {
+    use migration::MigratorTrait;
+    let Some((repo, mut reservation)) = pm_fixture().await else {
+        return;
+    };
+    let message = Uuid::new_v4();
+    reservation.dispatch_operation_key = message.to_string();
+    reservation.native_session_key = Some(domain::pm_native_session_key(
+        reservation.session_id,
+        reservation.identity.agent_id().unwrap(),
+        message,
+    ));
+    repo.reserve_pm_run(reservation.clone()).await.unwrap();
+    let accepted = repo
+        .accept_pm_run(
+            reservation.session_run_id,
+            "run_resume_old".into(),
+            Uuid::new_v4().to_string(),
+        )
+        .await
+        .unwrap();
+    repo.observe_pm_run(
+        &accepted,
+        domain::PmRuntimeStatus::Stopped,
+        &RepositoryPmCustody,
+    )
+    .await
+    .unwrap();
+    let old = repo.get_pm_run(reservation.session_run_id).await.unwrap();
+    let mut command = serde_json::to_value(&reservation.identity).unwrap();
+    command.as_object_mut().unwrap().extend([
+        (
+            "operation_key".into(),
+            serde_json::json!("checkpoint-for-resume"),
+        ),
+        ("expected_version".into(), serde_json::json!(1)),
+        ("expected_fence".into(), serde_json::json!(1)),
+        (
+            "binding_ref".into(),
+            serde_json::json!(reservation.binding_ref),
+        ),
+        (
+            "hermes_run_ref".into(),
+            serde_json::json!(old.hermes_run_ref),
+        ),
+        (
+            "session_run_id".into(),
+            serde_json::json!(reservation.session_run_id),
+        ),
+        ("checkpoint_ref".into(), serde_json::json!(Uuid::new_v4())),
+        (
+            "clarification_request_ref".into(),
+            serde_json::json!(Uuid::new_v4()),
+        ),
+        ("clarification_version".into(), serde_json::json!(1)),
+        ("requirements_revision".into(), serde_json::json!(1)),
+    ]);
+    let checkpoint_data = serde_json::json!({"checkpoint_ref":command["checkpoint_ref"],"clarification_request_ref":command["clarification_request_ref"],
+        "clarification_version":1,"requirements_revision":1});
+    let checkpoint = domain::PmCheckpointJournal {
+        request_sha256: domain::pm_canonical_hash(&command),
+        command: command.clone(),
+        receipt: Some(serde_json::json!({
+        "contract_version":1,"identity":reservation.identity,"state":"waiting","version":2,"fence":1,"session_run_id":reservation.session_run_id,
+        "binding_ref":reservation.binding_ref,"hermes_run_ref":old.hermes_run_ref,"checkpoint":checkpoint_data,"resume_operation_key":null,
+        "resume_session_run_id":null,"terminal_readback":null,"workflow_step_allowed":false,"resume_delivered":false})),
+    };
+    repo.save_pm_checkpoint(&old, checkpoint.clone())
+        .await
+        .unwrap();
+    let event = Uuid::new_v4();
+    let next = Uuid::new_v4();
+    command["operation_key"] = serde_json::json!(format!(
+        "fleet-pm-resume:{}:{event}",
+        reservation.session_run_id
+    ));
+    command["expected_version"] = serde_json::json!(2);
+    command["answer_event_ref"] = serde_json::json!(event);
+    command["new_session_run_id"] = serde_json::json!(next);
+    let intent = domain::PmResumeIntent {
+        old_session_run_id: reservation.session_run_id,
+        new_session_run_id: next,
+        message_id: Uuid::new_v4(),
+        source_event_id: event,
+        source_answer_id: Uuid::new_v4(),
+        request_sha256: domain::pm_canonical_hash(&command),
+        command,
+        prompt: "actual structured answer fixture".into(),
+    };
+    let journal = domain::PmResumeJournal {
+        intent: intent.clone(),
+        receipt: None,
+    };
+    let (a, b) = tokio::join!(
+        repo.save_pm_resume(&old, &checkpoint, journal.clone()),
+        repo.save_pm_resume(&old, &checkpoint, journal.clone())
+    );
+    assert_eq!(
+        a.unwrap().intent.new_session_run_id,
+        b.unwrap().intent.new_session_run_id
+    );
+    let mut observation = serde_json::to_value(&reservation.identity).unwrap();
+    observation.as_object_mut().unwrap().extend([
+        ("observation_ref".into(), serde_json::json!(Uuid::new_v4())),
+        (
+            "binding_ref".into(),
+            serde_json::json!(reservation.binding_ref),
+        ),
+        (
+            "hermes_run_ref".into(),
+            serde_json::json!(old.hermes_run_ref),
+        ),
+        (
+            "session_run_id".into(),
+            serde_json::json!(reservation.session_run_id),
+        ),
+        ("status".into(), serde_json::json!("stopped")),
+        (
+            "dispatch_operation_key".into(),
+            serde_json::json!(reservation.dispatch_operation_key),
+        ),
+        (
+            "checkpoint_ref".into(),
+            checkpoint.command["checkpoint_ref"].clone(),
+        ),
+        ("fence".into(), serde_json::json!(1)),
+    ]);
+    let receipt = serde_json::json!({"contract_version":1,"identity":reservation.identity,"state":"resume_pending","version":3,"fence":2,
+        "session_run_id":reservation.session_run_id,"binding_ref":reservation.binding_ref,"hermes_run_ref":old.hermes_run_ref,"checkpoint":checkpoint_data,
+        "resume_operation_key":intent.command["operation_key"],"resume_session_run_id":next,"terminal_readback":observation,
+        "workflow_step_allowed":false,"resume_delivered":false});
+    let mut bad = journal.clone();
+    bad.receipt = Some(receipt.clone());
+    bad.receipt.as_mut().unwrap()["terminal_readback"]["session_run_id"] =
+        serde_json::json!(Uuid::new_v4());
+    assert!(repo.save_pm_resume(&old, &checkpoint, bad).await.is_err());
+    let mut ack = journal.clone();
+    ack.receipt = Some(receipt.clone());
+    repo.save_pm_resume(&old, &checkpoint, ack).await.unwrap();
+    assert_eq!(
+        repo.save_pm_resume(&old, &checkpoint, journal.clone())
+            .await
+            .unwrap()
+            .receipt,
+        Some(receipt)
+    );
+    let mut replacement = journal;
+    replacement.intent.new_session_run_id = Uuid::new_v4();
+    replacement.intent.command["new_session_run_id"] =
+        serde_json::json!(replacement.intent.new_session_run_id);
+    replacement.intent.request_sha256 = domain::pm_canonical_hash(&replacement.intent.command);
+    assert!(
+        repo.save_pm_resume(&old, &checkpoint, replacement)
+            .await
+            .is_err()
+    );
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    for sql in [
+        "UPDATE pm_run_resumes SET journal=jsonb_set(journal,'{receipt}','null') WHERE old_run_id=$1",
+        "DELETE FROM pm_run_resumes WHERE old_run_id=$1",
+    ] {
+        assert!(
+            db.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                sql,
+                [reservation.session_run_id.into()]
+            ))
+            .await
+            .is_err()
+        );
+    }
+    assert!(migration::Migrator::down(&db, Some(1)).await.is_err());
+    assert!(
+        repo.pm_resume(reservation.session_run_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .receipt
+            .is_some()
+    );
+    repo.queue_pm_resume(reservation.session_run_id)
+        .await
+        .unwrap();
+    repo.queue_pm_resume(reservation.session_run_id)
+        .await
+        .unwrap();
+    let saved = repo
+        .pm_resume(reservation.session_run_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let queued = repo
+        .pm_resume_by_message(saved.intent.message_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(queued.intent.new_session_run_id, next);
+    let row=db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT count(*) AS n FROM session_messages WHERE id=$1 AND author_type='system' AND message_kind='control'",
+        [saved.intent.message_id.into()])).await.unwrap().unwrap();
+    assert_eq!(row.try_get::<i64>("", "n").unwrap(), 1);
 }
 
 fn tracker_page(binding: &domain::TaskChatBinding) -> domain::TrackerOutboxPage {

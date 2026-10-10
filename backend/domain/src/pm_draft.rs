@@ -187,6 +187,8 @@ pub struct PmDraftOperation {
     pub credentials: Option<crate::PmCredentialJournal>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub execution_lease: Option<crate::PmExecutionLeaseJournal>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_assignment: Option<crate::PmWorkflowAssignmentJournal>,
 }
 
 #[derive(Debug, Clone)]
@@ -199,6 +201,8 @@ pub enum PmDraftProof {
     CredentialAcknowledged(crate::PmCredentialReceipt),
     LeaseIntent(crate::PmExecutionLeaseClaim),
     LeaseAcknowledged(crate::PmExecutionLeaseReceipt),
+    WorkflowIntent(crate::PmWorkflowAssignmentIntent),
+    WorkflowAcknowledged(crate::PmWorkflowAssignmentReceipt),
 }
 
 impl PmDraftOperation {
@@ -274,6 +278,24 @@ impl PmDraftOperation {
     }
     pub fn apply(&mut self, proof: PmDraftProof) -> Result<(), AppError> {
         match proof {
+            PmDraftProof::WorkflowIntent(intent) => {
+                intent.verify(self)?;
+                match &self.workflow_assignment {
+                    Some(saved) if saved.intent != intent => return Err(inconsistent()),
+                    Some(_) => (),
+                    None => {
+                        self.workflow_assignment = Some(crate::PmWorkflowAssignmentJournal {
+                            intent,
+                            receipt: None,
+                        })
+                    }
+                }
+            }
+            PmDraftProof::WorkflowAcknowledged(receipt) => {
+                receipt.validate()?;
+                let journal = self.workflow_assignment.as_mut().ok_or_else(inconsistent)?;
+                retain(&mut journal.receipt, receipt)?;
+            }
             PmDraftProof::LeaseIntent(claim) => {
                 if claim != self.lease_claim()? {
                     return Err(inconsistent());

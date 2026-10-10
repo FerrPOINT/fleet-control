@@ -99,6 +99,39 @@ struct AnswerResource {
     fence: MetadataFence,
 }
 
+impl TrackerMetadataEvent {
+    /// A metadata event proves which structured answer is being resumed; the
+    /// answer content itself must still come from the current scoped read.
+    pub fn matches_pm_answer(&self, question: &crate::TrackerQuestion) -> Result<bool, AppError> {
+        if self.event_type != "clarification.answered" {
+            return Ok(false);
+        }
+        let resource: AnswerResource = serde_json::from_value(self.payload.resource.clone())
+            .map_err(|_| AppError::Unavailable("PM answer event is malformed".into()))?;
+        let Some(answer) = &question.answer else {
+            return Ok(false);
+        };
+        Ok(
+            matches!(question.state, crate::TrackerQuestionState::Answered)
+                && answer.question_id == question.id
+                && answer.question_version == question.version
+                && answer.requirement_revision == question.requirement_revision
+                && self.task_id == question.task_id
+                && self.payload.root_task_id == question.root_task_id
+                && resource.answer_id == answer.id
+                && resource.question_id == question.id
+                && resource.question_version == question.version
+                && resource.request_id == question.request_id
+                && resource.checkpoint_id == question.checkpoint_id
+                && resource.requirement_revision == question.requirement_revision
+                && resource.fence.assignment_id == question.assignment_id
+                && resource.fence.execution_id == question.execution_id
+                && resource.fence.agent_id == question.agent_id
+                && resource.fence.assignment_version == question.assignment_version,
+        )
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RevisionResource {

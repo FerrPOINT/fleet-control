@@ -8,6 +8,13 @@ observer incarnation with the original launch and optional recovery facts.
 Signed activation backups now cover exact observer file bytes/absence on install,
 remove and rollback. No observation is backfilled or persisted as readiness.
 See [contract and pending gates](contracts/MANAGED_REQUEST_OBSERVER_V1.md).
+The optional `workflow_assignment` journal in the existing PM creation operation
+stores the server-derived reservation/input command, canonical hash, fixed origin
+and assignment-token fingerprint, then an immutable Workflow/mode/initial-phase
+receipt. Migration 000024 guards this monotonic progress after 000023 without
+rewriting historical migrations or backfilling operations. Tokens are never stored;
+reconciliation is required before downgrade. This receipt is preparation metadata,
+not native execution permission.
 
 PM execution lease readback is typed Tracker evidence, not Fleet-owned lease
 authority or dispatch permission. The internal claim coordinator stores its
@@ -534,7 +541,8 @@ Questions, answers, immutable requirements revisions and confirmations live only
 Tracker. Fleet reads them through an authorized gateway and an opt-in authenticated
 metadata projection worker. Neither projection nor this migration performs a PM
 resume saga or dispatches prompts. The owner-issued initial Draft reservation is
-coordinated separately by the creation ledger; runtime admission remains unwired.
+coordinated separately by the creation ledger. The opt-in PM v1 native path
+adds assignment preparation and admission; answer/resume delivery is still pending.
 The requirements response is a closed, flat Tracker projection, not a local aggregate:
 all document fields remain required, additional fields are rejected, and its revision
 must be an integer in `1..9007199254740991`. This hardening changes deserialization
@@ -715,3 +723,37 @@ together. Existing content must match on replay; prior decisions are retained.
 Existing database triggers create durable approval/run events. No transcript
 message is fabricated from the snapshot and repeat reads do not advance cursors.
 The native GET is evidence for its current request, not a historical event inbox.
+
+## PM v1 native checkpoint journal
+
+Migration `000025_pm_checkpoints` adds `pm_run_checkpoints`, one immutable command
+and request digest per actual Fleet run. The original intent is committed before
+Workflow's checkpoint POST. A verified waiting receipt may be added once; command
+replacement, receipt removal, deletion and a populated downgrade are rejected.
+Unknown responses are reconciled through Workflow's original-operation readback.
+The runtime callback returns the confirmed checkpoint reference from this journal.
+
+New PM dispatch reservations additionally freeze `native_session_key`, derived
+from the Fleet chat, concrete agent and original message UUID. Separate runs use
+distinct Hermes sessions while retaining their Task and execution identity.
+Historical reservations omit the new field and preserve their existing alias.
+Native terminal status does not release a new PM reservation until the owned
+plugin observes the real conversation finalizer for that unique native session.
+This is independent of coroutine cancellation, cached state or an SSE EOF.
+
+## PM v1 answer and resume journal
+
+Migration `000026_pm_resumes` retains one original resume intent per old run,
+including its actual Tracker event/answer UUIDs, the reserved next Fleet run UUID,
+message UUID, exact command/digest and source-derived prompt. An acknowledgement
+may be added once; replacement, deletion, receipt removal and populated downgrade
+are refused. Both the confirmed checkpoint and original terminal run are checked
+under the existing repository boundary before writing.
+
+The PM coordinator reads the structured answer with its assignment-scoped child
+credential and matches it to the read-only Tracker metadata event. It retains
+the same Task, execution, assignment and concrete agent. Original-operation
+Workflow readback reconciles a lost response without allocating different IDs.
+A resume-pending receipt is a reservation, not native dispatch admission. Wiring
+the reserved next run into the existing native outbox and final rebind remains
+in progress; the live roundtrip is not yet qualified.

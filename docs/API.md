@@ -11,6 +11,16 @@ generated TypeScript include the route; the frozen Linux compilation and actual
 Rust OpenAPI parity gate pass. The actual managed observer core scenario also
 passes; interrupted observer activation/Fleet-death, full readiness and current
 release-head CI remain open, not implied by these checks or earlier CI.
+Opt-in PM creation now prepares the current Tracker lease and the actual
+Workflow Draft assignment through internal owner HTTP contracts. Workflow intent
+is stored before POST; explicit replay keeps its original command/source/token
+fingerprint. The public creation response remains awaiting admission with dispatch
+disabled until native supervisor integration is complete.
+
+The Fleet-owned Hermes plugin registers six scoped PM tools and an LLM execution
+gate. Its native inventory endpoint reads the actual active run agent rather than
+YAML declarations. Fleet admission/tool endpoints and live native acceptance are
+still being integrated; the plugin is not enabled in the installed workspace.
 
 Machine-only PM lease GET and claim POST are internal outbound Tracker operations,
 not new Fleet/browser endpoints. They require the acknowledged delegated
@@ -721,3 +731,31 @@ existing owner decision endpoint remains exact once/deny only. Resolved requests
 are not reopened. Native status contains only the current waiting request;
 historical replay and unknown decision outcome lookup remain unimplemented.
 See [runtime recovery boundaries](RUNTIME.md#current-approval-snapshot-recovery).
+
+## Opt-in native PM v1 owner coordination
+
+`pm.workflow.enabled` uses the server-only Workflow assignment credential to
+prepare an initial Draft from the actual Tracker reservation. The existing
+Hermes dispatch journal and outbox submit the original intake once. Native
+`/internal/runtime/v1/pm/agents/{agent_id}/admit` admits only the real accepted
+run, effective configuration, physical package and original active lease.
+The managed native credential identifies the agent; duplicate Authorization
+headers, an unknown run or unsupported inventory are denied.
+
+The fixed `/tools/{operation}` route exposes context, question, requirements,
+workflow, skills and checkpoint. Tracker mutation fences and Workflow execution
+fields are supplied by Fleet. The model cannot select their authority or obtain
+service credentials. Workflow reports include an explicit observed phase/status
+cursor; skills require the current phase allowlist and verified Base content.
+A checkpoint takes only an operation key and structured question UUID; Fleet
+reads its checkpoint/request/revision references from Tracker and journals the
+exact command before forwarding it. A confirmed wait cooperatively interrupts
+the original conversation. Native terminal readback additionally requires its
+real finalizer, rather than treating `/stop` cancellation as executor completion.
+
+Lease renewal retains the original lease UUID and uses its version as CAS.
+Concurrent renewal and a lost HTTP reply reconcile the same derived operation
+key. Expired, foreign or unavailable ownership stops the owned original runtime;
+an unconfirmed stop is not terminal proof. Assignment or heartbeat alone never
+authorizes a provider call. Human answer/resume delivery and final live PM
+acceptance remain unfinished; this candidate must not be marked merge-ready.
