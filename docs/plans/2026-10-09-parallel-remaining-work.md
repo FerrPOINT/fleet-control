@@ -13,20 +13,38 @@ owned checkouts; Tracker and Workflow remain read-only references.
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
 | Pascal | Diagnose recovered-activation authorization | Actual38011797295 fails at container_activation_pg62/74; parent authenticates receipt/cleanup. Add only read-only test precondition assertions at the two known positive authorize sites, preserving all13 cases/guards/leases. No local PG or public push; production fix needs proof. External refresh complete. |
-| Feynman | Combine configuration and runtime guards | Release split complete:10 single-migration units plus5 without migrations. Own candidate normally merges PR64 at820 into688, preserving both guards, recovery custody and tests. No public push, repin, new migration or manual generated schema; authentic codegen/combined gates remain required. |
+| Feynman | Update combined backend CI controls | Configuration integration is frozen at8c93f43 and normally integrated by parent at65b4f33. Own only the six backend build-only control files: preserve prior74 stages, add the six activation-intent cases and configuration/package/workflow scopes, and require the exact package checkout instead of silently skipping that branch. No product edits, push or dispatch until final source/API inputs are qualified. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
-| Parent | Integration, corrections and publication | Authenticate terminal38011797295 and review diagnostic/source candidates. Configuration normal merge3b09bd7 is prepared in owned worker checkout, not accepted or published; actual union codegen/client/combined gates remain. Preserve every authority/ledger assertion. |
+| Parent | API generation, integration and publication | Normal merge65b4f33 retains configuration candidate8c93f43 and earlier runtime history. Review Pascal's diagnostic patch; authenticate new Rust-generated API, regenerate the client, then bind and run Feynman's combined controls. Preserve every authority/ledger assertion; no qualified product publication before those gates. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
 integrates the generated API/type alias. Final integrated Rust parity is still
 required; code generation is not runtime acceptance.
 
-Pascal remains read-only against product source. Feynman's new implementation
-candidate is confined to his owned checkout; parent alone integrates it into
-the publication branch and writes this ledger. Historical worker scopes below
+Pascal may edit only backend/infra/tests/container_activation.rs in his owned
+checkout: read-only assertions, not production behavior. Feynman owns only the
+six backend build-only controls. Parent owns generated API/client files,
+integration and this ledger. Historical worker scopes below
 are complete, not concurrent assignments. Deliverables identify exact commits,
 commands, results and bounded blockers rather than repeat completed broad audits.
+
+The current parent codegen bootstrap is the separate build-only commit
+5e57d5be967418530918b72c1e457d92a5df7588, with product source8c93f43,
+eight exact input blobs and282 canonical exported files. Its15 pure tests,
+source/export qualification, four shell syntax checks and diff check pass.
+[Run38015043570](https://github.com/FerrPOINT/fleet-control/actions/runs/38015043570)
+is in progress at this checkpoint. It must return authenticated generated
+output containing both configuration routes and all four clarification command
+routes; no schema/client is manually combined. Publishing this build-only
+bootstrap does not make the combined product merge-ready or certify runtime/PM.
+
+Integration dependency: Pascal's diagnostic patch and the new API artifact can
+advance independently; parent reviews both before final control qualification.
+Feynman's inventory preparation need not wait for either, but dispatch does.
+If the diagnostic exposes a production defect, fix and requalify the source
+before executing the final combined gate. Local heavy jobs remain held by the
+resource guard; no worker may bypass it or alter shared Docker resources.
 
 The split review finds source688 lacks nine PR64 files, including workflow,
 package and API modules. No current configuration acceptance is inferred from
