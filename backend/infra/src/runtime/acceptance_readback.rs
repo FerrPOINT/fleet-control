@@ -33,18 +33,16 @@ impl LocalRuntimeSupervisor {
                     if supervisor.repo.reconcile_runtime_controls().await.is_err() {
                         tracing::warn!("Runtime control terminal readback is unavailable");
                     }
-                    if supervisor.config.pm.dispatch.enabled {
-                        match supervisor.repo.list_recoverable_pm_streams(pm_after).await {
-                            Ok(records) => {
-                                page_has_records |= !records.is_empty();
-                                if records.is_empty() { pm_after = None; }
-                                for run_id in records {
-                                    pm_after = Some(run_id);
-                                    supervisor.attach_pm_event_worker(run_id, &mut pm_tasks);
-                                }
+                    match supervisor.repo.list_recoverable_pm_streams(pm_after).await {
+                        Ok(records) => {
+                            page_has_records |= !records.is_empty();
+                            if records.is_empty() { pm_after = None; }
+                            for run_id in records {
+                                pm_after = Some(run_id);
+                                supervisor.attach_pm_event_worker(run_id, &mut pm_tasks);
                             }
-                            Err(_) => tracing::warn!("PM event recovery queue is unavailable"),
                         }
+                        Err(_) => tracing::warn!("PM event recovery queue is unavailable"),
                     }
                     if page_has_records {
                         // Finish the keyset scan before idling; old unresolved ACKs

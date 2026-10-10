@@ -27,9 +27,6 @@ impl LocalRuntimeSupervisor {
         id: Uuid,
         tasks: &mut container_workers::AgentTasks,
     ) {
-        if !self.config.pm.dispatch.enabled {
-            return;
-        }
         tasks.reap();
         let supervisor = self.clone();
         tasks.spawn(id, async move {
