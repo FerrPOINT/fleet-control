@@ -25,12 +25,59 @@ import recipes
 INPUTS = json.loads((HERE / "inputs.json").read_bytes())
 HELPERS = ("build.py", "recipes.py", "qualify.py", "fetch.py", "snapshot.sh", "controller.Dockerfile", "inputs.json")
 PREFIX = "sdlc-build-fleet-native-"
+PARITY_KEYS = ("sources", "parents", "daemon", "permanent", "resources")
+OPERATIONS = frozenset(("unknown", "parent_resources", "parent_pull", "parent_identity",
+    "candidate_source", "candidate_resources", "candidate_daemon", "candidate_tag",
+    "controller_input", "candidate_build", "candidate_metadata", "offline_qualification",
+    "qualified_image_check", *("parity_" + key for key in PARITY_KEYS)))
+REASONS = frozenset(("unspecified", "command_nonzero", "process_timeout", "image_metadata_rejected",
+    "parent_identity_rejected", "candidate_tag_preexisting", "controller_input_changed",
+    "candidate_platform_rejected", "candidate_owner_rejected", "daemon_changed",
+    "qualified_image_changed", "qualification_command_nonzero", "parity_rejected",
+    "qualification_resources_remain"))
+
+
+class BuildFailure(ValueError):
+    def __init__(self, reason):
+        if type(reason) is not str or reason not in REASONS:
+            raise ValueError("Closed build failure reason required")
+        super().__init__("Closed build precondition failed")
+        self.reason = reason
+
+
+FAILURE_CLASSES = {kind: kind.__name__ for kind in (BuildFailure, ValueError, OSError,
+    PermissionError, FileNotFoundError, TimeoutError, subprocess.TimeoutExpired,
+    subprocess.CalledProcessError, json.JSONDecodeError, KeyError, TypeError, AssertionError)}
+
+
+def remember_failure(report, error, operation):
+    if "failure_class" not in report:
+        report["failure_class"] = FAILURE_CLASSES.get(type(error), "OtherError")
+        report["failure_operation"] = operation
+        report["failure_reason"] = (error.reason if type(error) is BuildFailure else
+                                    "process_timeout" if type(error) is subprocess.TimeoutExpired else "unspecified")
+
+
+def failure_projection(report):
+    """Only fixed enums/bools; never serialize an exception, command or private report."""
+    result = {}
+    for key, allowed, fallback in (("failure_class", {*FAILURE_CLASSES.values(), "OtherError"}, "OtherError"),
+                                  ("failure_operation", OPERATIONS, "unknown"),
+                                  ("failure_reason", REASONS, "unspecified")):
+        value = report.get(key)
+        result[key] = value if type(value) is str and value in allowed else fallback
+    parity = report.get("parity")
+    result["parity"] = {key: parity.get(key) if type(parity) is dict and type(parity.get(key)) is bool else None
+                        for key in PARITY_KEYS}
+    if len(json.dumps(result).encode("ascii")) > 1024:
+        raise ValueError("Closed failure projection exceeds bound")
+    return result
 
 
 def checked(args, timeout=120):
     result = subprocess.run(args, capture_output=True, timeout=timeout)
     if result.returncode:
-        raise ValueError("Owned command failed; raw arguments/output withheld")
+        raise BuildFailure("command_nonzero")
     return result.stdout
 
 
@@ -38,14 +85,14 @@ def logged(args, path, timeout=1800):
     with path.open("xb") as output:
         result = subprocess.run(args, stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
     if result.returncode:
-        raise ValueError("Owned phase failed; private output is not a public artifact")
+        raise BuildFailure("command_nonzero")
 
 
 def image(docker, ref):
     template = '{{json .Id}}|{{json .RepoDigests}}|{{json .RootFS.Layers}}|{{json .Config.Labels}}|{{.Os}}|{{.Architecture}}|{{json .Config.Volumes}}'
     p = checked(docker + ["image", "inspect", ref, "--format", template]).decode().strip().split("|")
     if len(p) != 7:
-        raise ValueError("Closed image metadata required")
+        raise BuildFailure("image_metadata_rejected")
     return dict(id=json.loads(p[0]), repo_digests=json.loads(p[1]) or [], layers=json.loads(p[2]),
                 labels=json.loads(p[3]) or {}, os=p[4], architecture=p[5], volumes=json.loads(p[6]) or {})
 
@@ -62,7 +109,7 @@ def parent_identity(ref, value):
     if (canonical_ref(ref) not in [canonical_ref(x) for x in value["repo_digests"]]
             or value["os"] != "linux" or value["architecture"] != "amd64"
             or not re.fullmatch(r"sha256:[a-f0-9]{64}", value["id"])):
-        raise ValueError("Exact public parent/platform proof required")
+        raise BuildFailure("parent_identity_rejected")
 
 
 def compose(root):
@@ -238,7 +285,7 @@ def qualify(api, root, docker, candidates, daemon):
             with log.open("xb") as output, (root / "evidence" / (kind + "-qualification-stderr.log")).open("xb") as errors:
                 result = subprocess.run(helper.run(kind), stdout=output, stderr=errors, timeout=180)
             if result.returncode:
-                raise ValueError("Offline qualification failed; private stderr withheld")
+                raise BuildFailure("qualification_command_nonzero")
             proofs[kind] = qualification_proof(root, kind)
     if json.loads(helper.journal.read_bytes()).get("phase") != "cleaned":
         raise ValueError("Qualification v2 cleanup incomplete")
@@ -315,52 +362,66 @@ def execute(root, ack, context, builder):
     command = docker + ["compose", "-p", root.name, "-f", str(root / "build-compose.json")]
     os.environ["SDLC_MIN_FREE_GIB"] = str(m["policy"]["floor_gib"])
     os.environ["SDLC_RESOURCE_REGISTRY"] = str(root / "evidence/resource-registry")
+    operation = "unknown"
     try:
         for kind, ref in INPUTS["parents"].items():
+            operation = "parent_resources"
             policy.capacity(policy.resources(root), profile)
             policy.capacity(policy.resources(daemon_root), profile)
+            operation = "parent_pull"
             logged(docker + ["pull", "--platform", "linux/amd64", ref], root / "evidence" / (kind + "-pull.log"))
+            operation = "parent_identity"
             parents[kind] = image(docker, ref)
             parent_identity(ref, parents[kind])
         candidates = {}
         for kind in ("controller", "hermes"):
+            operation = "candidate_source"
             verify(root)
+            operation = "candidate_resources"
             policy.phase_preflight(root, profile)
             policy.phase_preflight(daemon_root, profile)
+            operation = "candidate_daemon"
             if checked(docker + ["info", "--format", "{{.ID}}"]).decode().strip() != daemon:
-                raise ValueError("Daemon changed")
+                raise BuildFailure("daemon_changed")
             tag = spec["services"][kind + "-image"]["image"]
+            operation = "candidate_tag"
             tags = checked(docker + ["image", "ls", "--format", "{{.Repository}}:{{.Tag}}"], timeout=30).decode().splitlines()
             if tag in tags:
-                raise ValueError("Candidate tag exists; no adoption or overwrite")
+                raise BuildFailure("candidate_tag_preexisting")
+            operation = "controller_input"
             if kind == "hermes" and image(docker, spec["services"]["controller-image"]["image"]) != candidates["controller"]:
-                raise ValueError("Controller build input changed")
+                raise BuildFailure("controller_input_changed")
+            operation = "candidate_build"
             logged(command + ["build", "--builder", builder, "--pull=false", "--no-cache", "--provenance=mode=max", kind + "-image"],
                    root / "evidence" / (kind + "-build.log"))
+            operation = "candidate_metadata"
             value = image(docker, spec["services"][kind + "-image"]["image"])
             if value["os"] != "linux" or value["architecture"] != "amd64" or value["volumes"]:
-                raise ValueError("Candidate platform/anonymous volume mismatch")
+                raise BuildFailure("candidate_platform_rejected")
             if any(value["labels"].get(k) != v for k, v in spec["services"][kind + "-image"]["build"]["labels"].items()):
-                raise ValueError("Candidate source ownership mismatch")
+                raise BuildFailure("candidate_owner_rejected")
             candidates[kind] = value
+            operation = "candidate_resources"
             policy.capacity(policy.resources(root), profile)
             policy.capacity(policy.resources(daemon_root), profile)
+        operation = "offline_qualification"
         report["qualification"] = qualify(api, root, docker, candidates, daemon)
+        operation = "qualified_image_check"
         for kind, value in candidates.items():
             if image(docker, spec["services"][kind + "-image"]["image"]) != value:
-                raise ValueError("Qualified candidate tag changed")
+                raise BuildFailure("qualified_image_changed")
         report["images"] = {kind: value["id"] for kind, value in candidates.items()} | {"postgres": parents["postgres"]["id"]}
     except BaseException as error:
-        report["failure_class"] = type(error).__name__
+        remember_failure(report, error, operation)
     finally:
         def parity(name, function):
             try:
                 if not function():
-                    raise ValueError("Parity mismatch")
+                    raise BuildFailure("parity_rejected")
                 report["parity"][name] = True
             except BaseException as error:
                 report["parity"][name] = False
-                report.setdefault("failure_class", type(error).__name__)
+                remember_failure(report, error, "parity_" + name)
         parity("sources", lambda: verify(root) is not None)
         parity("parents", lambda: len(parents) == len(INPUTS["parents"]) and all(image(docker, INPUTS["parents"][k]) == v for k, v in parents.items()))
         parity("daemon", lambda: checked(docker + ["info", "--format", "{{.ID}}"]).decode().strip() == daemon)
@@ -369,7 +430,7 @@ def execute(root, ack, context, builder):
             # Qualification v2 owns its resources. Never bypass a failed v2 close.
             for kind in ("container", "network", "volume"):
                 if checked(docker + [kind, "ls", *(["-a"] if kind == "container" else []), "-q", "--filter", "label=com.docker.compose.project=" + root.name]).strip():
-                    raise ValueError("Qualification resources remain; preserve exact v2 journal")
+                    raise BuildFailure("qualification_resources_remain")
             logged(command + ["down", "--remove-orphans"], root / "evidence/build-cleanup.log", 120)
             report["cleanup"] = "cleaned"
             return True
@@ -377,7 +438,10 @@ def execute(root, ack, context, builder):
         if not report.get("failure_class") and all(report["parity"].values()) and report["images"]:
             report["state"] = "qualified_candidate_images_not_native_acceptance"
         write_json(root / "terminal-report.json", report)
-    print(json.dumps({k: report[k] for k in ("state", "source", "images", "cleanup", "native_executed")}))
+    public = {k: report[k] for k in ("state", "source", "images", "cleanup", "native_executed")}
+    if report["state"] == "failed":
+        public.update(failure_projection(report))
+    print(json.dumps(public))
     return 0 if report["state"] == "qualified_candidate_images_not_native_acceptance" else 1
 
 
@@ -410,7 +474,9 @@ def main():
         print(json.dumps({"state": "prepared_not_executed", "packet": str(root), "seal_sha256": sha(root / "seal.json")}))
         return 0
     except BaseException as error:
-        print(json.dumps({"state": "withheld", "failure_class": type(error).__name__}))
+        report = {}
+        remember_failure(report, error, "unknown")
+        print(json.dumps(dict(state="withheld", **failure_projection(report))))
         return 1
 
 

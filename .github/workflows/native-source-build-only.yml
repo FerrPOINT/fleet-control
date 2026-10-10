@@ -86,7 +86,7 @@ jobs:
           process.stdin.close()
           assert process.wait(timeout=30) == 0
           assert len(helpers) == 35
-          assert hashlib.sha256(json.dumps(helpers, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == 'd792df1cc665bb86a83bd88489984e4276212d7993dfeedef1b2f3a98735edc3'
+          assert hashlib.sha256(json.dumps(helpers, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == '9c920ec3fc723584f02703bf64f7ec05137b8763210f0a15286f52b3490f1e98'
           actual = set()
           for path in Path(prefix).rglob('*'):
               assert not path.is_symlink()
@@ -309,12 +309,12 @@ jobs:
           receipt = dict(kind='fleet-native-scoped-success-v1', state='scoped_native_matrices_passed_not_sdlc_acceptance',
               run_id=os.environ['GITHUB_RUN_ID'], attempt=1, controls=os.environ['GITHUB_SHA'],
               source=build.INPUTS['fleet'], source_tree=build.INPUTS['fleet_tree'], source_parent=build.INPUTS['fleet_parent'],
-              component='81028f8263cce0fb54d888ad050b34b969c0055e',
+              component='b53ada6b1bff84ada909ca8ae5d06dcdbfb6abb1',
               pins={key: build.INPUTS[key] for key in ('sdk', 'base', 'maintenance', 'hermes', 'maintenance_sha256', 'parents')},
               inputs_sha256=sha(Path('images/inputs.json')), source_inventory_sha256=inventory,
               source_files=14083, hermes_blobs=13770, images=proof['images'],
               build_receipt_sha256=proof['receipt_sha256'], build_seal_sha256=proof['seal_sha256'],
-              helper_seals=dict(component_files_sha256='d792df1cc665bb86a83bd88489984e4276212d7993dfeedef1b2f3a98735edc3',
+              helper_seals=dict(component_files_sha256='9c920ec3fc723584f02703bf64f7ec05137b8763210f0a15286f52b3490f1e98',
                   original_nine=sha(n / 'seal.json'), cuts=sha(c / 'seal.json')),
               candidate_cleanup=candidate_cleanup,
               same_daemon=True, offline_qualification=True, policy=proof['policy'],

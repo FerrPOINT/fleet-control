@@ -1,12 +1,16 @@
 """Pure synthetic/source regressions. None runs a daemon, compiler, resolver or network."""
 import copy
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
+import stat
 import sys
 import tempfile
+import types
 import unittest
 from unittest.mock import patch
 
@@ -262,6 +266,227 @@ class ReceiptTests(unittest.TestCase):
                 write_json(root / "terminal-report.json", report)
                 with patch.object(build, "verify", return_value={"policy": policy.policy("local")}), self.assertRaises(ValueError):
                     build.candidate_receipt(root)
+
+
+class DiagnosticTests(unittest.TestCase):
+    def test_projection_has_only_closed_fields_and_boolean_parity(self):
+        report = dict(failure_class="ValueError", failure_operation="parent_pull", failure_reason="unspecified",
+                      parity={"sources": True, "parents": False, "daemon": "SECRET", "resources": 1, "private": "SECRET"},
+                      stdout="SECRET", stderr="SECRET", args=["SECRET"], env={"TOKEN": "SECRET"})
+        value = build.failure_projection(report)
+        self.assertEqual(set(value), {"failure_class", "failure_operation", "failure_reason", "parity"})
+        self.assertEqual(value["parity"], dict(sources=True, parents=False, daemon=None, permanent=None, resources=None))
+        self.assertNotIn("SECRET", json.dumps(value))
+
+    def test_unknown_and_secret_classifications_never_escape(self):
+        class Private:
+            def __str__(self):
+                raise AssertionError("Private values must never be formatted")
+        for value in ("SECRET=" + "x" * 100000, Private(), ["SECRET"], {"SECRET": True}, True, None):
+            report = {key: value for key in ("failure_class", "failure_operation", "failure_reason", "parity")}
+            result = build.failure_projection(report)
+            self.assertEqual(result["failure_class"], "OtherError")
+            self.assertEqual(result["failure_operation"], "unknown")
+            self.assertEqual(result["failure_reason"], "unspecified")
+            self.assertEqual(set(result["parity"].values()), {None})
+            self.assertNotIn("SECRET", json.dumps(result))
+
+    def test_unknown_exception_class_and_message_are_not_public(self):
+        error = type("SECRET_TOKEN_CLASS", (ValueError,), {})("SECRET private command/message")
+        report = {}
+        build.remember_failure(report, error, "candidate_build")
+        result = build.failure_projection(report)
+        self.assertEqual(result["failure_class"], "OtherError")
+        self.assertEqual(result["failure_reason"], "unspecified")
+        self.assertNotIn("SECRET", json.dumps(result))
+
+    def test_timeout_reason_does_not_expose_command_or_output(self):
+        error = build.subprocess.TimeoutExpired(["SECRET"], 9, output=b"SECRET", stderr=b"SECRET")
+        report = {}
+        build.remember_failure(report, error, "parent_pull")
+        result = build.failure_projection(report)
+        self.assertEqual(result["failure_class"], "TimeoutExpired")
+        self.assertEqual(result["failure_reason"], "process_timeout")
+        self.assertNotIn("SECRET", json.dumps(result))
+
+    def test_checked_and_logged_nonzero_are_typed_without_private_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for call in (lambda: build.checked(["SECRET"]),
+                         lambda: build.logged(["SECRET"], Path(folder) / "private.log")):
+                with patch.object(build.subprocess, "run", return_value=types.SimpleNamespace(
+                        returncode=1, stdout=b"SECRET", stderr=b"SECRET")):
+                    with self.assertRaises(build.BuildFailure) as raised:
+                        call()
+                report = {}
+                build.remember_failure(report, raised.exception, "candidate_build")
+                result = build.failure_projection(report)
+                self.assertEqual(result["failure_reason"], "command_nonzero")
+                self.assertNotIn("SECRET", json.dumps(result))
+
+    def test_unknown_typed_reason_is_rejected(self):
+        for reason in ("SECRET", "unproved_resource_shortage", None, True):
+            with self.assertRaises(ValueError):
+                build.BuildFailure(reason)
+
+    def test_first_failure_survives_later_cleanup_failure(self):
+        report = {}
+        build.remember_failure(report, build.BuildFailure("command_nonzero"), "candidate_build")
+        build.remember_failure(report, ValueError("SECRET cleanup"), "parity_resources")
+        result = build.failure_projection(report)
+        self.assertEqual(result["failure_operation"], "candidate_build")
+        self.assertEqual(result["failure_reason"], "command_nonzero")
+
+    def test_projection_size_is_bounded_for_every_enum(self):
+        for key, values in (("failure_class", build.FAILURE_CLASSES.values()),
+                            ("failure_operation", build.OPERATIONS), ("failure_reason", build.REASONS)):
+            for value in values:
+                self.assertLessEqual(len(json.dumps(build.failure_projection({key: value})).encode()), 1024)
+
+    def execute_case(self, case):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / (build.PREFIX + "a" * 12)
+            (root / "evidence").mkdir(parents=True)
+            (root / "seal.json").write_bytes(b"synthetic-unit-seal")
+            spec = build.compose(root)
+            socket = Path("/var/run/docker.sock")
+            actual_stat = Path.stat
+            daemon_root = str(Path(folder).resolve())
+            api = types.SimpleNamespace(permanent_state=lambda docker: {})
+            observations = []
+
+            def checked(args, timeout=120):
+                if args[1:3] == ["context", "inspect"]:
+                    return b'"unix:///var/run/docker.sock"'
+                if "buildx" in args:
+                    return b"Driver: docker\nEndpoint: unit-context\n"
+                if "info" in args:
+                    field = args[-1]
+                    if field == "{{.DockerRootDir}}":
+                        return daemon_root.encode()
+                    if field == "{{.ID}}":
+                        return b"unit-daemon"
+                    self.assertEqual(field, "{{.OSType}}|{{.MemTotal}}|{{.NCPU}}")
+                    return f"linux|{6 * policy.GIB}|2".encode()
+                if args[3:5] == ["image", "ls"]:
+                    return b""
+                self.assertIn(args[3], ("container", "network", "volume"))
+                return b"SECRET leftover" if case == "cleanup" else b""
+
+            def logged(args, path, timeout=1800):
+                observations.append("pull" if "pull" in args else "build" if "build" in args else "cleanup")
+                if case == "pull" and "pull" in args or case == "build" and "build" in args:
+                    raise build.BuildFailure("command_nonzero")
+
+            def image(docker, ref):
+                labels = {}
+                digest = "sha256:" + "1" * 64
+                for kind in ("controller", "hermes"):
+                    service = spec["services"][kind + "-image"]
+                    if ref == service["image"]:
+                        labels = service["build"]["labels"]
+                        digest = "sha256:" + ("2" if kind == "hermes" else "3") * 64
+                return dict(id=digest, repo_digests=[ref], layers=["SECRET"], labels=labels,
+                            os="linux", architecture="amd64", volumes={})
+
+            def capacity(*args, **kwargs):
+                if case == "resources":
+                    raise ValueError("SECRET message mentions insufficient budget but has no typed proof")
+
+            def qualify(*args):
+                if case == "qualifier":
+                    raise build.BuildFailure("qualification_command_nonzero")
+                return {kind: {"state": "qualified", "sha256": "a" * 64} for kind in ("controller", "hermes")}
+
+            with contextlib.ExitStack() as stack:
+                for name, value in (("verify", lambda root: {"policy": policy.policy("local")}),
+                                    ("maintenance", lambda root: api), ("checked", checked),
+                                    ("logged", logged), ("image", image), ("qualify", qualify),
+                                    ("os", types.SimpleNamespace(name="posix", environ={}))):
+                    stack.enter_context(patch.object(build, name, value))
+                stack.enter_context(patch.object(Path, "stat", lambda path, *a, **kw:
+                    types.SimpleNamespace(st_mode=stat.S_IFSOCK, st_gid=123) if path == socket else actual_stat(path, *a, **kw)))
+                stack.enter_context(patch.object(policy, "phase_preflight"))
+                stack.enter_context(patch.object(policy, "resources", return_value={}))
+                stack.enter_context(patch.object(policy, "capacity", capacity))
+                if case == "parity":
+                    api.permanent_state = lambda docker: {"changed": True} if observations else {}
+                output = io.StringIO()
+                stack.enter_context(contextlib.redirect_stdout(output))
+                result = build.execute(root, "exclusive-source-image-build-" + root.name + "-" + build.INPUTS["fleet"][:12],
+                                       "unit-context", "default")
+            return result, json.loads(output.getvalue()), json.loads((root / "terminal-report.json").read_bytes())
+
+    def test_execute_pull_failure_category_is_actual_source_operation(self):
+        result, public, private = self.execute_case("pull")
+        self.assertEqual(result, 1)
+        self.assertEqual(public["failure_operation"], "parent_pull")
+        self.assertEqual(public["failure_reason"], "command_nonzero")
+        self.assertEqual(public["parity"]["parents"], False)
+        self.assertEqual(public["cleanup"], "cleaned")
+
+    def test_execute_build_failure_category_is_actual_source_operation(self):
+        result, public, private = self.execute_case("build")
+        self.assertEqual(result, 1)
+        self.assertEqual(public["failure_operation"], "candidate_build")
+        self.assertEqual(public["failure_reason"], "command_nonzero")
+        self.assertEqual(public["parity"], private["parity"])
+
+    def test_execute_qualifier_failure_category_is_actual_source_operation(self):
+        result, public, private = self.execute_case("qualifier")
+        self.assertEqual(result, 1)
+        self.assertEqual(public["failure_operation"], "offline_qualification")
+        self.assertEqual(public["failure_reason"], "qualification_command_nonzero")
+        self.assertEqual(public["images"], {})
+
+    def test_execute_resource_message_is_not_used_to_guess_a_reason(self):
+        result, public, private = self.execute_case("resources")
+        self.assertEqual(result, 1)
+        self.assertEqual(public["failure_operation"], "parent_resources")
+        self.assertEqual(public["failure_reason"], "unspecified")
+        self.assertNotIn("SECRET", json.dumps(public))
+
+    def test_execute_cleanup_failure_does_not_claim_resource_absence(self):
+        result, public, private = self.execute_case("cleanup")
+        self.assertEqual(result, 1)
+        self.assertEqual(public["failure_operation"], "parity_resources")
+        self.assertEqual(public["failure_reason"], "qualification_resources_remain")
+        self.assertFalse(public["parity"]["resources"])
+        self.assertEqual(public["cleanup"], "not_started")
+
+    def test_execute_success_console_schema_is_unchanged(self):
+        result, public, private = self.execute_case("success")
+        self.assertEqual(result, 0)
+        self.assertEqual(set(public), {"state", "source", "images", "cleanup", "native_executed"})
+        self.assertEqual(public["state"], "qualified_candidate_images_not_native_acceptance")
+        self.assertTrue(all(private["parity"].values()))
+
+    def test_execute_parity_failure_preserves_images_and_typed_operation(self):
+        result, public, private = self.execute_case("parity")
+        self.assertEqual(result, 1)
+        self.assertEqual(public["failure_operation"], "parity_permanent")
+        self.assertEqual(public["failure_reason"], "parity_rejected")
+        self.assertTrue(public["images"])
+        self.assertFalse(public["parity"]["permanent"])
+
+    def test_cli_withheld_error_never_exposes_unknown_class_or_message(self):
+        error = type("SECRET_CLASS", (Exception,), {})("SECRET message")
+        with patch.object(sys, "argv", ["build.py", "--verify", "--packet", str(HERE)]), \
+                patch.object(build, "verify", side_effect=error), contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(build.main(), 1)
+        value = json.loads(output.getvalue())
+        self.assertEqual(value["state"], "withheld")
+        self.assertEqual(value["failure_class"], "OtherError")
+        self.assertEqual(value["failure_operation"], "unknown")
+        self.assertNotIn("SECRET", output.getvalue())
+
+    def test_diagnostic_failure_cannot_satisfy_success_candidate_validator(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            report = ReceiptTests().setup_root(root)
+            report.update(state="failed", failure_class="ValueError", failure_operation="parent_pull")
+            write_json(root / "terminal-report.json", report)
+            with patch.object(build, "verify", return_value={"policy": policy.policy("local")}), self.assertRaises(ValueError):
+                build.candidate_receipt(root)
 
 
 class ContextTests(unittest.TestCase):

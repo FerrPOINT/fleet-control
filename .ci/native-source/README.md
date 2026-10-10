@@ -93,8 +93,8 @@ prevents success output; terminal VM teardown is not cleanup evidence.
 The authored caller requires parent/independent review before publication. Its
 public preflight verifies the exact source tuple and additions before any private
 Base token use. All35 copied QA/image files match component
-`81028f8263cce0fb54d888ad050b34b969c0055e`; their compact path/SHA256 map digest is
-`d792df1cc665bb86a83bd88489984e4276212d7993dfeedef1b2f3a98735edc3`.
+`b53ada6b1bff84ada909ca8ae5d06dcdbfb6abb1`; their compact path/SHA256 map digest is
+`9c920ec3fc723584f02703bf64f7ec05137b8763210f0a15286f52b3490f1e98`.
 Only this README and the workflow are caller-specific. No cache, Git donor,
 credentials or prepared packet is included. In that one host job, set absolute
 exact Git input directories (no dependency copies):
@@ -166,6 +166,15 @@ JSON evidence is ordinary, bounded and strict; the cut trace has an aggregate
 compile proof, inventory, recipes or logs are uploaded; failures have no
 diagnostic artifact. Native/Linux compile, resolver closure and all acceptance
 remain pending actual hosted execution.
+
+Existing cold-builder failure console output now additionally projects a closed
+failure class, source-attested operation category, typed reason where proved,
+and the five parity booleans (null means unobserved/invalid). This diagnostic
+extension is capped at1KiB; unknown exceptions/reasons are OtherError/unspecified,
+never guessed from a message. No private output/args/env or log contents are read
+into it. Success console shape and all receipt validators are unchanged; no new
+step, artifact or reader. Prior617 run38074207531 failed the cold step with its
+reason unretained; this source change does not retroactively diagnose that run.
 
 The direct qualified source would be5db only. Later UI-only aca/152 commits and
 the subsequent infra test-only fixture repair require explicit source parity
