@@ -1962,3 +1962,231 @@ describe('production chat', () => {
     },
   )
 })
+
+describe('production runtime control authority', () => {
+  const storageKey = 'fleet-runtime-controls:v1:owner:session1'
+  const privateSession = { ...sessionFixture, task_bound: false }
+  const acknowledgement = {
+    session_id: 'session1',
+    run_id: 'original-run',
+    runtime_run_id: 'native-original',
+    accepted: true,
+    state: 'running',
+    message: 'Original command acknowledged',
+  }
+
+  beforeEach(() => {
+    vi.mocked(fleet.getSession).mockResolvedValue(privateSession)
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'original-run',
+      blocked_reason: null,
+    })
+  })
+
+  it('keeps a private owner without write permission read-only despite advertised controls', async () => {
+    useAuthStore.setState({ permissions: [] })
+    renderPage()
+    const steer = await screen.findByRole('button', { name: 'Передать уточнение запуску' })
+    const stop = screen.getByRole('button', { name: 'Остановить запуск' })
+    expect(steer).toBeDisabled()
+    expect(stop).toBeDisabled()
+    fireEvent.click(steer)
+    fireEvent.click(stop)
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem(storageKey)).toBeNull()
+  })
+
+  it('clears the original private steer handle only after its exact accepted receipt', async () => {
+    vi.mocked(fleet.steerSessionRun).mockResolvedValue(acknowledgement)
+    renderPage()
+    const editor = await screen.findByLabelText('Уточнение активному запуску')
+    fireEvent.change(editor, { target: { value: 'Original private guidance' } })
+    const submit = screen.getByRole('button', { name: 'Передать уточнение запуску' })
+    await waitFor(() => expect(submit).toBeEnabled())
+    await userEvent.click(submit)
+    await screen.findByText('Команда принята. Выполнение проверяется по статусу.')
+    expect(fleet.steerSessionRun).toHaveBeenCalledExactlyOnceWith(
+      'session1',
+      'original-run',
+      { input: 'Original private guidance' },
+      expect.any(String),
+    )
+    expect(JSON.parse(sessionStorage.getItem(storageKey)!)).toEqual({})
+    expect(editor).toHaveValue('')
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { label: 'run', receipt: { ...acknowledgement, run_id: 'foreign-run' } },
+    { label: 'session', receipt: { ...acknowledgement, session_id: 'foreign-session' } },
+  ])('holds an accepted private steer receipt for a foreign $label', async ({ receipt }) => {
+    vi.mocked(fleet.steerSessionRun).mockResolvedValue(receipt)
+    renderPage()
+    const editor = await screen.findByLabelText('Уточнение активному запуску')
+    fireEvent.change(editor, { target: { value: 'Keep the original guidance' } })
+    const submit = screen.getByRole('button', { name: 'Передать уточнение запуску' })
+    await waitFor(() => expect(submit).toBeEnabled())
+    await userEvent.click(submit)
+    await screen.findByText('Ответ runtime не соответствует исходной команде')
+    const originalKey = vi.mocked(fleet.steerSessionRun).mock.calls[0][3]
+    expect(JSON.parse(sessionStorage.getItem(storageKey)!)).toEqual({
+      steer: { operation: 'steer', runId: 'original-run', key: originalKey },
+    })
+    expect(editor).toHaveValue('Keep the original guidance')
+    expect(screen.getByRole('button', { name: 'Передать уточнение запуску' })).toBeDisabled()
+    expect(screen.queryByText('Команда принята. Выполнение проверяется по статусу.')).toBeNull()
+    expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1)
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { label: 'owner', session: { ...privateSession, user_id: 'another-owner' } },
+    { label: 'agent', session: { ...privateSession, primary_agent_id: 'another-agent' } },
+    { label: 'task binding', session: { ...privateSession, task_bound: true } },
+  ])('reserves no private steer after fresh $label authority changed', async ({ session }) => {
+    renderPage()
+    const editor = await screen.findByLabelText('Уточнение активному запуску')
+    fireEvent.change(editor, { target: { value: 'Retain the unreserved guidance' } })
+    const submit = screen.getByRole('button', { name: 'Передать уточнение запуску' })
+    await waitFor(() => expect(submit).toBeEnabled())
+    vi.mocked(fleet.getSession).mockResolvedValue(session)
+    await userEvent.click(submit)
+    await screen.findByText(
+      'Только чтение: отправка требует актуальных прав владельца и доступного исполнителя.',
+    )
+    expect(editor).toHaveValue('Retain the unreserved guidance')
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem(storageKey)).toBeNull()
+  })
+
+  it('acknowledges an authorized PM stop without dispatching an ordinary prompt or answer', async () => {
+    vi.mocked(fleet.getSession).mockResolvedValue(sessionFixture)
+    vi.mocked(chats.getTaskContext).mockResolvedValue(context)
+    vi.mocked(fleet.stopSessionRun).mockResolvedValue(acknowledgement)
+    renderPage()
+    const stop = await screen.findByRole('button', { name: 'Остановить запуск' })
+    await waitFor(() => expect(stop).toBeEnabled())
+    await userEvent.click(stop)
+    await waitFor(() => expect(JSON.parse(sessionStorage.getItem(storageKey)!)).toEqual({}))
+    expect(fleet.stopSessionRun).toHaveBeenCalledExactlyOnceWith(
+      'session1',
+      'original-run',
+      expect.any(String),
+    )
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+  })
+
+  it('retains private steer custody when its accepted ACK arrives after navigation', async () => {
+    let resolveOriginal!: (receipt: Awaited<ReturnType<typeof fleet.steerSessionRun>>) => void
+    vi.mocked(fleet.steerSessionRun).mockImplementationOnce(
+      () => new Promise((resolve) => (resolveOriginal = resolve)),
+    )
+    const { router } = renderPage()
+    fireEvent.change(await screen.findByLabelText('Уточнение активному запуску'), {
+      target: { value: 'Private guidance not stored with custody' },
+    })
+    const submit = screen.getByRole('button', { name: 'Передать уточнение запуску' })
+    await waitFor(() => expect(submit).toBeEnabled())
+    await userEvent.click(submit)
+    await waitFor(() => expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1))
+    const originalKey = vi.mocked(fleet.steerSessionRun).mock.calls[0][3]
+    const original = sessionStorage.getItem(storageKey)!
+    expect(JSON.parse(original)).toEqual({
+      steer: { operation: 'steer', runId: 'original-run', key: originalKey },
+    })
+    expect(original).not.toContain('Private guidance')
+    expect(original).not.toContain('fixture-token')
+    await act(async () => {
+      await router.navigate('/chats')
+    })
+    await userEvent.click(await screen.findByRole('button', { name: 'Выйти', exact: true }))
+    await screen.findByText('Список')
+    await act(async () => resolveOriginal(acknowledgement))
+    expect(sessionStorage.getItem(storageKey)).toBe(original)
+    renderPage()
+    await screen.findByText(
+      'Исход уточнения запуску неизвестен. Нельзя повторить его как новый prompt; требуется сверка runtime.',
+    )
+    expect(screen.getByRole('button', { name: 'Передать уточнение запуску' })).toBeDisabled()
+    expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1)
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+  })
+
+  it('keeps a definite preflight rejection unreserved without falsely acknowledging success', async () => {
+    renderPage()
+    const editor = await screen.findByLabelText('Уточнение активному запуску')
+    fireEvent.change(editor, { target: { value: 'Never dispatched guidance' } })
+    const submit = screen.getByRole('button', { name: 'Передать уточнение запуску' })
+    await waitFor(() => expect(submit).toBeEnabled())
+    vi.mocked(fleet.getSession).mockRejectedValue(new ApiError(403, 'Preflight access revoked'))
+    await userEvent.click(submit)
+    await screen.findByText('Preflight access revoked')
+    expect(editor).toHaveValue('Never dispatched guidance')
+    expect(sessionStorage.getItem(storageKey)).toBeNull()
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(screen.queryByText('Команда принята. Выполнение проверяется по статусу.')).toBeNull()
+  })
+
+  it('keeps the original private prompt retry visible after lost ACK and active runtime controls', async () => {
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: true,
+      can_steer: false,
+      can_stop: false,
+      active_run_id: null,
+      blocked_reason: null,
+    })
+    vi.mocked(fleet.createSessionMessage).mockRejectedValue(new Error('Prompt ACK lost'))
+    const { client } = renderPage()
+    fireEvent.change(await screen.findByLabelText('Сообщение'), {
+      target: { value: 'Original prompt with uncertain acceptance' },
+    })
+    const submit = screen.getByRole('button', { name: 'Отправить', exact: true })
+    await waitFor(() => expect(submit).toBeEnabled())
+    await userEvent.click(submit)
+    await screen.findByText(
+      'Ответ неизвестен. Черновик и исходный ключ сохранены; повторить можно только тот же запрос.',
+    )
+    expect(fleet.createSessionMessage).toHaveBeenCalledTimes(1)
+    const original = vi.mocked(fleet.createSessionMessage).mock.calls[0]
+    expect(original[1]).toEqual({
+      author_agent_id: null,
+      body: 'Original prompt with uncertain acceptance',
+      idempotency_key: expect.any(String),
+      message_kind: null,
+      runtime_message_id: null,
+    })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'original-run',
+      blocked_reason: null,
+    })
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ['chat-controls', 'session1'], exact: true })
+    })
+    const retry = await screen.findByRole('button', { name: 'Повторить исходный запрос' })
+    expect(retry).toBeEnabled()
+    expect(screen.getByLabelText('Сообщение')).toHaveValue(original[1].body)
+    expect(screen.getByLabelText('Сообщение')).toBeDisabled()
+    await userEvent.click(retry)
+    await waitFor(() => expect(fleet.createSessionMessage).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(fleet.createSessionMessage).mock.calls[1]).toEqual(original)
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem(storageKey)).toBeNull()
+  })
+})
