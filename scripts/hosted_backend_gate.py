@@ -718,7 +718,8 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend, *, stage=None):
     cargo_blank = False
     termination = None
     conflicting_termination = False
-    stack_header = stack_overflow = False
+    stack_header = overflow_test = None
+    stack_overflow = overflow_identity_conflict = False
     recovery = {}
     layout_seen = layout_invalid = False
     signals = {"6, SIGABRT: process abort signal": "SIGABRT",
@@ -733,7 +734,7 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend, *, stage=None):
             truncated = True
             panic_detail = False
             activation_detail = False
-            stack_header = False
+            stack_header = None
             cargo_failure = cargo_cause = False
             while not line.endswith(b"\n") and remaining > 0:
                 line = stream.readline(min(DIAGNOSTIC_LINE_LIMIT + 1, remaining + 1))
@@ -742,7 +743,7 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend, *, stage=None):
                 remaining -= len(line)
             continue
         text = line.decode("utf-8", errors="replace").rstrip("\r\n")
-        # Rust 1.88's adjacent complete headers attest only a closed category.
+        # Only a complete adjacent pair can attest an allowlisted aborted test.
         complete = line.endswith(b"\n")
         fatal_text = line.removesuffix(b"\n").removesuffix(b"\r").decode("utf-8", errors="replace")
         if stage == "pm_recovery_pg":
@@ -759,8 +760,11 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend, *, stage=None):
         if complete:
             if stack_header and fatal_text == "fatal runtime error: stack overflow, aborting":
                 stack_overflow = True
+                if overflow_test is not None and overflow_test != stack_header:
+                    overflow_identity_conflict = True
+                overflow_test = stack_header
         stack = re.fullmatch(r"thread '([^'\r\n]{1,256})' has overflowed its stack", fatal_text) if complete else None
-        stack_header = bool(stack and stack[1] in names)
+        stack_header = stack[1] if stack and stack[1] in names else None
         # Cargo's closed trailer projects termination metadata, never its command.
         if cargo_cause:
             process = re.fullmatch(r"  process didn't exit successfully: `[^`\r\n]{1,4096}` \((exit status: [0-9]{1,3}|signal: [^\r\n]{1,80})\)", text)
@@ -827,6 +831,12 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend, *, stage=None):
         diagnostics.append(dict(error_code=None, file=file, line=line_number, column=column))
     if remaining <= 0:
         truncated = True
+    if (not truncated and not conflicting_termination and not overflow_identity_conflict
+            and overflow_test is not None and termination == (None, "SIGABRT")):
+        if overflow_test in failed or len(failed) < DIAGNOSTIC_LIMIT:
+            failed.add(overflow_test)
+        else:
+            truncated = True
     if truncated or conflicting_termination:
         termination = None
     if stack_overflow and termination == (None, "SIGABRT"):

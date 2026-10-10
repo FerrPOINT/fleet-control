@@ -2360,6 +2360,116 @@ class HostedBackendTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             gate.validate_failure_readback(run, artifact, payload, **args)
 
+    def test_aborted_test_identity_requires_complete_pair_and_abort_red_regression(self):
+        name = REVIEWED["groups"]["pm_recovery_pg"][1]
+        raw = (f"thread '{name}' has overflowed its stack\nfatal runtime error: stack overflow, aborting\n"
+               "error: test failed, to rerun pass `-p infra --lib`\nCaused by:\n"
+               "  process didn't exit successfully: `/PRIVATE_SENTINEL` (signal: 6, SIGABRT: process abort signal)\n")
+        result = gate.safe_test_diagnostics(io.BytesIO(raw.encode()), {name}, {}, Path("/qa/backend"))
+        self.assertEqual(result["failed_tests"], [name])
+        self.assertEqual(result["categories"], ["runtime_stack_overflow", "test_failure"])
+        self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_aborted_test_identity_conflicts_withhold_and_repeats_deduplicate(self):
+        names = REVIEWED["groups"]["pm_recovery_pg"][1:3]
+        pair = lambda name: f"thread '{name}' has overflowed its stack\nfatal runtime error: stack overflow, aborting\n"
+        trailer = ("error: test failed, to rerun pass `-p infra --lib`\nCaused by:\n"
+                   "  process didn't exit successfully: `PRIVATE_SENTINEL` (signal: 6, SIGABRT: process abort signal)\n")
+        for raw, expected in ((pair(names[0]) * 2, [names[0]]),
+                              (pair(names[0]) + pair(names[1]), []),
+                              (pair(names[0]) + pair(names[1]) + pair(names[0]), [])):
+            result = gate.safe_test_diagnostics(io.BytesIO((raw + trailer).encode()), set(names), {}, Path("/qa/backend"))
+            self.assertEqual(result["failed_tests"], expected)
+            self.assertIn("runtime_stack_overflow", result["categories"])
+            self.assertFalse(result["truncated"])
+            self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_aborted_test_identity_partial_foreign_or_unanchored_is_withheld(self):
+        name = REVIEWED["groups"]["pm_recovery_pg"][1]
+        pair = f"thread '{name}' has overflowed its stack\nfatal runtime error: stack overflow, aborting\n"
+        trailer = ("error: test failed, to rerun pass `-p infra --lib`\nCaused by:\n"
+                   "  process didn't exit successfully: `PRIVATE_SENTINEL TOKEN SQL` (signal: 6, SIGABRT: process abort signal)\n")
+        vectors = [pair, pair + trailer.replace("signal: 6, SIGABRT: process abort signal", "exit status: 101"),
+                   pair + trailer.replace("6, SIGABRT: process abort signal", "9, SIGKILL: kill"),
+                   pair + trailer + trailer.replace("6, SIGABRT: process abort signal", "9, SIGKILL: kill")]
+        for malformed in (pair.replace(name, "PRIVATE_SENTINEL"), pair.replace(name, "tokio-runtime-worker"),
+                          "prefix" + pair, pair.replace("stack\n", "stack suffix\n"),
+                          pair.replace("\nfatal", "\nPRIVATE_SENTINEL\nfatal"),
+                          pair.replace("aborting\n", "aborting suffix\n"),
+                          pair.replace("aborting\n", "aborting\r\r\n")):
+            vectors.append(malformed + trailer)
+        vectors.append(pair.removesuffix("\n"))
+        for raw in vectors:
+            result = gate.safe_test_diagnostics(io.BytesIO(raw.encode()), {name}, {}, Path("/qa/backend"))
+            self.assertEqual(result["failed_tests"], [])
+            self.assertNotIn("runtime_stack_overflow", result["categories"])
+            for private in ("PRIVATE_SENTINEL", "TOKEN", "SQL", "tokio-runtime-worker"):
+                self.assertNotIn(private, gate.canonical(result).decode())
+        raw = (pair + trailer).encode()
+        for limits in (dict(DIAGNOSTIC_INPUT_LIMIT=len(raw) - 1), dict(DIAGNOSTIC_LINE_LIMIT=32)):
+            with mock.patch.multiple(gate, **limits):
+                result = gate.safe_test_diagnostics(io.BytesIO(raw), {name}, {}, Path("/qa/backend"))
+            self.assertTrue(result["truncated"])
+            self.assertEqual(result["failed_tests"], [])
+            self.assertIsNone(result["stage_log"]["harness_signal"])
+
+    def test_aborted_test_identity_union_sorted_deduplicated_and_capped_at_32(self):
+        names = sorted(gate.failure_test_names(REVIEWED, "workspace"))[:33]
+        self.assertEqual(len(names), 33)
+        pair = lambda name: f"thread '{name}' has overflowed its stack\nfatal runtime error: stack overflow, aborting\n"
+        trailer = ("error: test failed, to rerun pass `-p infra --lib`\nCaused by:\n"
+                   "  process didn't exit successfully: `PRIVATE_SENTINEL` (signal: 6, SIGABRT: process abort signal)\n")
+        for completed, aborted, expected, truncated in ((names[:2][::-1], names[2], names[:3], False),
+                (names[:32], names[0], names[:32], False), (names[:32], names[32], names[:32], True)):
+            raw = "".join(f"test {name} ... FAILED\n" for name in completed) + pair(aborted) + trailer
+            result = gate.safe_test_diagnostics(io.BytesIO(raw.encode()), set(names), {}, Path("/qa/backend"))
+            self.assertEqual(result["failed_tests"], expected)
+            self.assertEqual(result["truncated"], truncated)
+            self.assertLessEqual(len(result["failed_tests"]), 32)
+            self.assertEqual("runtime_stack_overflow" in result["categories"], not truncated)
+            self.assertEqual(result["stage_log"]["harness_signal"], None if truncated else "SIGABRT")
+
+    def test_aborted_test_identity_existing_failure_reader_and_legacy_compatibility(self):
+        name = REVIEWED["groups"]["pm_recovery_pg"][1]
+        raw = (f"thread '{name}' has overflowed its stack\nfatal runtime error: stack overflow, aborting\n"
+               "error: test failed, to rerun pass `-p infra --lib`\nCaused by:\n"
+               "  process didn't exit successfully: `PRIVATE_SENTINEL` (signal: 6, SIGABRT: process abort signal)\n")
+        projected = gate.safe_test_diagnostics(io.BytesIO(raw.encode()), {name}, {}, Path("/qa/backend"))
+        value = dict(self.failure_test_value(), stage="pm_recovery_pg", gate_failed_stage="pm_recovery_pg", **projected)
+        legacy = dict(value, failed_tests=[], categories=["runtime_stack_overflow", "unknown"])
+        for evidence in (value, legacy):
+            self.validate_failure(evidence)
+            run, artifact, payload, args = self.failure_artifact(value=evidence)
+            self.assertEqual(json.loads(gate.validate_failure_readback(run, artifact, payload, **args)[gate.FAILURE_FILE]), evidence)
+            with self.assertRaises(ValueError):
+                gate.validate_readback(run, artifact, payload, **args)
+        for bad in (["PRIVATE_SENTINEL"], [name, name], [name] * 33,
+                    [REVIEWED["groups"]["credentials_pg"][0]]):
+            with self.assertRaises(ValueError):
+                self.validate_failure(dict(value, failed_tests=bad))
+
+    def test_aborted_test_identity_successor_preserves_f5_controls_and_189_test_bodies(self):
+        import ast
+        frozen = "f5ba26c11db095de5b14d080ce46dcbb998c960c"
+        before, after = (ast.parse(data) for data in (self.source_blob(gate.HELPER, frozen), (ROOT / gate.HELPER).read_bytes()))
+        functions = lambda tree: {node.name: ast.dump(node) for node in tree.body if isinstance(node, ast.FunctionDef)}
+        old, new = functions(before), functions(after)
+        self.assertEqual(old.keys(), new.keys())
+        self.assertEqual({name for name in old if old[name] != new[name]}, {"safe_test_diagnostics"})
+        nonfunctions = lambda tree: [ast.dump(node) for node in tree.body if not isinstance(node, ast.FunctionDef)]
+        self.assertEqual(nonfunctions(before), nonfunctions(after))
+        tests = lambda data: {node.name: ast.dump(node) for node in ast.walk(ast.parse(data))
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        old, new = tests(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)), tests(Path(__file__).read_bytes())
+        self.assertEqual(len(old), 189)
+        self.assertTrue(old.keys() <= new.keys())
+        self.assertEqual({name for name in old if old[name] != new[name]}, {
+            "test_rust_stack_overflow_complete_pair_and_abort_project_only_enum",
+            "test_cb1_source_binding_is_exact_two_operand_allocation_changes_with_188_identities_preserved"})
+        for path in (gate.WORKFLOW, gate.GATE, gate.INIT, gate.INVENTORY):
+            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen), path)
+        self.assertEqual(len(gate.GATES), 84)
+
     def test_rust_stack_overflow_complete_pair_and_abort_project_only_enum(self):
         name = REVIEWED["groups"]["pm_recovery_pg"][0]
         trailer = ("error: test failed, to rerun pass `-p infra --lib`\nCaused by:\n"
@@ -2369,10 +2479,10 @@ class HostedBackendTests(unittest.TestCase):
             raw = (header + "PRIVATE_SENTINEL SQL\n" + trailer).replace("\n", newline).encode()
             result = gate.safe_test_diagnostics(io.BytesIO(raw), {name}, REVIEWED["rust_source_sha256"], Path("/qa/backend"))
             self.assertEqual(result["stage_log"], dict(state="readable", harness_exit_code=None, harness_signal="SIGABRT"))
-            self.assertEqual(result["categories"], ["runtime_stack_overflow", "unknown"])
-            self.assertEqual(result["failed_tests"], [])
+            self.assertEqual(result["categories"], ["runtime_stack_overflow", "test_failure"])
+            self.assertEqual(result["failed_tests"], [name])
             self.assertEqual(result["diagnostics"], [])
-            for private in ("PRIVATE_SENTINEL", "TOKEN", name, "SQL"):
+            for private in ("PRIVATE_SENTINEL", "TOKEN", "SQL"):
                 self.assertNotIn(private, gate.canonical(result).decode())
 
     def test_pm_recovery_complete_markers_project_closed_layout_and_last_phase(self):
@@ -2439,7 +2549,9 @@ class HostedBackendTests(unittest.TestCase):
         gate.require_codegen_binding(REVIEWED)
         helper = self.source_blob(gate.HELPER, frozen).replace(original_source.encode(), gate.SOURCE_SHA.encode())
         helper = helper.replace(gate.digest(gate.canonical(previous["compiled_source_sha256"])).encode(), gate.SOURCE_INVENTORY_SHA.encode())
-        self.assertEqual((ROOT / gate.HELPER).read_bytes(), helper)
+        without_parser = lambda data: ast.dump(ast.Module(body=[node for node in ast.parse(data).body
+            if not (isinstance(node, ast.FunctionDef) and node.name == "safe_test_diagnostics")], type_ignores=[]))
+        self.assertEqual(without_parser((ROOT / gate.HELPER).read_bytes()), without_parser(helper))
         self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(), self.source_blob(gate.WORKFLOW, frozen).replace(
             original_source.encode(), gate.SOURCE_SHA.encode()))
         for file in (gate.GATE, gate.INIT):
