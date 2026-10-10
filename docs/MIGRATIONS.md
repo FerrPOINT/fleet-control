@@ -1,5 +1,19 @@
 # Migrations
 
+## Current Integration Candidate
+
+The current registry contains21 canonical or24 split entries. The unit18 paragraph
+below retains its original release-unit context, not the current registry count.
+Pending Docker migrations15/16/19 use parameterized `to_regprocedure`/
+`to_regclass` readback, so cached statements resolve current objects after a QA
+drop/recreate roundtrip. Exact source predicates, migration names and ledger
+timestamps remain unchanged; these three sources are absent from current main.
+This is a candidate source correction, not evidence of successful PostgreSQL
+execution or permission to downgrade populated production history. See
+[TESTING](TESTING.md) and [current gates](CURRENT_STATE.md).
+
+## Historical Unit18 Scope
+
 Unit18 appends only `m20261009_000018_container_activation`, yielding17 canonical
 or20 split ledger entries after the frozen15/16/17 releases. Its empty-history
 down restores exact17 guard definitions; any activation custody blocks downgrade.

@@ -2,10 +2,14 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current product-code assembly isd5f18d0
+The current tested-source candidate is5d91b13
 (runtime corrections, journal3b41, human guard, genuine generated API and private-
 approval ownership correction), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
+
+Use the [current gate matrix](CURRENT_STATE.md#current-integration-snapshot-10-october-2026)
+for exact candidates and acceptance boundaries. Earlier failures below are
+retained provenance, not pending instructions to rerun their superseded heads.
 
 PR47 at11f97aa now has five fresh green CI jobs and a passed PostgreSQL owner-
 approval regression. That narrow PR does not accept the parent assembly, whose
@@ -39,6 +43,19 @@ the existing pending primary placeholder from session creation. The next
 test-only correction checks the undispatched baseline and full post-operation
 record equality, preserving all earlier assertions. Exact-source PG rerun remains
 open; no actual full backend PASS is claimed.
+The reviewed correction is now source5d91b13; published controlsf34ed9b preserve
+all74 gates/9 journal cases and exact pins. Actual38008974895 fails atmessage_order;
+worker/parent authenticate artifact11652543000 and successful owned cleanup.
+Clarification PG/migration, workspace and lineage gates pass before that failure.
+The receipt names reapply atmessage_order.rs:116:35 without a database reason.
+Candidate parameterized catalog lookup15/16/19 and single-connection/OID regression
+address the independently reviewed early-binding hazard. Actual PG and proof of
+the older failure's root cause remain open; no guard or assertion is removed.
+Separate PR64 source conflicts are closed by normal dependency merge820a1af;
+its new CI38008810511 passes all five jobs on the exact head. It remains Draft,
+with PR47/live configuration
+acceptance dependencies unchanged. No native or live PM gap is closed by either
+source publication.
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
 compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failure

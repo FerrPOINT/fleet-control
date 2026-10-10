@@ -8,10 +8,15 @@ const ORIGINAL_ORIGIN: &str = "NEW.origin='http://127.0.0.1:' || a.api_port::tex
 const BOUND_ORIGIN: &str = "fleet_container_origin(a.id, NEW.origin, a.api_port, NEW.capabilities)";
 
 async fn replace_origin(manager: &SchemaManager<'_>, from: &str, to: &str) -> Result<(), DbErr> {
-    let row = manager.get_connection().query_one(Statement::from_string(
-        DbBackend::Postgres,
-        "SELECT pg_get_functiondef('fleet_guard_hermes_dispatch()'::regprocedure) AS definition",
-    )).await?.ok_or_else(|| DbErr::Custom("Hermes guard is missing".into()))?;
+    let row = manager
+        .get_connection()
+        .query_one(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT pg_get_functiondef(to_regprocedure($1)) AS definition",
+            ["fleet_guard_hermes_dispatch()".into()],
+        ))
+        .await?
+        .ok_or_else(|| DbErr::Custom("Hermes guard is missing".into()))?;
     let definition: String = row.try_get("", "definition")?;
     if definition.matches(from).count() != 1 {
         return Err(DbErr::Custom(

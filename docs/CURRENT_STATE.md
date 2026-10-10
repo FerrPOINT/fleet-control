@@ -2,11 +2,26 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current product-code assembly `d5f18d0`, a normal descendant
+Current tested-source candidate `5d91b13`, a normal descendant
 of b249 with runtime corrections, durable clarification custody, generated API
 and the private-approval ownership correction, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
 heads; they do not accept this assembly.
+
+| Current gate | Exact source / authority | State |
+| --- | --- | --- |
+| Combined backend | Source5d91b13, controlsf34ed9b, run38008974895 | FAILURE at message_order; candidate late-binding correction pending PG |
+| Config release PR64 | Head820a1af, run38008810511, dependency PR47 at11f97aa | All five CI jobs PASS; Draft, dependency/live gates open |
+| Production Chats presentation | Frontend tree13ccbaba, correction6c022f3 |42 unit cases and six three-engine fixture cases pass; no live PM acceptance |
+| PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
+| Forge full12 | Public-safe controls1dbedf8, maintenance pin commit null | Cannot start acceptance without published qualified Base inputs |
+| Physical runtimes | Reviewed Docker/config/recovery source | Exact images and actual native lifecycle remain unaccepted |
+
+The run states are publication checkpoints, not live status widgets. Terminal
+results must be authenticated before changing acceptance. Documentation-only
+successors do not change the frozen source of either CI run.
+
+### Retained Evidence And Earlier Corrections
 
 The approval correction rejects unrelated central users before reading or
 reserving private-session decisions, including historical replay. Its regression
@@ -53,6 +68,38 @@ The next test-only correction requires that initial row to be pending with no
 runtime IDs and compares every serialized run field after expiry/HTTP recovery.
 Existing authority/lease/body/replay assertions remain; actual corrected PG
 execution is pending. No production code or schema is changed by that correction.
+
+Reviewed test-only successor5d91b13 and controlsf34ed9b are normally published.
+Both independent reviewers preserve the baseline/authority invariants; parent
+verifies all163 Rust Git blobs and changed compiled inputs. Linux90/Windows88
+PASS plus two Linux-only skips qualify controls only. Actual74-stage run38008974895
+completes FAILURE atmessage_order onf34ed9b/source5d91b13. Worker and parent
+independently authenticate artifact11652543000, ZIP SHA256
+548ce464583479b43504a089e30c38b62729ee088e9b6c55e754c9712d2c742d,
+with scratch/synthetic DB cleanup true. The named historical-backfill regression
+fails atmessage_order.rs:116:35 during reapply. Prior clarification PG/migration,
+workspace and lineage gates pass by verified sequential stage ordering. The safe
+receipt identifies location, not the underlying database error.
+
+Independent source review identifies an early-bound catalog OID hazard in pending
+Docker migrations15/16/19. The candidate uses parameterized late lookup and
+strengthens the existing roundtrip with one connection, stable backend PID and
+changed object OIDs. All DDL/predicates and historical transcript/ledger checks
+remain. Formatting passes; actual PostgreSQL acceptance and the exact cause of
+the older failure remain unproved. No full backend/native PASS is claimed.
+
+Separate config PR64 is normally refreshed to820a1af with latest dependencyPR47
+11f97aa, which contains actualmainb750e7b. Source merge conflicts are closed:
+GitHub reports MERGEABLE and zero reviews/threads. The owned config delta remains
+32 paths/identical patch-id, with no migration/UI/SDK/lock change. Fresh CI38008810511
+completes SUCCESS on820a1af: backend, frontend, containers, docs and minimum-rust.
+Parent independently verifies exact head and every job. The workflow includes
+Rust/default and selected PG checks, OpenAPI drift, three-browser fixture checks
+and container smoke, not the separate historical18-stage config packet. Fresh
+metadata remains main/Draft/CLEAN/MERGEABLE, with zero reviews/threads. The PR
+body now records current CI and retains its existing headings/checklist. PR47
+remains a release dependency; live Workflow/package/credentials remain open.
+This does not import or accept the combined Docker/native/admission tail.
 
 Current-client visual follow-up6c022f3 is normally merged asd5f18d0. Its two-file
 delta adds local semantic styling/native color-scheme to the requirements select

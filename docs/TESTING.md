@@ -244,7 +244,12 @@ no prompt/run/outbox, foreign or disabled owner and non-PM agent rejection.
 database. Run `cargo test -p migration --test message_order -- --ignored --test-threads=1`
 to check historical backfill, backwards clock timestamps, immutable identity order
 and pending migration down/reapply without losing messages. CI creates its own
-database for this gate. Downgrade/reapply is a QA exercise, not an order-preserving
+database for this gate. The roundtrip retains one physical connection and its
+prepared-statement cache. It compares backend PID and requires fresh Hermes/
+recovery function and container-table OIDs after reapply, alongside the unchanged
+transcript/order/ledger assertions. This exercises late-bound catalog lookup
+across object recreation; the candidate still requires actual PostgreSQL execution.
+Downgrade/reapply is a QA exercise, not an order-preserving
 production rollback. Foundation pagination tests also check foreign cursors and
 legacy listing order. Frontend tests cover overlapping pages and SSE reconnect
 during previous-page loading, including catch-up of messages arriving mid-fetch;
