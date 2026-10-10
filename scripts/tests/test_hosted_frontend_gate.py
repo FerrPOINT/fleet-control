@@ -187,6 +187,40 @@ class SourceContracts(unittest.TestCase):
         state["base"]["frontend/src/ui/button.tsx"] = "c" * 64
         self.assertNotEqual(gate.qualified_inputs(state), original)
 
+    def test_fixture_successor_exact_source_delta_inventory_and_original_key_body(self):
+        self.assertEqual(gate.SOURCE_SHA, "bf0ca7a182ed6344483a0ee4ce3a4333b4fc58c3")
+        self.assertEqual(gate.SOURCE_TREE, "d40b5a8f5e8cff28e54a670b1dc117ec6ee4bb1e")
+        self.assertEqual(gate.SOURCE_PARENTS, ["2398ff09974a1fbcdaf8f898568edb4f85bf9ed1"])
+        gate.qualify_source(ROOT)
+        changes = gate.git(ROOT, "diff", "--no-renames", "--name-status",
+                           "5cc1fbb75f9096f10dc32250bf7bab5c36386f9c", gate.SOURCE_SHA)
+        self.assertEqual(changes.decode().splitlines(), [
+            "M\tfrontend/e2e/fleet-control.spec.ts",
+            "M\tfrontend/e2e/runtime-controls.spec.ts",
+        ])
+        inventory = gate.tracked_inventory(ROOT, gate.SOURCE_SHA)
+        self.assertEqual(len(inventory), 835)
+        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
+        runtime = (ROOT / "frontend/e2e/runtime-controls.spec.ts").read_text(encoding="utf-8")
+        for assertion in (
+            "expect(commands[1]).toEqual(commands[0])",
+            "expect(commands[2]).toEqual(commands[0])",
+            "expect(sameAnswerRequest(command.request, payload)).toBe(true)",
+            "expect(command.request).toEqual(payload)",
+            "expect(original.state).toBe('uncertain')",
+            "expect(original.answer).toBeNull()",
+            "expect(stored).toEqual([original])",
+            "expect(deliveries).toEqual(Array(4).fill({ path: deliveryPath, body: null }))",
+        ):
+            self.assertIn(assertion, runtime)
+        self.assertEqual(runtime.count("stored.push("), 1)
+        self.assertNotIn("clarifications/q1/answers", runtime)
+        self.assertNotIn("state: 'delivered'", runtime)
+        chats = (ROOT / "frontend/e2e/fleet-control.spec.ts").read_text(encoding="utf-8")
+        self.assertIn("expect(fixture.commands).toEqual([original])", chats)
+        self.assertIn("body: original.request", chats)
+        self.assertIn("const retainedAnswer = page.getByRole('status').filter({ has: resume })", chats)
+
 
 class CompletionContracts(unittest.TestCase):
     def test_unit_summary_needs_completed_tests(self):
@@ -611,7 +645,7 @@ class FailureContracts(unittest.TestCase):
 
     def browser_report(self):
         return dict(errors=[dict(message="PRIVATE_SENTINEL")], suites=[dict(title="PRIVATE_SENTINEL", specs=[dict(
-            title="PRIVATE_SENTINEL", file="runtime-controls.spec.ts", line=83, tests=[dict(
+            title="PRIVATE_SENTINEL", file="runtime-controls.spec.ts", line=90, tests=[dict(
                 projectName="webkit", status="unexpected", results=[dict(status="failed",
                     error=dict(message="PRIVATE_SENTINEL"), stdout=["PRIVATE_SENTINEL"],
                     attachments=[dict(path="PRIVATE_SENTINEL")])])])])])
@@ -652,19 +686,19 @@ class FailureContracts(unittest.TestCase):
     def test_fixture_parser_never_serializes_private_fields_or_runtime_titles(self):
         result = self.browser()
         self.assertEqual(result["report"], "valid")
-        self.assertEqual(result["diagnostics"], [dict(file="frontend/e2e/runtime-controls.spec.ts", line=83,
+        self.assertEqual(result["diagnostics"], [dict(file="frontend/e2e/runtime-controls.spec.ts", line=90,
             project="webkit", status="unexpected", results=["failed"])])
         self.assertEqual(result["browsers"]["webkit"]["unexpected"], 1)
         self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
         self.verify(self.receipt())
 
     def test_file_and_line_are_canonical_source_declarations_only(self):
-        self.assertIn(83, self.locations["frontend/e2e/runtime-controls.spec.ts"])
-        self.assertNotIn(86, self.locations["frontend/e2e/runtime-controls.spec.ts"])
-        for file, line in (("../runtime-controls.spec.ts", 83), ("services-base/private.spec.ts", 83),
-                           ("/tmp/e2e/runtime-controls.spec.ts", 83), ("runtime-controls.spec.tsPRIVATE_SENTINEL", 83),
-                           ("runtime-controls.spec.ts", 86), ("runtime-controls.spec.ts", True),
-                           ("runtime-controls.spec.ts", "83")):
+        self.assertIn(90, self.locations["frontend/e2e/runtime-controls.spec.ts"])
+        self.assertNotIn(93, self.locations["frontend/e2e/runtime-controls.spec.ts"])
+        for file, line in (("../runtime-controls.spec.ts", 90), ("services-base/private.spec.ts", 90),
+                           ("/tmp/e2e/runtime-controls.spec.ts", 90), ("runtime-controls.spec.tsPRIVATE_SENTINEL", 90),
+                           ("runtime-controls.spec.ts", 93), ("runtime-controls.spec.ts", True),
+                           ("runtime-controls.spec.ts", "90")):
             report = self.browser_report()
             report["suites"][0]["specs"][0].update(file=file, line=line)
             self.assertEqual(self.browser(report)["report"], "rejected")

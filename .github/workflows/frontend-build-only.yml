@@ -2,7 +2,7 @@ name: Frontend Build Only
 
 on:
   push:
-    branches: [build-only/frontend-chats-successor-20261010]
+    branches: [build-only/frontend-fixture-successor-20261010]
 
 permissions:
   contents: read
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   frontend:
-    if: github.repository == 'FerrPOINT/fleet-control' && github.event_name == 'push' && github.ref == 'refs/heads/build-only/frontend-chats-successor-20261010' && github.event.deleted == false
+    if: github.repository == 'FerrPOINT/fleet-control' && github.event_name == 'push' && github.ref == 'refs/heads/build-only/frontend-fixture-successor-20261010' && github.event.deleted == false
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     defaults:
@@ -40,7 +40,7 @@ jobs:
       - name: Check out exact product source including parent history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # official v7
         with:
-          ref: 5cc1fbb75f9096f10dc32250bf7bab5c36386f9c
+          ref: bf0ca7a182ed6344483a0ee4ce3a4333b4fc58c3
           path: fleet-control
           fetch-depth: 0
           persist-credentials: false
@@ -129,7 +129,7 @@ jobs:
         run: |
           set -euo pipefail
           {
-            printf 'Product source: `%s`\n\n' 5cc1fbb75f9096f10dc32250bf7bab5c36386f9c
+            printf 'Product source: `%s`\n\n' bf0ca7a182ed6344483a0ee4ce3a4333b4fc58c3
             printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
             printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"
