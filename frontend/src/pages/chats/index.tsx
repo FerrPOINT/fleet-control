@@ -1,22 +1,42 @@
-import { useState } from 'react'
+import { apiBaseUrl } from '@/api/client'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Bot, MessageSquare, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label } from '@sdlc/ui/ui'
-import { createSession } from '@/api/fleet'
+import { getSession, createSession, listAgentDirectory } from '@/api/fleet'
 import { getChatsDirectory } from '@/api/chats-directory'
-import type { AgentDirectoryItem } from '@/api/types'
+import type { AgentDirectoryItem, AgentSession } from '@/api/types'
 import { useSessionUserFilter, SessionUserFilter } from '@/shared/session-user-filter'
-import { useAuthStore } from '@/shared/auth/store'
+import { isCurrentAuth, ssoConfig, useAuthStore } from '@/shared/auth/store'
+import {
+  clearDispatch,
+  commandService,
+  dispatchHeld,
+  markDispatch,
+  payloadDigest,
+  unknownOutcome,
+  type DispatchMarker,
+} from '../chat-detail/core'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { sdlcRoleLabel } from '@/shared/sdlc-roles'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
+
+export function groupChats(agents: AgentDirectoryItem[], sessions: AgentSession[]) {
+  return agents.map((agent) => ({
+    agent,
+    sessions: sessions
+      .filter((session) => session.primary_agent_id === agent.id)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id)),
+  }))
+}
 
 export function ChatsPage() {
   const { t } = useTranslation()
   const [params, setParams] = useSearchParams()
   const search = params.get('q') ?? ''
+  const auth = useAuthStore()
   const [createOpen, setCreateOpen] = useState(false)
   const currentUserId = useAuthStore((state) => state.userId)
   const userScope = params.get('users')
@@ -46,7 +66,7 @@ export function ChatsPage() {
     ],
     queryFn: () =>
       getChatsDirectory({ agentId, userIds: selectedUserIds, search, before, limit: 50 }),
-    enabled: Boolean(currentUserId),
+    enabled: Boolean(currentUserId) && !auth.signingOut,
   })
   const page = directory.isError ? undefined : directory.data
   const groups = page?.agents ?? []
@@ -93,10 +113,14 @@ export function ChatsPage() {
       <PageHeader
         title={t('chats.title')}
         actions={
-          selected?.agent.product_role === 'executor' && selected.agent.status !== 'archived' ? (
+          selected?.agent.product_role === 'executor' &&
+          selected.agent.status !== 'archived' &&
+          auth.permissions.includes('sessions:write_own') ? (
             <Button
               onClick={() => setCreateOpen(true)}
-              disabled={directory.isPending || directory.isError}
+              disabled={
+                directory.isPending || directory.isFetching || directory.isError || auth.signingOut
+              }
             >
               <Plus className="h-4 w-4" />
               {t('chats.new')}
@@ -296,6 +320,7 @@ export function ChatsPage() {
       ) : null}
       {selected ? (
         <CreatePrivateChat
+          key={`${auth.userId}:${auth.authVersion}:${selected.agent.id}`}
           agent={selected.agent}
           open={createOpen}
           onOpenChange={setCreateOpen}
@@ -322,19 +347,115 @@ function CreatePrivateChat({
   const client = useQueryClient()
   const [title, setTitle] = useState('')
   const [key, setKey] = useState(() => crypto.randomUUID())
+  const auth = useAuthStore()
+  const scopeId = `create:${agent.id}`
+  const [held, setHeld] = useState(() => dispatchHeld(scopeId))
+  const original = useRef<{ title: string; marker: DispatchMarker; uncertain: boolean } | null>(
+    null,
+  )
+  const live = useRef(true)
+  const dispatching = useRef(false)
+  useEffect(() => {
+    live.current = true
+    return () => {
+      live.current = false
+    }
+  }, [])
   const mutation = useMutation({
-    mutationFn: () =>
-      createSession({
-        primary_agent_id: agent.id,
-        title: title.trim(),
-        leader_agent_id: null,
-        idempotency_key: key,
-      }),
+    mutationFn: async () => {
+      if (dispatching.current) throw new Error('Dispatch pending')
+      dispatching.current = true
+      const scope = useAuthStore.getState()
+      try {
+        const directory = await listAgentDirectory()
+        const current = directory.find((entry) => entry.id === agent.id)
+        if (
+          !isCurrentAuth(scope) ||
+          !scope.permissions.includes('sessions:write_own') ||
+          current?.product_role !== 'executor' ||
+          current.status === 'archived'
+        )
+          throw new Error('Read-only')
+        if (!original.current) {
+          if (dispatchHeld(scopeId)) throw new Error('Reconciliation required')
+          const marker = {
+            actor: scope.userId!,
+            agent: agent.id,
+            service: commandService(apiBaseUrl, ssoConfig.issuer),
+            key,
+            digest: await payloadDigest({
+              title: title.trim(),
+              primary_agent_id: agent.id,
+              leader_agent_id: null,
+            }),
+          }
+          if (!isCurrentAuth(scope) || !live.current) throw new Error('Authentication changed')
+          markDispatch(scopeId, marker)
+          original.current = { title: title.trim(), marker, uncertain: false }
+          setHeld(true)
+        }
+        const command = original.current
+        if (command.marker.actor !== scope.userId) throw new Error('Authentication changed')
+        let created: AgentSession
+        try {
+          created = await createSession({
+            primary_agent_id: agent.id,
+            title: command.title,
+            leader_agent_id: null,
+            idempotency_key: command.marker.key,
+          })
+        } catch (failure) {
+          if (
+            live.current &&
+            isCurrentAuth(scope) &&
+            !command.uncertain &&
+            !unknownOutcome(failure) &&
+            clearDispatch(scopeId, command.marker)
+          ) {
+            original.current = null
+            setHeld(false)
+          }
+          if (unknownOutcome(failure)) command.uncertain = true
+          throw failure
+        }
+        command.uncertain = true
+        // Confirm the returned id against the protected session before releasing the key.
+        const confirmed = await getSession(created.id)
+        if (
+          !isCurrentAuth(scope) ||
+          !live.current ||
+          confirmed.user_id !== scope.userId ||
+          confirmed.primary_agent_id !== agent.id ||
+          confirmed.title !== command.title
+        )
+          throw new Error('Unconfirmed creation')
+        return confirmed
+      } finally {
+        dispatching.current = false
+      }
+    },
+    onError: () => {
+      if (!live.current) return
+      setHeld(dispatchHeld(scopeId))
+    },
     onSuccess: async (session) => {
-      await client.invalidateQueries({ queryKey: ['chats-directory'] })
+      if (
+        !live.current ||
+        !original.current ||
+        original.current.marker.actor !== useAuthStore.getState().userId ||
+        !clearDispatch(scopeId, original.current.marker)
+      )
+        return
+      original.current = null
+      setHeld(false)
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ['sessions'] }),
+        client.invalidateQueries({ queryKey: ['chats-directory'] }),
+      ])
       onOpenChange(false)
       setTitle('')
       setKey(crypto.randomUUID())
+      if (!live.current || useAuthStore.getState().signingOut) return
       navigate(`/chats/${session.id}?returnTo=${encodeURIComponent(returnTo)}`)
     },
   })
@@ -356,7 +477,14 @@ function CreatePrivateChat({
           aria-busy={mutation.isPending}
           onSubmit={(event) => {
             event.preventDefault()
-            if (title.trim() && !mutation.isPending) mutation.mutate()
+            if (
+              title.trim() &&
+              !mutation.isPending &&
+              auth.permissions.includes('sessions:write_own') &&
+              !auth.signingOut &&
+              (!held || original.current)
+            )
+              mutation.mutate()
           }}
         >
           <Label htmlFor="chat-title">{t('sessions.sessionTitle')}</Label>
@@ -366,15 +494,29 @@ function CreatePrivateChat({
             value={title}
             required
             maxLength={200}
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || held}
             onChange={(event) => {
               setTitle(event.target.value)
               setKey(crypto.randomUUID())
               mutation.reset()
             }}
           />
-          {mutation.isError ? <ErrorState message={t('sessions.createError')} /> : null}
-          <Button type="submit" disabled={mutation.isPending || !title.trim()}>
+          {held ? (
+            <p role="alert" className="text-sm text-text-secondary">
+              {t('chatCore.createHeld')}
+            </p>
+          ) : null}
+          {mutation.isError && !held ? <ErrorState message={t('sessions.createError')} /> : null}
+          <Button
+            type="submit"
+            disabled={
+              mutation.isPending ||
+              !title.trim() ||
+              auth.signingOut ||
+              !auth.permissions.includes('sessions:write_own') ||
+              (held && !original.current)
+            }
+          >
             <Plus className="h-4 w-4" />
             {mutation.isPending ? t('sessions.creating') : t('sessions.create')}
           </Button>

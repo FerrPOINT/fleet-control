@@ -253,15 +253,19 @@ stage=migration_smoke
   cargo run --locked -p migration -- status
   migration_snapshot up
   cargo run --locked -p migration -- down -n 1
+  migration_snapshot down_alias
+  cargo run --locked -p migration -- down -n 1
   migration_snapshot down_one
   cargo run --locked -p migration -- down -n 1
   migration_snapshot down_recovered
   cargo run --locked -p migration -- up -n 1
   migration_snapshot recovered_reapply
-  cargo run --locked -p migration -- up
+  cargo run --locked -p migration -- up -n 1
   cargo run --locked -p migration -- status
   migration_snapshot reapply
-  cargo run --locked -p migration -- down -n 21
+  cargo run --locked -p migration -- up -n 1
+  migration_snapshot alias_reapply
+  cargo run --locked -p migration -- down -n 22
   cargo run --locked -p migration -- status
   migration_snapshot down_all
   cargo run --locked -p migration -- up

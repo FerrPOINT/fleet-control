@@ -347,6 +347,96 @@ async fn recovered_step(
 
 #[tokio::test]
 #[ignore = "requires isolated FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL"]
+async fn recovered_authority_alias_repair_preserves_trigger_oid_and_exact_custody() {
+    let (repo, db, _, record) = fixture_mode(true, true).await;
+    let launch = &record.claim.previous;
+    let command = recovered_command(launch);
+    repo.claim_container_recovery(launch, &command)
+        .await
+        .unwrap();
+    let proof = recovered_ack(&repo, launch, &command).await;
+    assert_recovered_preconditions(&repo, &record, &proof).await;
+    let before_ledger = migration::Migrator::get_migration_models(&db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| (row.version, row.applied_at))
+        .collect::<Vec<_>>();
+    let query = || {
+        Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT pg_get_functiondef(to_regprocedure($1)) AS body,
+         to_regprocedure($1)::oid::bigint AS oid",
+            ["fleet_guard_activation_authority()".into()],
+        )
+    };
+    let before = db.query_one(query()).await.unwrap().unwrap();
+    let body: String = before.try_get("", "body").unwrap();
+    let oid: i64 = before.try_get("", "oid").unwrap();
+    assert_eq!(body.matches("prior_authority").count(), 4);
+
+    // Reproduce migration019 in a transaction; rollback restores the repaired function.
+    let tx = db.begin().await.unwrap();
+    tx.execute_unprepared(&body.replace("prior_authority", "old"))
+        .await
+        .unwrap();
+    let attempt = tx.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO runtime_container_activation_authorities(activation_id,recovery_id,controller_id,plan_sha256,claim)
+         VALUES($1,$2,$3,$4,$5) ON CONFLICT(activation_id,recovery_id) DO NOTHING",
+        [record.claim.id.into(),proof.lease.request.id.into(),proof.lease.request.controller_id.into(),
+            record.claim.intent_sha256.clone().into(),json!(record.claim).into()])).await;
+    let ambiguous = attempt.as_ref().err().is_some_and(|error| {
+        let message = error.to_string();
+        message.contains("old.activation_id") && message.contains("ambiguous")
+    });
+    tx.rollback().await.unwrap();
+    assert!(ambiguous, "authority_alias_original_trigger_ambiguous");
+    let after = db.query_one(query()).await.unwrap().unwrap();
+    assert_eq!(after.try_get::<i64>("", "oid").unwrap(), oid);
+    assert!(
+        after
+            .try_get::<String>("", "body")
+            .is_ok_and(|actual| actual == body),
+        "authority_alias_definition_restored"
+    );
+    for _ in 0..2 {
+        repo.authorize_recovered_activation(&record, &proof)
+            .await
+            .unwrap();
+    }
+    let authority = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT count(*) AS count FROM runtime_container_activation_authorities
+         WHERE activation_id=$1 AND recovery_id=$2 AND controller_id=$3 AND plan_sha256=$4 AND claim=$5",
+        [record.claim.id.into(),proof.lease.request.id.into(),proof.lease.request.controller_id.into(),
+            record.claim.intent_sha256.clone().into(),json!(record.claim).into()])).await.unwrap().unwrap();
+    assert_eq!(authority.try_get::<i64>("", "count").unwrap(), 1);
+    let repair = migration::Migrator::migrations()
+        .into_iter()
+        .find(|item| item.name() == "m20261010_000021_activation_authority_alias")
+        .unwrap();
+    let tx = db.begin().await.unwrap();
+    let downgrade = repair
+        .down(&sea_orm_migration::SchemaManager::new(&tx))
+        .await;
+    let refused = downgrade.as_ref().err().is_some_and(|error| {
+        error
+            .to_string()
+            .contains("Recovered activation history prevents alias repair downgrade")
+    });
+    tx.rollback().await.unwrap();
+    assert!(refused, "authority_alias_history_blocks_downgrade");
+    let after_ledger = migration::Migrator::get_migration_models(&db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| (row.version, row.applied_at))
+        .collect::<Vec<_>>();
+    assert_eq!(after_ledger, before_ledger);
+    db.close().await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL"]
 async fn recovered_activation_requires_original_plan_current_lease_and_exact_cas() {
     let (repo, db, a, mut record) = fixture_mode(true, true).await;
     let l = record.claim.previous.clone();

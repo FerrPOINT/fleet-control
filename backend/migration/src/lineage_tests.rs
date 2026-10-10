@@ -16,6 +16,7 @@ const PREPARATION: &str = "m20261009_000017_container_preparation";
 const ACTIVATION: &str = "m20261009_000018_container_activation";
 const RECOVERED_ACTIVATION: &str = "m20261009_000019_recovered_activation";
 const CLARIFICATION_COMMANDS: &str = "m20261010_000020_clarification_commands";
+const AUTHORITY_ALIAS: &str = "m20261010_000021_activation_authority_alias";
 const DISPATCH_JOURNAL: &str = "m20261004_000012_hermes_dispatch_journal";
 const RUNTIME_CONTROLS: &str = "m20261005_000013_runtime_controls";
 const JOURNAL_TIME: &str = "m20261005_000014_hermes_journal_time_order";
@@ -48,6 +49,8 @@ fn registered_versions_match_lineage_discriminators() {
     assert_eq!(legacy[22].name(), RECOVERED_ACTIVATION);
     assert_eq!(canonical[20].name(), CLARIFICATION_COMMANDS);
     assert_eq!(legacy[23].name(), CLARIFICATION_COMMANDS);
+    assert_eq!(canonical[21].name(), AUTHORITY_ALIAS);
+    assert_eq!(legacy[24].name(), AUTHORITY_ALIAS);
     assert_eq!(
         legacy
             .iter()

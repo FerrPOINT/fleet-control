@@ -131,7 +131,7 @@
     "fleet-control/backend/api/src/routes/project_access.rs": "ccc99be6690fa8b61cfa6bb7118c8d93a52e4429fdb7ec0d55767d2d41bac935",
     "fleet-control/backend/api/src/routes/sdlc_configuration.rs": "3d8dd36b647532e2586f8f571b2e14d20c4b728c84e2cf3868507fe2cc7a1234",
     "fleet-control/backend/api/src/routes/sdlc_configuration_tests.rs": "e884f82df2b50d9c60cb55c73d05790d1a779ac649b323a27e1d68143eedb8da",
-    "fleet-control/backend/api/src/routes/sessions.rs": "528ff70ff00f4286b2f462785e78676a08271f59b6190c818f68fa3e7e4dd6cd",
+    "fleet-control/backend/api/src/routes/sessions.rs": "ba374fb04072f8cf01bdff6671e66b9659faab19bdaf844200138b045d7515d1",
     "fleet-control/backend/api/src/routes/settings.rs": "74216216fc632135d4a18b3927a18f27bc727ef9010ea4e8af0f3647e09de095",
     "fleet-control/backend/api/src/routes/task_chats.rs": "be92e5af64c09301ed3040a17784ea1dcc2ef776339f2bad89f5ae5ed79690b6",
     "fleet-control/backend/api/src/routes/users.rs": "599a8dc239ded6e1a978072c0b58ed96e733202f4ca73ad7661c56e158fac20c",
@@ -155,7 +155,7 @@
     "fleet-control/backend/domain/src/approval_decisions.rs": "34e9b16aa77099b3669c02915c9a9bebb28fb326107e000579b2f870bad6c088",
     "fleet-control/backend/domain/src/chats_directory.rs": "75f38e3e69664c3cea4227559060a5b5b118f137f3b820fe517a61ad451c5aa0",
     "fleet-control/backend/domain/src/clarification_commands.rs": "e9f68e37b240914481e17b321d3bf9c6edf3f5286375991acd7c79851f887d08",
-    "fleet-control/backend/domain/src/lib.rs": "df0552b3e540062e57f9700e4caa24b27707cf08ed4b46cdd62080be2168b2f8",
+    "fleet-control/backend/domain/src/lib.rs": "4224211cd77d7e1e79ea5665c46c2ce17b41c988d5ef824efc610199f8481db2",
     "fleet-control/backend/domain/src/pm_credentials.rs": "8a0f27219578df5a576d13e3d60fdf333140db1c29510b1dbda8b806f41a38c2",
     "fleet-control/backend/domain/src/pm_draft.rs": "6e55c162ee23fb62818feec34b4cf8291d048bb276053935d4689dba73a6de13",
     "fleet-control/backend/domain/src/pm_execution.rs": "3994f3ceec606ec9e2bbbe7e1a23b97dc8aa1f5c950f24a3eee7065c9611e404",
@@ -183,7 +183,7 @@
     "fleet-control/backend/infra/src/entities.rs": "af9f129152a466bfaa1149ba518cb31a4319ac4c2714adad9180dff798d47a7e",
     "fleet-control/backend/infra/src/hermes_approval_recovery.rs": "97b8bbcaa00997e56da4d54bdc0fefcc0e2e76babb11c37685daad5d1249b0ff",
     "fleet-control/backend/infra/src/hermes_dispatch_journal.rs": "5e603a5f8a18004801ad8dc19fdba7105665770fda96e6ad5873fa6f3c0e9b60",
-    "fleet-control/backend/infra/src/lib.rs": "9e0baf1d898d67537e0666423e5454562744c8a9c3788cad3b38092da3f9042e",
+    "fleet-control/backend/infra/src/lib.rs": "3150053363296a25f247b7788bba57ba268c43be3df1055597bbf0ff261ca75e",
     "fleet-control/backend/infra/src/pm_credentials.rs": "f6a3bee729e0f2d8c5397f10db3c3fd2f94854a06b6061531699eb255ef27958",
     "fleet-control/backend/infra/src/pm_credentials/coordinator.rs": "0be7f8a09497c7a97a810114da02749638f8977668b3f42e764f307307a6533e",
     "fleet-control/backend/infra/src/pm_draft.rs": "14a4abde0ef4c150833888f3189779b831d31b755bc9d5e59b2ebde573c55718",
@@ -200,22 +200,22 @@
     "fleet-control/backend/infra/src/runtime/container_replacement.rs": "7d010b3772d30c9ebe0308803b49f86781a085afe9f968e1b3868a10249be6be",
     "fleet-control/backend/infra/src/runtime/container_workers.rs": "16952cb5bd7db69b7cbc8df7ff44f36e6f7e97295e97c6743536f1f383069a64",
     "fleet-control/backend/infra/src/runtime/hermes_wire.rs": "d4405fb075a5a47cb24fe1fc7381270a0d1b794fc85cdb7550d4a9bbe5e2efea",
-    "fleet-control/backend/infra/src/runtime/mod.rs": "de92d9104a4926650079fd58fd2aaff75a012e64e8592ff358aad079f2a4e59b",
+    "fleet-control/backend/infra/src/runtime/mod.rs": "0de98b20bfaffded5034ad72dbccdcaf2623e361db4c26b37d8cd41f1065a36f",
     "fleet-control/backend/infra/src/runtime/native_context.rs": "201a9b00094a67ddd9ed60ff7a0432cbb9688d4faa40f63384af09915581eb55",
     "fleet-control/backend/infra/src/runtime/pm_readback.rs": "3f14a21a12e3a3f3e462004326b51dbed059aab8a01ecc771c4266819d97f2e7",
     "fleet-control/backend/infra/src/runtime/recovery_wire.rs": "a095805c0765893a1809c02ebc34a7e265155f5148beb8c729a673dd787c732c",
     "fleet-control/backend/infra/src/runtime/run_control.rs": "d37d69c56cf158692f08b09e012e2504c0bd69442ce3bc4f405880b53065be79",
     "fleet-control/backend/infra/src/runtime/sse_wire.rs": "2272325b2d4d8185d4b886aa0a70a67c63358a2eb243092b22cd9c1cd5c24c02",
     "fleet-control/backend/infra/src/runtime/targeted_approval.rs": "34b21faede4b13306238723290034d1752bf5b81fa16b5648f72030b91b93eed",
-    "fleet-control/backend/infra/src/runtime_acceptance.rs": "e6068e74c154aad57a3d06dde6c356ef8f5e40ddc795161d643a01f94f24cc95",
+    "fleet-control/backend/infra/src/runtime_acceptance.rs": "190e786153bf31a5c656237b42d5c57ad5c35b6c0e3fa9fa04a76f7a32e43003",
     "fleet-control/backend/infra/src/runtime_controls.rs": "f72ef29313b29e8ab0a7b4109ffa51802b7db95aaa32c87dea243de6a0222323",
-    "fleet-control/backend/infra/src/task_chats.rs": "2e5d89a6d25495e9837043f4e602f764b99f927733b6bd153cc4775302fa1dbf",
+    "fleet-control/backend/infra/src/task_chats.rs": "23ed3f8b9441c393ed114c2e0d586049d886112c5bd9bfcce311b82c158dab17",
     "fleet-control/backend/infra/src/tracker_event_poller.rs": "809ba26e80db43238db4edbd758c1a22711962bd3035dc8061ddbdfa6183ffe6",
     "fleet-control/backend/infra/src/tracker_events.rs": "e3f382bd494cf24c94992a7a4b954b26ddad21c02996fc54f5adfc0d7dacdd16",
     "fleet-control/backend/infra/tests/agent_logs.rs": "b9780e307c0bc87f3e4649570ce80c93927dc9e04961743ed53622de566bace9",
     "fleet-control/backend/infra/tests/central_profile.rs": "33475276225fff250d9028fa458efc131698bb3083e6a23ca2a93d375444f193",
     "fleet-control/backend/infra/tests/chats_directory.rs": "75d8136a932cf1d8381362809721ed5b9759e2541b6d520b0d6a7f5ab8aebbd7",
-    "fleet-control/backend/infra/tests/container_activation.rs": "9eb349a1304fbc24fd5befe0b4626bc88ca1092128d56fa90212bb24705ab0f9",
+    "fleet-control/backend/infra/tests/container_activation.rs": "445624d5353fc6500ce63a262108478cdfda20a7dd6153a7b35b7093edf49435",
     "fleet-control/backend/infra/tests/container_controller.rs": "375cd3fe30e971cb9acec71f9aa3f4c3f5f3bd94870a330a1e2ea74fc68a1c07",
     "fleet-control/backend/infra/tests/container_preparation.rs": "a4aba2b719b58869aa0ad188ba3df7b8b44397c7a90f9c9eaf2de29e293db21e",
     "fleet-control/backend/infra/tests/heartbeat_alerts.rs": "b58daf21ad6d99aaece1f71fcd50de8187fcdc611762dd106fc30b7467b6d413",
@@ -223,7 +223,7 @@
     "fleet-control/backend/infra/tests/managed_settings.rs": "a00d900832fae3193dfded72f3abc92ef27dd1e2c7d0014f55aee07e8338fbeb",
     "fleet-control/backend/infra/tests/pm_credentials_real_auth.rs": "61b8267f53fa1dc3f16336b24fe438a061319c9c0ed190579c9f741f3e7182ec",
     "fleet-control/backend/infra/tests/runtime_approval_events.rs": "462727f4a50969e0f971de209c8972c5194136b528d8236c901f127ec038a7b5",
-    "fleet-control/backend/infra/tests/sdlc_foundation.rs": "82ceeb30a870e9851279fa56cf9a3db8e46da41024aaa66f55ce6f9d7e8f6582",
+    "fleet-control/backend/infra/tests/sdlc_foundation.rs": "77a670f07cbc5b4c0ea95b5b64f523e7151c77d3a21bfdff95b1b719f478b1be",
     "fleet-control/backend/infra/tests/support/base_package.rs": "a9fa2da281182dd2685dfeaa89c9bf052b604a757285a6028b8d8a83119d4b75",
     "fleet-control/backend/infra/tests/support/clarification_custody.rs": "142c92494640f5e9c7d06e61bc5ac5a17508a0a24406a8e19fc49bef04a90081",
     "fleet-control/backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
@@ -242,8 +242,8 @@
     "fleet-control/backend/infra/tests/support/runtime_terminal.rs": "afeb8e1487e3b8d29ea0e26d8e65c9ae70e39f3791a4b309324111fad5b2212f",
     "fleet-control/backend/infra/tests/support/runtime_unknown_recovery.rs": "8e7bc9eb88f7934572756bcfc77cbb54ce4f435148fa6adc4e0bf05362c23848",
     "fleet-control/backend/migration/Cargo.toml": "3a5974a6bcbefc3a8dc4bb74218380ed6c3598305e72d8d50cdc167873e1b06b",
-    "fleet-control/backend/migration/src/lib.rs": "56eab39f7656a755326c81f5a4f4a15ff7283db3158548c5492428161fffcd42",
-    "fleet-control/backend/migration/src/lineage_tests.rs": "b9b4d15a9a1ea2a3fe7ab8318e4ab55a016f86b72a734fb14ce5ecc7f8a10588",
+    "fleet-control/backend/migration/src/lib.rs": "4cb9c762240252b0e3c781f338981d6b261447602fa3dce7a9a3c116444aa88a",
+    "fleet-control/backend/migration/src/lineage_tests.rs": "8ba51b9e3af03231685ab21fb4bd987fb3de2446d044a4f06b9c12902a740656",
     "fleet-control/backend/migration/src/m20260901_000001_fleet_control.rs": "4233864b48d995ded086df33f49a72bb7955f9474892f1317fe346115a34608b",
     "fleet-control/backend/migration/src/m20260901_000002_session_users.rs": "736f64d760a6c1d061f7c986fc2bec124071cf07d6740305905bbf0db769445b",
     "fleet-control/backend/migration/src/m20260901_000003_leaders_sessions.rs": "beebfbf6370edaf682136238cc8f00e26de87f4b611f00e81e13ba670961650f",
@@ -269,6 +269,7 @@
     "fleet-control/backend/migration/src/m20261009_000018_container_activation.rs": "c5388e1a21ff116a28abf25062982b59056e6a8f1958f5253601358b4e3546a8",
     "fleet-control/backend/migration/src/m20261009_000019_recovered_activation.rs": "30efbc73f29a35272913875e0d4000a300e19cb3cc84b6bdfa8a09df4f174ae2",
     "fleet-control/backend/migration/src/m20261010_000020_clarification_commands.rs": "d5faa9357728d88ad6add184f0bac57422fd15a0ffe99cda5004af81af4615c6",
+    "fleet-control/backend/migration/src/m20261010_000021_activation_authority_alias.rs": "9e72de2d30f81dfe0b9787cc5aaa2b59f6572861352c48b35e1d56d737a9c39f",
     "fleet-control/backend/migration/src/main.rs": "f3b909b740d719ab257a55470645cd293f07a01cec34a804ee679a17e8c9427c",
     "fleet-control/backend/migration/tests/central_subject.rs": "23b3a4e4b2cad68436acb6e8860c31927311ea1879083195c179185338a5e275",
     "fleet-control/backend/migration/tests/clarification_commands.rs": "6155a6b7445c7a9a74ec581a51b09ef04a89e790738458c1f6437263e69f4063",
@@ -296,9 +297,9 @@
     "fleet-control/backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "fleet-control/backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a",
     "fleet-control/backend/tests/fixtures/.gitkeep": "1d85c5ed38a3fd81f2faaea018843e4fe329fd190486a34000e756cfba90a618",
-    "fleet-control/docs/TESTING.md": "9c2008a52634d0d9978011952e6e48cb4a6a3693650c92330bb2c98065d2d169",
+    "fleet-control/docs/TESTING.md": "c5f4df48331ff10412614dd8b8f6b57c6041a4c005f5a1543f49701f42650545",
     "fleet-control/openapi/README.md": "2ede8bc480b593789d2192f5f5e82c21475921d616f063cb3bfe2a9dd55ebfe3",
-    "fleet-control/openapi/openapi.json": "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953",
+    "fleet-control/openapi/openapi.json": "ac545326e9b4ffca4378aee0aaaf9c2dd8c75faf02deb868cda0c87d7764b85a",
     "fleet-control/scripts/check_container_activation_contract.py": "80569d79dfef7cf3f16126eb0523ca1ad3da8941cdd255d8290dbcf9fc1fa12a",
     "fleet-control/scripts/check_container_preparation_contract.py": "b936f2e9d06d966b5e21fcb8e3ffa12890fedf12df7d8069b61da7d4229ceea5",
     "fleet-control/scripts/check_recovered_activation_contract.py": "feef97967b41320c3c3d6d1e753619b3a2ac4cae6b55bd0e4b3f56ef1f69ad9a",
@@ -396,14 +397,15 @@
     "activation_intent_cases": 20,
     "authentic_union_codegen_pending": false,
     "codegen_evidence": {
-      "artifact_bound_source_commit": "7c7f9dd448cb103a47a74db6f4f84c73f3b68957",
-      "artifact_id": 11656020208,
-      "artifact_zip_sha256": "9e46aadcaf9de57d91d8389b0b460234ef1e0e6f02a72db81eea8af2d3d05ff8",
+      "artifact_bound_source_commit": "32b9f063f9b5099ff61bca24ecdfeb9952889034",
+      "artifact_id": 11664003013,
+      "artifact_zip_sha256": "73d381e51080ddfce4c24b49d265db13584412fb614bc91fd4191ea38acf1860",
       "reported_by_parent": true,
-      "run_id": 38015043570,
-      "schema_sha256": "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953",
-      "source_commit": "8c93f43fdbe31e9564f05c69c6d28a81d18cb2b6",
-      "workflow_commit": "5e57d5be967418530918b72c1e457d92a5df7588"
+      "run_attempt": 1,
+      "run_id": 38036399848,
+      "schema_sha256": "ac545326e9b4ffca4378aee0aaaf9c2dd8c75faf02deb868cda0c87d7764b85a",
+      "source_commit": "32b9f063f9b5099ff61bca24ecdfeb9952889034",
+      "workflow_commit": "3ae21ebc8040756da82af2f7e69e5320bfc67852"
     },
     "compiled_inventory_includes_pre_regen_schema": false,
     "controls_donor": "a7d7db205ee2ef7e480b5dc559156ad373135180",
@@ -417,8 +419,18 @@
       "runtime::container_activation::tests::workflow_preflight_selects_immutable_target_for_fresh_and_resumed_forward_phases",
       "runtime::container_activation::tests::workflow_rollback_preflight_selects_current_effective_not_desired_or_root_revision"
     ],
+    "prior_codegen_evidence": {
+      "artifact_bound_source_commit": "7c7f9dd448cb103a47a74db6f4f84c73f3b68957",
+      "artifact_id": 11656020208,
+      "artifact_zip_sha256": "9e46aadcaf9de57d91d8389b0b460234ef1e0e6f02a72db81eea8af2d3d05ff8",
+      "reported_by_parent": true,
+      "run_id": 38015043570,
+      "schema_sha256": "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953",
+      "source_commit": "8c93f43fdbe31e9564f05c69c6d28a81d18cb2b6",
+      "workflow_commit": "5e57d5be967418530918b72c1e457d92a5df7588"
+    },
     "prior_stages_preserved": 74,
-    "source_commit": "7c7f9dd448cb103a47a74db6f4f84c73f3b68957"
+    "source_commit": "32b9f063f9b5099ff61bca24ecdfeb9952889034"
   },
   "default_foundation_ignored": 119,
   "executed": false,
@@ -559,19 +571,20 @@
       "activation_is_one_additive_migration_and_restores_exact_v17_guards"
     ],
     "container_activation_pg": [
-      "recovered_activation_requires_original_plan_current_lease_and_exact_cas",
-      "recovered_activation_publishes_only_after_readiness_and_renews_exited_original_anchor",
-      "recovered_committed_child_next_activation_and_failure_rollback_keep_original_anchor",
-      "recovered_rolled_back_child_next_activation_and_failure_rollback_keep_original_anchor",
-      "recovered_next_claim_rejects_foreign_lineage_unknown_lease_and_duplicate_plan",
-      "recovered_next_claim_expiry_and_new_epoch_require_latest_original_authority",
-      "recovered_terminal_draft_keeps_historical_custody_and_fenced_regular_stop_both_outcomes",
-      "recovered_child_sql_origin_serializes_heartbeat_then_holds_unknown_expired_and_new_epoch",
       "activation_cas_stop_proof_and_readiness_gate_effective_revision",
-      "rollback_requires_candidate_exit_and_preserves_previous_effective",
-      "unknown_preparation_and_foreign_claim_cannot_release_drain",
       "claimed_preplan_survives_restart_as_audited_hold_without_reclaim_or_drain_release",
-      "recorded_unknown_restart_audits_original_command_and_rejects_stale_progress"
+      "recorded_unknown_restart_audits_original_command_and_rejects_stale_progress",
+      "recovered_activation_publishes_only_after_readiness_and_renews_exited_original_anchor",
+      "recovered_activation_requires_original_plan_current_lease_and_exact_cas",
+      "recovered_authority_alias_repair_preserves_trigger_oid_and_exact_custody",
+      "recovered_child_sql_origin_serializes_heartbeat_then_holds_unknown_expired_and_new_epoch",
+      "recovered_committed_child_next_activation_and_failure_rollback_keep_original_anchor",
+      "recovered_next_claim_expiry_and_new_epoch_require_latest_original_authority",
+      "recovered_next_claim_rejects_foreign_lineage_unknown_lease_and_duplicate_plan",
+      "recovered_rolled_back_child_next_activation_and_failure_rollback_keep_original_anchor",
+      "recovered_terminal_draft_keeps_historical_custody_and_fenced_regular_stop_both_outcomes",
+      "rollback_requires_candidate_exit_and_preserves_previous_effective",
+      "unknown_preparation_and_foreign_claim_cannot_release_drain"
     ],
     "container_activation_state": [
       "container_activation::tests::unknown_effects_have_no_rollback_or_duplicate_delivery_edge",
@@ -710,6 +723,7 @@
       "config_revision_readiness_http_uses_exact_heads_without_trusting_database_only_files",
       "long_history_creation_replay_dispatch_and_terminal_mirror_return_exact_message",
       "message_history_returns_latest_page_and_scopes_cursor",
+      "message_receipts_and_replay_are_independent_of_history_limit",
       "pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof",
       "pm_credential_creation::pm_credentials_pg_audit_failure_rolls_back_journal_and_recovers_original_child",
       "pm_credential_creation::pm_credentials_pg_changed_valid_child_expiry_replay_conflicts_without_context_or_mutation",
@@ -996,6 +1010,15 @@
     {
       "gate": "container_activation_pg",
       "line": 350,
+      "name": "recovered_authority_alias_repair_preserves_trigger_oid_and_exact_custody",
+      "package": "infra",
+      "source": "backend/infra/tests/container_activation.rs",
+      "target": "container_activation",
+      "target_kind": "test"
+    },
+    {
+      "gate": "container_activation_pg",
+      "line": 440,
       "name": "recovered_activation_requires_original_plan_current_lease_and_exact_cas",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1004,7 +1027,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 456,
+      "line": 546,
       "name": "recovered_activation_publishes_only_after_readiness_and_renews_exited_original_anchor",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1013,7 +1036,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 982,
+      "line": 1072,
       "name": "recovered_committed_child_next_activation_and_failure_rollback_keep_original_anchor",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1022,7 +1045,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 988,
+      "line": 1078,
       "name": "recovered_rolled_back_child_next_activation_and_failure_rollback_keep_original_anchor",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1031,7 +1054,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 994,
+      "line": 1084,
       "name": "recovered_next_claim_rejects_foreign_lineage_unknown_lease_and_duplicate_plan",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1040,7 +1063,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1195,
+      "line": 1285,
       "name": "recovered_next_claim_expiry_and_new_epoch_require_latest_original_authority",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1049,7 +1072,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1289,
+      "line": 1379,
       "name": "recovered_terminal_draft_keeps_historical_custody_and_fenced_regular_stop_both_outcomes",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1058,7 +1081,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1433,
+      "line": 1523,
       "name": "recovered_child_sql_origin_serializes_heartbeat_then_holds_unknown_expired_and_new_epoch",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1067,7 +1090,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1814,
+      "line": 1904,
       "name": "activation_cas_stop_proof_and_readiness_gate_effective_revision",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1076,7 +1099,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1921,
+      "line": 2011,
       "name": "rollback_requires_candidate_exit_and_preserves_previous_effective",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1085,7 +1108,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 2039,
+      "line": 2129,
       "name": "unknown_preparation_and_foreign_claim_cannot_release_drain",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1094,7 +1117,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 2125,
+      "line": 2215,
       "name": "claimed_preplan_survives_restart_as_audited_hold_without_reclaim_or_drain_release",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1103,7 +1126,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 2204,
+      "line": 2294,
       "name": "recorded_unknown_restart_audits_original_command_and_rejects_stale_progress",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1201,6 +1224,15 @@
       "target_kind": "test"
     },
     {
+      "gate": "real_auth",
+      "line": 272,
+      "name": "real_base_expired_children_replay_without_minting_and_are_rejected_by_fleet",
+      "package": "infra",
+      "source": "backend/infra/tests/pm_credentials_real_auth.rs",
+      "target": "pm_credentials_real_auth",
+      "target_kind": "test"
+    },
+    {
       "gate": "runtime_approval_events",
       "line": 146,
       "name": "authenticated_hermes_sse_ingests_exact_requests_and_never_response_events",
@@ -1211,7 +1243,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 3861,
+      "line": 4023,
       "name": "runtime_http_eof_without_terminal_status_keeps_run_waiting",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1220,7 +1252,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 3867,
+      "line": 4029,
       "name": "runtime_http_terminal_readback_persists_one_answer",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1229,7 +1261,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 3873,
+      "line": 4035,
       "name": "runtime_http_empty_terminal_output_never_uses_nested_metadata_as_assistant",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1238,7 +1270,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 3893,
+      "line": 4055,
       "name": "runtime_http_interrupted_is_failed_without_fabricated_reply",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1247,7 +1279,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 3899,
+      "line": 4061,
       "name": "runtime_http_foreign_or_inconsistent_terminal_readback_retains_capacity",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1256,7 +1288,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 3916,
+      "line": 4078,
       "name": "runtime_http_foreign_or_partial_terminal_sse_retains_capacity",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1265,7 +1297,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 3933,
+      "line": 4095,
       "name": "runtime_http_nested_or_unknown_events_do_not_complete_the_run",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1274,7 +1306,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 3952,
+      "line": 4114,
       "name": "runtime_http_exact_terminal_sse_persists_one_answer_and_ignores_late_errors",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -2282,7 +2314,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 163,
+      "line": 166,
       "name": "lineage_tests::fresh_canonical_install_is_repeatable",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2291,7 +2323,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 198,
+      "line": 201,
       "name": "lineage_tests::common_prefix_completes_with_canonical_foundation",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2300,7 +2332,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 215,
+      "line": 218,
       "name": "lineage_tests::split_down_one_and_reapply_preserves_other_history",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2309,7 +2341,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 244,
+      "line": 247,
       "name": "lineage_tests::complete_split_history_preserves_data_and_ledger",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2318,7 +2350,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 277,
+      "line": 280,
       "name": "lineage_tests::partial_split_history_completes_only_missing_versions",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2327,7 +2359,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 301,
+      "line": 304,
       "name": "lineage_tests::unknown_history_fails_without_rewriting_data_or_ledger",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2336,7 +2368,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 320,
+      "line": 323,
       "name": "lineage_tests::mixed_history_fails_without_rewriting_data_or_ledger",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2345,7 +2377,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 384,
+      "line": 387,
       "name": "lineage_tests::both_accepted_foundations_upgrade_task_chats_without_legacy_rebinding",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2354,7 +2386,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 464,
+      "line": 467,
       "name": "lineage_tests::task_chat_downgrade_preserves_unmessaged_binding_and_draft_operation",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2459,15 +2491,6 @@
       "source": "backend/migration/tests/runtime_controls.rs",
       "target": "runtime_controls",
       "target_kind": "test"
-    },
-    {
-      "gate": "real_auth",
-      "line": 272,
-      "name": "real_base_expired_children_replay_without_minting_and_are_rejected_by_fleet",
-      "package": "infra",
-      "source": "backend/infra/tests/pm_credentials_real_auth.rs",
-      "target": "pm_credentials_real_auth",
-      "target_kind": "test"
     }
   ],
   "journal_preparation": {
@@ -2506,7 +2529,8 @@
       "m20261009_000017_container_preparation",
       "m20261009_000018_container_activation",
       "m20261009_000019_recovered_activation",
-      "m20261010_000020_clarification_commands"
+      "m20261010_000020_clarification_commands",
+      "m20261010_000021_activation_authority_alias"
     ],
     "split": [
       "m20260901_000001_fleet_control",
@@ -2532,11 +2556,12 @@
       "m20261009_000017_container_preparation",
       "m20261009_000018_container_activation",
       "m20261009_000019_recovered_activation",
-      "m20261010_000020_clarification_commands"
+      "m20261010_000020_clarification_commands",
+      "m20261010_000021_activation_authority_alias"
     ]
   },
   "openapi_binding": {
-    "sha256": "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953",
+    "sha256": "ac545326e9b4ffca4378aee0aaaf9c2dd8c75faf02deb868cda0c87d7764b85a",
     "status": "verified"
   },
   "package_input": {
@@ -2636,7 +2661,7 @@
     "backend/api/src/routes/project_access.rs": "ccc99be6690fa8b61cfa6bb7118c8d93a52e4429fdb7ec0d55767d2d41bac935",
     "backend/api/src/routes/sdlc_configuration.rs": "3d8dd36b647532e2586f8f571b2e14d20c4b728c84e2cf3868507fe2cc7a1234",
     "backend/api/src/routes/sdlc_configuration_tests.rs": "e884f82df2b50d9c60cb55c73d05790d1a779ac649b323a27e1d68143eedb8da",
-    "backend/api/src/routes/sessions.rs": "528ff70ff00f4286b2f462785e78676a08271f59b6190c818f68fa3e7e4dd6cd",
+    "backend/api/src/routes/sessions.rs": "ba374fb04072f8cf01bdff6671e66b9659faab19bdaf844200138b045d7515d1",
     "backend/api/src/routes/settings.rs": "74216216fc632135d4a18b3927a18f27bc727ef9010ea4e8af0f3647e09de095",
     "backend/api/src/routes/task_chats.rs": "be92e5af64c09301ed3040a17784ea1dcc2ef776339f2bad89f5ae5ed79690b6",
     "backend/api/src/routes/users.rs": "599a8dc239ded6e1a978072c0b58ed96e733202f4ca73ad7661c56e158fac20c",
@@ -2651,7 +2676,7 @@
     "backend/domain/src/approval_decisions.rs": "34e9b16aa77099b3669c02915c9a9bebb28fb326107e000579b2f870bad6c088",
     "backend/domain/src/chats_directory.rs": "75f38e3e69664c3cea4227559060a5b5b118f137f3b820fe517a61ad451c5aa0",
     "backend/domain/src/clarification_commands.rs": "e9f68e37b240914481e17b321d3bf9c6edf3f5286375991acd7c79851f887d08",
-    "backend/domain/src/lib.rs": "df0552b3e540062e57f9700e4caa24b27707cf08ed4b46cdd62080be2168b2f8",
+    "backend/domain/src/lib.rs": "4224211cd77d7e1e79ea5665c46c2ce17b41c988d5ef824efc610199f8481db2",
     "backend/domain/src/pm_credentials.rs": "8a0f27219578df5a576d13e3d60fdf333140db1c29510b1dbda8b806f41a38c2",
     "backend/domain/src/pm_draft.rs": "6e55c162ee23fb62818feec34b4cf8291d048bb276053935d4689dba73a6de13",
     "backend/domain/src/pm_execution.rs": "3994f3ceec606ec9e2bbbe7e1a23b97dc8aa1f5c950f24a3eee7065c9611e404",
@@ -2674,7 +2699,7 @@
     "backend/infra/src/entities.rs": "af9f129152a466bfaa1149ba518cb31a4319ac4c2714adad9180dff798d47a7e",
     "backend/infra/src/hermes_approval_recovery.rs": "97b8bbcaa00997e56da4d54bdc0fefcc0e2e76babb11c37685daad5d1249b0ff",
     "backend/infra/src/hermes_dispatch_journal.rs": "5e603a5f8a18004801ad8dc19fdba7105665770fda96e6ad5873fa6f3c0e9b60",
-    "backend/infra/src/lib.rs": "9e0baf1d898d67537e0666423e5454562744c8a9c3788cad3b38092da3f9042e",
+    "backend/infra/src/lib.rs": "3150053363296a25f247b7788bba57ba268c43be3df1055597bbf0ff261ca75e",
     "backend/infra/src/pm_credentials.rs": "f6a3bee729e0f2d8c5397f10db3c3fd2f94854a06b6061531699eb255ef27958",
     "backend/infra/src/pm_credentials/coordinator.rs": "0be7f8a09497c7a97a810114da02749638f8977668b3f42e764f307307a6533e",
     "backend/infra/src/pm_draft.rs": "14a4abde0ef4c150833888f3189779b831d31b755bc9d5e59b2ebde573c55718",
@@ -2691,22 +2716,22 @@
     "backend/infra/src/runtime/container_replacement.rs": "7d010b3772d30c9ebe0308803b49f86781a085afe9f968e1b3868a10249be6be",
     "backend/infra/src/runtime/container_workers.rs": "16952cb5bd7db69b7cbc8df7ff44f36e6f7e97295e97c6743536f1f383069a64",
     "backend/infra/src/runtime/hermes_wire.rs": "d4405fb075a5a47cb24fe1fc7381270a0d1b794fc85cdb7550d4a9bbe5e2efea",
-    "backend/infra/src/runtime/mod.rs": "de92d9104a4926650079fd58fd2aaff75a012e64e8592ff358aad079f2a4e59b",
+    "backend/infra/src/runtime/mod.rs": "0de98b20bfaffded5034ad72dbccdcaf2623e361db4c26b37d8cd41f1065a36f",
     "backend/infra/src/runtime/native_context.rs": "201a9b00094a67ddd9ed60ff7a0432cbb9688d4faa40f63384af09915581eb55",
     "backend/infra/src/runtime/pm_readback.rs": "3f14a21a12e3a3f3e462004326b51dbed059aab8a01ecc771c4266819d97f2e7",
     "backend/infra/src/runtime/recovery_wire.rs": "a095805c0765893a1809c02ebc34a7e265155f5148beb8c729a673dd787c732c",
     "backend/infra/src/runtime/run_control.rs": "d37d69c56cf158692f08b09e012e2504c0bd69442ce3bc4f405880b53065be79",
     "backend/infra/src/runtime/sse_wire.rs": "2272325b2d4d8185d4b886aa0a70a67c63358a2eb243092b22cd9c1cd5c24c02",
     "backend/infra/src/runtime/targeted_approval.rs": "34b21faede4b13306238723290034d1752bf5b81fa16b5648f72030b91b93eed",
-    "backend/infra/src/runtime_acceptance.rs": "e6068e74c154aad57a3d06dde6c356ef8f5e40ddc795161d643a01f94f24cc95",
+    "backend/infra/src/runtime_acceptance.rs": "190e786153bf31a5c656237b42d5c57ad5c35b6c0e3fa9fa04a76f7a32e43003",
     "backend/infra/src/runtime_controls.rs": "f72ef29313b29e8ab0a7b4109ffa51802b7db95aaa32c87dea243de6a0222323",
-    "backend/infra/src/task_chats.rs": "2e5d89a6d25495e9837043f4e602f764b99f927733b6bd153cc4775302fa1dbf",
+    "backend/infra/src/task_chats.rs": "23ed3f8b9441c393ed114c2e0d586049d886112c5bd9bfcce311b82c158dab17",
     "backend/infra/src/tracker_event_poller.rs": "809ba26e80db43238db4edbd758c1a22711962bd3035dc8061ddbdfa6183ffe6",
     "backend/infra/src/tracker_events.rs": "e3f382bd494cf24c94992a7a4b954b26ddad21c02996fc54f5adfc0d7dacdd16",
     "backend/infra/tests/agent_logs.rs": "b9780e307c0bc87f3e4649570ce80c93927dc9e04961743ed53622de566bace9",
     "backend/infra/tests/central_profile.rs": "33475276225fff250d9028fa458efc131698bb3083e6a23ca2a93d375444f193",
     "backend/infra/tests/chats_directory.rs": "75d8136a932cf1d8381362809721ed5b9759e2541b6d520b0d6a7f5ab8aebbd7",
-    "backend/infra/tests/container_activation.rs": "9eb349a1304fbc24fd5befe0b4626bc88ca1092128d56fa90212bb24705ab0f9",
+    "backend/infra/tests/container_activation.rs": "445624d5353fc6500ce63a262108478cdfda20a7dd6153a7b35b7093edf49435",
     "backend/infra/tests/container_controller.rs": "375cd3fe30e971cb9acec71f9aa3f4c3f5f3bd94870a330a1e2ea74fc68a1c07",
     "backend/infra/tests/container_preparation.rs": "a4aba2b719b58869aa0ad188ba3df7b8b44397c7a90f9c9eaf2de29e293db21e",
     "backend/infra/tests/heartbeat_alerts.rs": "b58daf21ad6d99aaece1f71fcd50de8187fcdc611762dd106fc30b7467b6d413",
@@ -2714,7 +2739,7 @@
     "backend/infra/tests/managed_settings.rs": "a00d900832fae3193dfded72f3abc92ef27dd1e2c7d0014f55aee07e8338fbeb",
     "backend/infra/tests/pm_credentials_real_auth.rs": "61b8267f53fa1dc3f16336b24fe438a061319c9c0ed190579c9f741f3e7182ec",
     "backend/infra/tests/runtime_approval_events.rs": "462727f4a50969e0f971de209c8972c5194136b528d8236c901f127ec038a7b5",
-    "backend/infra/tests/sdlc_foundation.rs": "82ceeb30a870e9851279fa56cf9a3db8e46da41024aaa66f55ce6f9d7e8f6582",
+    "backend/infra/tests/sdlc_foundation.rs": "77a670f07cbc5b4c0ea95b5b64f523e7151c77d3a21bfdff95b1b719f478b1be",
     "backend/infra/tests/support/base_package.rs": "a9fa2da281182dd2685dfeaa89c9bf052b604a757285a6028b8d8a83119d4b75",
     "backend/infra/tests/support/clarification_custody.rs": "142c92494640f5e9c7d06e61bc5ac5a17508a0a24406a8e19fc49bef04a90081",
     "backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
@@ -2732,8 +2757,8 @@
     "backend/infra/tests/support/runtime_stream_bounds.rs": "a1808321e84c8150904baaeb8f165618134e26fdda578ebe52ca17a4b6f1a178",
     "backend/infra/tests/support/runtime_terminal.rs": "afeb8e1487e3b8d29ea0e26d8e65c9ae70e39f3791a4b309324111fad5b2212f",
     "backend/infra/tests/support/runtime_unknown_recovery.rs": "8e7bc9eb88f7934572756bcfc77cbb54ce4f435148fa6adc4e0bf05362c23848",
-    "backend/migration/src/lib.rs": "56eab39f7656a755326c81f5a4f4a15ff7283db3158548c5492428161fffcd42",
-    "backend/migration/src/lineage_tests.rs": "b9b4d15a9a1ea2a3fe7ab8318e4ab55a016f86b72a734fb14ce5ecc7f8a10588",
+    "backend/migration/src/lib.rs": "4cb9c762240252b0e3c781f338981d6b261447602fa3dce7a9a3c116444aa88a",
+    "backend/migration/src/lineage_tests.rs": "8ba51b9e3af03231685ab21fb4bd987fb3de2446d044a4f06b9c12902a740656",
     "backend/migration/src/m20260901_000001_fleet_control.rs": "4233864b48d995ded086df33f49a72bb7955f9474892f1317fe346115a34608b",
     "backend/migration/src/m20260901_000002_session_users.rs": "736f64d760a6c1d061f7c986fc2bec124071cf07d6740305905bbf0db769445b",
     "backend/migration/src/m20260901_000003_leaders_sessions.rs": "beebfbf6370edaf682136238cc8f00e26de87f4b611f00e81e13ba670961650f",
@@ -2759,6 +2784,7 @@
     "backend/migration/src/m20261009_000018_container_activation.rs": "c5388e1a21ff116a28abf25062982b59056e6a8f1958f5253601358b4e3546a8",
     "backend/migration/src/m20261009_000019_recovered_activation.rs": "30efbc73f29a35272913875e0d4000a300e19cb3cc84b6bdfa8a09df4f174ae2",
     "backend/migration/src/m20261010_000020_clarification_commands.rs": "d5faa9357728d88ad6add184f0bac57422fd15a0ffe99cda5004af81af4615c6",
+    "backend/migration/src/m20261010_000021_activation_authority_alias.rs": "9e72de2d30f81dfe0b9787cc5aaa2b59f6572861352c48b35e1d56d737a9c39f",
     "backend/migration/src/main.rs": "f3b909b740d719ab257a55470645cd293f07a01cec34a804ee679a17e8c9427c",
     "backend/migration/tests/central_subject.rs": "23b3a4e4b2cad68436acb6e8860c31927311ea1879083195c179185338a5e275",
     "backend/migration/tests/clarification_commands.rs": "6155a6b7445c7a9a74ec581a51b09ef04a89e790738458c1f6437263e69f4063",
@@ -2783,7 +2809,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "7c7f9dd448cb103a47a74db6f4f84c73f3b68957",
+  "source_commit": "32b9f063f9b5099ff61bca24ecdfeb9952889034",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
@@ -3185,21 +3211,21 @@
     },
     {
       "ignored": false,
-      "line": 272,
+      "line": 273,
       "name": "private_owner_boundary_does_not_depend_on_central_historical_role",
       "package": "api",
       "source": "backend/api/src/routes/sessions.rs"
     },
     {
       "ignored": false,
-      "line": 297,
+      "line": 298,
       "name": "session_stream_principal_stays_active_and_bound_to_original_user",
       "package": "api",
       "source": "backend/api/src/routes/sessions.rs"
     },
     {
       "ignored": false,
-      "line": 316,
+      "line": 317,
       "name": "session_stream_legacy_subject_must_match_original_user",
       "package": "api",
       "source": "backend/api/src/routes/sessions.rs"
@@ -3458,14 +3484,14 @@
     },
     {
       "ignored": false,
-      "line": 1464,
+      "line": 1468,
       "name": "secret_reference_accepts_only_the_reference",
       "package": "domain",
       "source": "backend/domain/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 1485,
+      "line": 1489,
       "name": "rejects_environment_injection_and_nested_config_secrets",
       "package": "domain",
       "source": "backend/domain/src/lib.rs"
@@ -3668,210 +3694,210 @@
     },
     {
       "ignored": false,
-      "line": 5520,
+      "line": 5557,
       "name": "docker_bootstrap_projection_preserves_process_and_java_paths",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 5542,
+      "line": 5579,
       "name": "configuration_reads_mask_legacy_secrets_and_preserve_safe_references",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 5569,
+      "line": 5606,
       "name": "provisioning_preserves_effective_env_and_restricts_new_files",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 5606,
+      "line": 5643,
       "name": "provisioning_rejects_active_runtime_without_creating_files",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 5619,
+      "line": 5656,
       "name": "provisioning_does_not_adopt_nonempty_unmarked_folder",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 5766,
+      "line": 5803,
       "name": "effective_configuration_readback_is_fresh_read_only_and_redacted",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 5863,
+      "line": 5900,
       "name": "base_package_effective_readback_uses_git_pin_and_closed_home_inventory",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 5930,
+      "line": 5967,
       "name": "base_package_effective_readback_all_roles_rejects_unattested_support",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6002,
+      "line": 6039,
       "name": "effective_configuration_requires_correct_snapshot_marker_and_workspace",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6069,
+      "line": 6106,
       "name": "effective_configuration_rejects_symlinked_files_and_directories",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6105,
+      "line": 6142,
       "name": "selected_primary_agent_prefers_new_field",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6126,
+      "line": 6163,
       "name": "selected_primary_agent_accepts_legacy_agent_id",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6146,
+      "line": 6183,
       "name": "pending_session_run_keeps_run_and_session_ids_distinct",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6157,
+      "line": 6194,
       "name": "path_guard_rejects_absolute_path_outside_root",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6171,
+      "line": 6208,
       "name": "path_guard_rejects_parent_segments",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6180,
+      "line": 6217,
       "name": "agent_runtime_token_is_stable_and_agent_scoped",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6196,
+      "line": 6233,
       "name": "streaming_redaction_withholds_split_credentials",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6213,
+      "line": 6250,
       "name": "settings_snapshots_follow_effective_startup_config",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6257,
+      "line": 6294,
       "name": "storage_report_marks_stale_archived_agent",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6308,
+      "line": 6345,
       "name": "purge_files_deletes_archived_marked_agent_root",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6332,
+      "line": 6369,
       "name": "storage_report_summarizes_area_sizes_and_marker_state",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6386,
+      "line": 6423,
       "name": "storage_report_marks_foreign_marker_not_purge_eligible",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6412,
+      "line": 6449,
       "name": "purge_files_rejects_foreign_marker",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6432,
+      "line": 6469,
       "name": "purge_files_rejects_missing_marker",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6454,
+      "line": 6491,
       "name": "purge_files_requires_archived_agent",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6469,
+      "line": 6506,
       "name": "bulk_validation_rejects_empty_title_and_agents",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6489,
+      "line": 6526,
       "name": "workflow_config_rebind_preserves_unrelated_runtime_settings",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6509,
+      "line": 6546,
       "name": "workflow_binding_status_distinguishes_connected_stale_and_unbound",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6549,
+      "line": 6586,
       "name": "bulk_validation_rejects_oversized_batches",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
     },
     {
       "ignored": false,
-      "line": 6562,
+      "line": 6599,
       "name": "bulk_validation_rejects_rollback_for_provision",
       "package": "infra",
       "source": "backend/infra/src/lib.rs"
@@ -3910,6 +3936,13 @@
       "name": "lost_issuer_is_unknown_not_a_new_command_and_never_echoes_secrets",
       "package": "infra",
       "source": "backend/infra/src/pm_credentials.rs"
+    },
+    {
+      "ignored": false,
+      "line": 272,
+      "name": "introspection_rejects_wrong_subject_and_non_exact_parent_or_child_scopes",
+      "package": "infra",
+      "source": "backend/infra/src/pm_credentials/coordinator.rs"
     },
     {
       "ignored": false,
@@ -4417,42 +4450,42 @@
     },
     {
       "ignored": false,
-      "line": 2584,
+      "line": 2586,
       "name": "leader_authored_executor_message_gets_fleet_envelope",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
     },
     {
       "ignored": false,
-      "line": 2599,
+      "line": 2601,
       "name": "primary_leader_run_is_classified_as_leader",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
     },
     {
       "ignored": false,
-      "line": 2611,
+      "line": 2613,
       "name": "pick_error_redacts_secret_like_payloads",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
     },
     {
       "ignored": false,
-      "line": 2618,
+      "line": 2620,
       "name": "hermes_completion_reads_output_instead_of_event_name",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
     },
     {
       "ignored": false,
-      "line": 2628,
+      "line": 2630,
       "name": "missing_text_does_not_become_a_runtime_identifier",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
     },
     {
       "ignored": false,
-      "line": 2635,
+      "line": 2637,
       "name": "nested_delta_ignores_unrelated_event_fields",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
@@ -4634,6 +4667,13 @@
     },
     {
       "ignored": false,
+      "line": 58,
+      "name": "activation_probe_hash_matches_base_unicode_snapshot",
+      "package": "infra",
+      "source": "backend/infra/tests/container_activation.rs"
+    },
+    {
+      "ignored": false,
       "line": 130,
       "name": "stale_incident_persists_deduplicates_and_recovers_without_status_transition",
       "package": "infra",
@@ -4711,182 +4751,189 @@
     },
     {
       "ignored": false,
-      "line": 850,
+      "line": 863,
+      "name": "message_receipts_and_replay_are_independent_of_history_limit",
+      "package": "infra",
+      "source": "backend/infra/tests/sdlc_foundation.rs"
+    },
+    {
+      "ignored": false,
+      "line": 1012,
       "name": "pm_draft_chat_creation_is_atomic_idempotent_and_cannot_queue_a_prompt",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 972,
+      "line": 1134,
       "name": "pm_draft_chat_rejects_foreign_owner_invalid_identity_and_non_pm_agent_without_rows",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 1160,
+      "line": 1322,
       "name": "tracker_metadata_poller_authenticates_replays_and_keeps_failed_source_cursors",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 1326,
+      "line": 1488,
       "name": "tracker_projection_target_scan_is_project_scoped_keyset_and_active_owner_only",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 1394,
+      "line": 1556,
       "name": "tracker_metadata_empty_page_pins_format_and_replay_is_atomic_after_restart",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 1508,
+      "line": 1670,
       "name": "tracker_metadata_first_page_failure_rolls_back_projection_pin_and_all_mirrors",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 1582,
+      "line": 1744,
       "name": "tracker_inbox_projects_concurrent_replay_once_and_preserves_cursor_after_reconnect",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 1657,
+      "line": 1819,
       "name": "tracker_inbox_rejects_changed_payload_stale_pages_and_foreign_bindings_atomically",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 1721,
+      "line": 1883,
       "name": "tracker_inbox_mid_page_database_failure_rolls_back_messages_events_and_cursor",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 1764,
+      "line": 1926,
       "name": "task_approval_history_survives_reassignment_but_not_project_access_revocation",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 2229,
+      "line": 2391,
       "name": "pm_reservation_is_atomic_idempotent_and_holds_capacity_when_acceptance_is_unknown",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 2386,
+      "line": 2548,
       "name": "pm_terminal_readback_and_late_stream_updates_serialize_without_reopening_capacity",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 2496,
+      "line": 2658,
       "name": "pm_reservation_does_not_deadlock_mirror_agent_foreign_key",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 2564,
+      "line": 2726,
       "name": "undispatched_approval_failure_is_terminal_and_never_replayed_as_delivery",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 2608,
+      "line": 2770,
       "name": "task_approval_rechecks_assignment_after_waiting_for_actor_lock",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 2831,
+      "line": 2993,
       "name": "pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 3014,
+      "line": 3176,
       "name": "concurrent_idempotency_and_private_message_authorization",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 3085,
+      "line": 3247,
       "name": "unknown_dispatch_holds_agent_capacity_and_terminal_mirror_is_deduplicated",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 3177,
+      "line": 3339,
       "name": "config_revision_readiness_http_uses_exact_heads_without_trusting_database_only_files",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 3420,
+      "line": 3582,
       "name": "config_revision_drains_runs_and_failed_rollback_stays_blocked",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 3503,
+      "line": 3665,
       "name": "config_revision_identity_guard_fences_rebind_active_runs_and_unknown_dispatch",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 3968,
+      "line": 4130,
       "name": "task_binding_is_immutable_unique_and_replays_concurrent_requests",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 4042,
+      "line": 4204,
       "name": "task_binding_rejects_foreign_subject_and_legacy_transcript",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 4093,
+      "line": 4255,
       "name": "task_binding_and_generic_prompt_are_mutually_exclusive_under_concurrency",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 4143,
+      "line": 4305,
       "name": "long_history_creation_replay_dispatch_and_terminal_mirror_return_exact_message",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 4204,
+      "line": 4366,
       "name": "message_history_returns_latest_page_and_scopes_cursor",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
@@ -4946,6 +4993,41 @@
       "name": "base_package_http_requires_operator_and_server_owned_checkout",
       "package": "infra",
       "source": "backend/infra/tests/support/base_package.rs"
+    },
+    {
+      "ignored": false,
+      "line": 366,
+      "name": "pm_credentials_pg_changed_valid_child_uuid_replay_conflicts_without_context_or_mutation",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_credential_creation.rs"
+    },
+    {
+      "ignored": false,
+      "line": 371,
+      "name": "pm_credentials_pg_changed_valid_child_expiry_replay_conflicts_without_context_or_mutation",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_credential_creation.rs"
+    },
+    {
+      "ignored": false,
+      "line": 377,
+      "name": "pm_credentials_pg_parent_principal_mismatch_prevents_first_post",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_credential_creation.rs"
+    },
+    {
+      "ignored": false,
+      "line": 430,
+      "name": "pm_credentials_pg_parent_principal_mismatch_retains_ack_without_another_post",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_credential_creation.rs"
+    },
+    {
+      "ignored": false,
+      "line": 483,
+      "name": "pm_credentials_pg_child_principal_mismatch_retains_ack_without_usable_credential",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
@@ -5054,10 +5136,31 @@
     },
     {
       "ignored": false,
-      "line": 24,
+      "line": 25,
       "name": "registered_versions_match_lineage_discriminators",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs"
+    },
+    {
+      "ignored": false,
+      "line": 84,
+      "name": "authority_alias_repair_changes_only_ambiguous_relation_references",
+      "package": "migration",
+      "source": "backend/migration/src/m20261010_000021_activation_authority_alias.rs"
+    },
+    {
+      "ignored": false,
+      "line": 93,
+      "name": "authority_alias_repair_is_repeatable_in_both_directions",
+      "package": "migration",
+      "source": "backend/migration/src/m20261010_000021_activation_authority_alias.rs"
+    },
+    {
+      "ignored": false,
+      "line": 101,
+      "name": "authority_alias_repair_rejects_missing_duplicate_and_mixed_guard",
+      "package": "migration",
+      "source": "backend/migration/src/m20261010_000021_activation_authority_alias.rs"
     },
     {
       "ignored": false,
@@ -5156,55 +5259,6 @@
       "name": "now_returns_timestamp",
       "package": "shared",
       "source": "backend/shared/src/lib_tests.rs"
-    },
-    {
-      "ignored": false,
-      "line": 58,
-      "name": "activation_probe_hash_matches_base_unicode_snapshot",
-      "package": "infra",
-      "source": "backend/infra/tests/container_activation.rs"
-    },
-    {
-      "ignored": false,
-      "line": 272,
-      "name": "introspection_rejects_wrong_subject_and_non_exact_parent_or_child_scopes",
-      "package": "infra",
-      "source": "backend/infra/src/pm_credentials/coordinator.rs"
-    },
-    {
-      "ignored": false,
-      "line": 371,
-      "name": "pm_credentials_pg_changed_valid_child_expiry_replay_conflicts_without_context_or_mutation",
-      "package": "infra",
-      "source": "backend/infra/tests/support/pm_credential_creation.rs"
-    },
-    {
-      "ignored": false,
-      "line": 366,
-      "name": "pm_credentials_pg_changed_valid_child_uuid_replay_conflicts_without_context_or_mutation",
-      "package": "infra",
-      "source": "backend/infra/tests/support/pm_credential_creation.rs"
-    },
-    {
-      "ignored": false,
-      "line": 483,
-      "name": "pm_credentials_pg_child_principal_mismatch_retains_ack_without_usable_credential",
-      "package": "infra",
-      "source": "backend/infra/tests/support/pm_credential_creation.rs"
-    },
-    {
-      "ignored": false,
-      "line": 377,
-      "name": "pm_credentials_pg_parent_principal_mismatch_prevents_first_post",
-      "package": "infra",
-      "source": "backend/infra/tests/support/pm_credential_creation.rs"
-    },
-    {
-      "ignored": false,
-      "line": 430,
-      "name": "pm_credentials_pg_parent_principal_mismatch_retains_ack_without_another_post",
-      "package": "infra",
-      "source": "backend/infra/tests/support/pm_credential_creation.rs"
     }
   ]
 }
