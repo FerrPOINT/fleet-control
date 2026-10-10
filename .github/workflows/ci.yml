@@ -89,6 +89,7 @@ jobs:
     env:
       FLEET_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_control_test
       FLEET_MIGRATION_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_control_test
+      FLEET_TEST_BASE_PACKAGE_CHECKOUT: ${{ github.workspace }}/base-role-package
     defaults:
       run:
         working-directory: fleet-control/backend
@@ -110,6 +111,20 @@ jobs:
       - name: Verify pinned Base checkout
         working-directory: fleet-control
         run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
+      - name: Check out exact Base role package (separate from SDK pin)
+        uses: actions/checkout@v7
+        with:
+          repository: FerrPOINT/services-base
+          path: base-role-package
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          ref: 4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58
+      - name: Verify canonical Base package input
+        working-directory: base-role-package
+        run: |
+          git remote set-url origin https://github.com/FerrPOINT/services-base.git
+          test "$(git config --get remote.origin.url)" = https://github.com/FerrPOINT/services-base.git
+          test "$(git rev-parse HEAD)" = 4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58
+          git cat-file -e 4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58:agent-skills/manifest.json
       - run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev postgresql-client
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -122,6 +137,10 @@ jobs:
       - run: cargo check --locked --workspace --all-targets
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace -- --test-threads=1
+      - name: Configuration foundation focused API regressions
+        run: |
+          cargo test --locked -p api --lib routes::pm_runtime::tests:: -- --test-threads=1
+          cargo test --locked -p api --lib routes::sdlc_configuration::tests:: -- --test-threads=1
       - name: Historical lineage upgrade and central profile preservation
         run: |
           cargo test --locked -p migration --lib lineage_tests -- --include-ignored --test-threads=1
@@ -205,7 +224,13 @@ jobs:
           cargo test --locked -p app --lib container_activation::tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/container-activation-state.log"
           grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-state.log"
           cargo test --locked -p infra --lib runtime::container_activation::tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/container-activation-intent.log"
-          grep -F 'test result: ok. 14 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-intent.log"
+          grep -F 'test result: ok. 20 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-intent.log"
+          for test in binding_permanent_failures_hold_on_first_attempt_without_native_permit binding_unavailable_retries_only_before_recorded_activation; do
+            grep -Fx "test runtime::container_activation::tests::$test ... ok" "$RUNNER_TEMP/container-activation-intent.log"
+          done
+          for test in workflow_preflight_selects_immutable_target_for_fresh_and_resumed_forward_phases workflow_rollback_preflight_selects_current_effective_not_desired_or_root_revision workflow_preflight_never_rebinds_foreign_activation_or_changed_revision workflow_owner_http_failure_is_read_only_and_never_enters_package_or_native_io; do
+            grep -Fx "test runtime::container_activation::tests::$test ... ok" "$RUNNER_TEMP/container-activation-intent.log"
+          done
           grep -Fx 'test runtime::container_activation::tests::successor_plan_keeps_original_anchor_and_rolls_back_to_current_effective ... ok' "$RUNNER_TEMP/container-activation-intent.log"
           grep -Fx 'test runtime::container_activation::tests::successor_command_uses_exact_current_child_stop_not_root_stop ... ok' "$RUNNER_TEMP/container-activation-intent.log"
           cargo test --locked -p infra --test container_activation -- --ignored --test-threads=1 | tee "$RUNNER_TEMP/container-activation-pg.log"

@@ -17,6 +17,7 @@ pub mod routes;
     paths(
         routes::health::health,
         routes::pm_runtime::readback,
+        routes::sdlc_configuration::readback,
         routes::chats_directory::directory,
         routes::approvals::list,
         routes::approvals::read,
@@ -50,6 +51,7 @@ pub mod routes;
         routes::agents::update_agent_config,
         routes::agents::list_config_revisions,
         routes::agents::validate_config_revision,
+        routes::agents::prepare_base_package,
         routes::agents::activate_config_revision,
         routes::agents::get_sdlc_readiness,
         routes::agents::list_agent_skills,
@@ -135,6 +137,7 @@ pub mod routes;
         domain::AgentConfigRevision,
         domain::AgentConfigurationSnapshot,
         domain::AgentSdlcReadiness,
+        domain::SdlcWorkflowBinding,
         domain::SessionEvent,
         domain::TaskChatBinding,
         domain::CreatePmDraftRequest,
@@ -347,6 +350,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/agents/{agent_id}/config/revisions",
             get(routes::agents::list_config_revisions),
+        )
+        .route(
+            "/api/v1/agents/{agent_id}/config/base-package",
+            post(routes::agents::prepare_base_package),
         )
         .route(
             "/api/v1/agents/{agent_id}/config/revisions/{revision}/validate",
@@ -607,6 +614,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/internal/runtime/v1/pm/runs/{session_run_id}",
             get(routes::pm_runtime::readback),
+        )
+        .route(
+            "/internal/runtime/v1/agents/{agent_id}/configuration",
+            get(routes::sdlc_configuration::readback),
         )
         .route("/api/v1/auth/register", post(routes::auth::register))
         .route("/api/v1/auth/login", post(routes::auth::login))

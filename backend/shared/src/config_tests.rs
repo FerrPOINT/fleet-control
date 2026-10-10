@@ -10,6 +10,7 @@ fn defaults_are_fleet_control_specific() {
     assert_eq!(cfg.auth.jwt_audience, "sdlc");
     assert_eq!(cfg.fleet.agent_port_base, 29000);
     assert_eq!(cfg.fleet.agent_port_stride, 10);
+    assert!(cfg.fleet.base_package_checkout.is_empty());
     assert!(cfg.pm.readback_token.is_empty());
     assert!(cfg.tracker.url.is_empty());
     assert!(cfg.tracker.instance_id.is_empty());
@@ -19,6 +20,57 @@ fn defaults_are_fleet_control_specific() {
             .iter()
             .any(|origin| origin.contains("23802"))
     );
+}
+
+#[test]
+fn sdlc_configuration_reader_is_opt_in_and_preserves_legacy_config() {
+    let mut legacy = serde_json::to_value(AppConfig::default()).unwrap();
+    legacy.as_object_mut().unwrap().remove("sdlc");
+    let restored: AppConfig = serde_json::from_value(legacy).unwrap();
+    assert!(!restored.sdlc.configuration_readback_enabled);
+    assert!(restored.sdlc.auth_url.is_empty());
+    assert!(restored.sdlc.configuration_reader_subject.is_empty());
+    assert!(restored.sdlc.configuration_reader_agent_ids.is_empty());
+    assert!(restored.sdlc.workflow_binding.url.is_empty());
+    assert!(restored.sdlc.workflow_binding.read_pat.is_empty());
+    let config: SdlcConfig = serde_json::from_value(serde_json::json!({
+        "configuration_readback_enabled":true,
+        "auth_url":"http://auth.example.test",
+        "configuration_reader_subject":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        "configuration_reader_agent_ids":"dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+    }))
+    .unwrap();
+    assert!(config.configuration_readback_enabled);
+    assert_eq!(
+        config.configuration_reader_agent_ids,
+        "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+    );
+}
+
+#[test]
+fn sdlc_workflow_binding_credential_is_server_only() {
+    let config = SdlcWorkflowConfig {
+        url: "http://workflow.example.test".into(),
+        read_pat: "fixture-workflow-read-pat".into(),
+    };
+    assert!(!format!("{config:?}").contains(&config.read_pat));
+    let json = serde_json::to_string(&config).unwrap();
+    assert!(!json.contains(&config.read_pat));
+    assert!(!json.contains("read_pat"));
+}
+
+#[test]
+fn base_package_checkout_is_opt_in_and_preserves_legacy_config() {
+    let mut legacy = serde_json::to_value(FleetConfig::default()).unwrap();
+    legacy
+        .as_object_mut()
+        .unwrap()
+        .remove("base_package_checkout");
+    let restored: FleetConfig = serde_json::from_value(legacy.clone()).unwrap();
+    assert!(restored.base_package_checkout.is_empty());
+    legacy["base_package_checkout"] = serde_json::json!("/operator/cache");
+    let configured: FleetConfig = serde_json::from_value(legacy).unwrap();
+    assert_eq!(configured.base_package_checkout, "/operator/cache");
 }
 
 #[test]

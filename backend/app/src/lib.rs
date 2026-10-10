@@ -2,6 +2,7 @@ pub mod auth;
 pub mod container_activation;
 pub mod container_runtime;
 pub mod pm_draft;
+pub mod sdlc_workflow;
 
 use async_trait::async_trait;
 use domain::{
@@ -762,10 +763,48 @@ pub trait FleetRepository: Send + Sync {
         config: UpdateAgentConfigRequest,
         actor: Uuid,
     ) -> Result<domain::AgentConfigRevision, AppError>;
+    async fn prepare_base_package_revision(
+        &self,
+        _agent_id: Uuid,
+        _checkout: &str,
+        _binding: &domain::SdlcWorkflowBinding,
+        _actor: Uuid,
+    ) -> Result<domain::AgentConfigRevision, AppError> {
+        Err(AppError::validation(
+            "Base package preparation is unavailable",
+        ))
+    }
     async fn list_config_revisions(
         &self,
         agent_id: Uuid,
     ) -> Result<Vec<domain::AgentConfigRevision>, AppError>;
+    async fn get_config_revision(
+        &self,
+        _agent_id: Uuid,
+        _revision: i64,
+    ) -> Result<domain::AgentConfigRevision, AppError> {
+        Err(AppError::Unavailable(
+            "configuration revision lookup is unavailable".into(),
+        ))
+    }
+    async fn get_effective_config_revision(
+        &self,
+        _agent_id: Uuid,
+    ) -> Result<Option<domain::AgentConfigRevision>, AppError> {
+        Err(AppError::Unavailable(
+            "effective configuration head lookup is unavailable".into(),
+        ))
+    }
+    async fn verify_base_package_revision(
+        &self,
+        _agent_id: Uuid,
+        _revision: i64,
+        _checkout: &str,
+    ) -> Result<(), AppError> {
+        Err(AppError::validation(
+            "Base package verification is unavailable",
+        ))
+    }
     async fn validate_config_revision(
         &self,
         agent_id: Uuid,

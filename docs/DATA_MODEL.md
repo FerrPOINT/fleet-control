@@ -406,3 +406,27 @@ erasure. Down migration refuses any nonempty journal; empty down/reapply and
 ledger/history preservation require the focused PostgreSQL gate. Private answer
 body is required for replay, not an audit/log payload. The new unit provides no
 retention purge or unattended credential custody.
+
+## Configuration Foundation Candidate (No New Migration)
+
+This section describes the original configuration-only unit. Its normal source
+integration with the separately owned runtime migrations preserves both schemas
+without adding a migration; see the
+[combined source boundary](plans/2026-10-10-runtime-config-integration.md).
+
+This packet uses the existing `m20261001_000009_sdlc_foundation` tables and JSON
+snapshot boundary. It neither edits that migration nor the foundation47-owned
+`000010_task_chats`, and does not import migrations `000011` through `000022`.
+
+`agent_config_revisions.snapshot.config.config_json.fleet_sdlc_package` holds
+public exact-Git package metadata;
+`fleet_sdlc_workflow_binding` freezes the strict Workflow v3 DTO. Numeric IDs are
+distinct from namespace names, workflow keys and declared profiles. No new column,
+credential table, native receipt or admission state is introduced. Package
+preparation remains a draft; `agent_config_heads.effective_revision` is the
+authoritative direct lookup, independently of the latest-100 history list.
+
+Creation compares the desired head and concrete identity while holding the agent
+row lock. Activation rechecks package identity under the same lock. Rebind and
+identity mutations use existing drain, session-run and dispatch-outbox state to
+refuse unresolved work. Fresh owner observations are not distributed leases.

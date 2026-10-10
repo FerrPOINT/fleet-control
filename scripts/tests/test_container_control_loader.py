@@ -211,13 +211,17 @@ class ContainerControlLoaderTests(unittest.TestCase):
         self.assertEqual(re.findall(r'"(runtime_\w+\.py)"', setup),
                          [name + ".py" for name in self.names()])
 
-    def test_lineage_single_down_asserts_exact_recovered_activation_removal(self):
+    def test_lineage_single_down_asserts_exact_latest_migration_removal(self):
         text = (ROOT / "backend/migration/src/lineage_tests.rs").read_text()
         body = text.split("async fn fresh_canonical_install_is_repeatable()", 1)[1]
         body = body.split("async fn common_prefix_completes_with_canonical_foundation()", 1)[0]
         self.assertIn("Migrator::down(&fixture.db, Some(1))", body)
         self.assertIn("assert_eq!(after_down.len(), before.len() - 1)", body)
-        self.assertIn(".filter(|(version, _)| version != RECOVERED_ACTIVATION)", body)
+        self.assertIn(
+            ".filter(|(version, _)| version.as_str() != Migrator::migrations().last().unwrap().name())",
+            body,
+        )
+        self.assertIn("after_down,\n        before\n", body)
         self.assertIn("Migrator::up(&fixture.db, None)", body)
         self.assertNotIn("ledger(&fixture.db).await.len(), 18", body)
 

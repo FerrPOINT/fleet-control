@@ -163,3 +163,13 @@ Session control:
 - Hermes serve/JSON-RPC is the intended programmatic chat surface.
 - Dashboard remains a separate UI surface and is not the source of truth for
   Fleet message writes.
+
+## Configuration Foundation Candidate
+
+Package-marked snapshots use the pinned Base role instruction and allowlist.
+Read-only HOME verification rechecks Git, expected managed bytes and the closed
+flat SKILL.md inventory, refusing unattested support files/aliases without
+deleting them. Legacy non-package verification remains managed-only.
+Project/external/plugin discovery, loaded model/tools/limits and physical adapter
+acceptance are separate pending gates. No configuration observation authorizes
+dispatch; `runtime_ready` stays false. Workflow owner preflight precedes apply.

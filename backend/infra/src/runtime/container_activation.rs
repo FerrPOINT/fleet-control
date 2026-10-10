@@ -47,6 +47,44 @@ fn validate_managed_files(files: &Files) -> Result<(), AppError> {
     Ok(())
 }
 
+fn activation_binding_target(
+    revision: &domain::AgentConfigRevision,
+    activation: Option<&Activation>,
+) -> Result<(Option<i64>, Option<String>), AppError> {
+    let Some(record) = activation else {
+        return Ok((
+            Some(revision.revision),
+            Some(canonical_hash(&revision.snapshot)?),
+        ));
+    };
+    if record.claim.agent_id != revision.agent_id || record.claim.revision != revision.revision {
+        return Err(held());
+    }
+    use Phase::*;
+    if matches!(
+        record.phase,
+        StoppingCandidate
+            | CandidateStopped
+            | ApplyingRollback
+            | PreparingRollback
+            | RollbackPrepared
+            | StartingRollback
+            | RollbackRunning
+            | RollbackReady
+            | RolledBack
+    ) {
+        Ok((
+            record.claim.previous_revision,
+            record.claim.previous_configuration_sha256.clone(),
+        ))
+    } else {
+        Ok((
+            Some(record.claim.revision),
+            Some(record.claim.configuration_sha256.clone()),
+        ))
+    }
+}
+
 #[derive(Debug)]
 enum ActivationFailure {
     RetryReadOnly(AppError),
@@ -64,6 +102,13 @@ fn preplan_failure(error: AppError) -> ActivationFailure {
     match error {
         AppError::Validation(_) => ActivationFailure::Held(error),
         _ => ActivationFailure::RetryReadOnly(error),
+    }
+}
+
+fn binding_preflight_failure(error: AppError, recorded: bool) -> ActivationFailure {
+    match error {
+        AppError::Unavailable(_) if !recorded => ActivationFailure::RetryReadOnly(error),
+        _ => ActivationFailure::Held(error),
     }
 }
 
@@ -365,6 +410,68 @@ async fn read_managed(path: &Path) -> Result<Option<Vec<u8>>, AppError> {
 }
 
 impl LocalRuntimeSupervisor {
+    async fn activation_configuration_binding(
+        &self,
+        agent: &Agent,
+        target: (Option<i64>, Option<String>),
+    ) -> Result<Option<domain::AgentConfigRevision>, AppError> {
+        let (number, hash) = match target {
+            (Some(number), Some(hash)) => (number, hash),
+            (None, None) => return Ok(None), // Original unmanaged revision; custody still required.
+            _ => return Err(held()),
+        };
+        let revision = self.repo.get_config_revision(agent.id, number).await?;
+        if revision.agent_id != agent.id
+            || revision.revision != number
+            || canonical_hash(&revision.snapshot)? != hash
+        {
+            return Err(held());
+        }
+        self.verify_config_activation_binding(agent, &revision)
+            .await?;
+        Ok(Some(revision))
+    }
+
+    async fn activation_package_readback(
+        &self,
+        agent: &Agent,
+        launch: &ContainerLaunch,
+    ) -> Result<(), AppError> {
+        if let Some(revision) = self
+            .activation_configuration_binding(
+                agent,
+                (
+                    launch.prepared.configuration_revision,
+                    launch.prepared.configuration_sha256.clone(),
+                ),
+            )
+            .await?
+        {
+            if revision
+                .snapshot
+                .config
+                .config_json
+                .get("fleet_sdlc_package")
+                .is_some()
+            {
+                let expected = revision
+                    .snapshot
+                    .skills
+                    .iter()
+                    .filter(|skill| skill.state == domain::SkillState::Enabled)
+                    .map(|skill| skill.name.clone())
+                    .collect();
+                crate::effective_configuration::verify_skill_files(
+                    Path::new(&self.config.fleet.agents_root),
+                    &Path::new(&agent.paths.config).join("skills"),
+                    &expected,
+                )
+                .await?;
+            }
+        }
+        Ok(())
+    }
+
     fn recovered_activation_enabled(&self) -> bool {
         self.config
             .fleet
@@ -1343,12 +1450,14 @@ impl LocalRuntimeSupervisor {
         let deadline = tokio::time::Instant::now() + HERMES_READY_TIMEOUT;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         loop {
+            self.activation_package_readback(agent, launch).await?;
             self.activation_running(agent, launch).await?;
             self.activation_files(agent, plan, rollback, false).await?;
             let result = self
                 .probe_hermes_at(launch.origin.as_deref().ok_or_else(held)?, &token)
                 .await;
             if let Ok(capabilities) = result {
+                self.activation_package_readback(agent, launch).await?;
                 self.activation_running(agent, launch).await?;
                 self.activation_files(agent, plan, rollback, false).await?;
                 return Ok(Readiness {
@@ -1376,6 +1485,20 @@ impl LocalRuntimeSupervisor {
     ) -> Result<(), ActivationFailure> {
         let _operations = self.container_operations.lock(revision.agent_id).await;
         let agent = self.repo.get_agent(revision.agent_id).await?;
+        let saved = self
+            .repo
+            .get_container_activation(agent.id, revision.revision)
+            .await?;
+        if saved.as_ref().is_some_and(|a| a.phase.terminal()) {
+            return Ok(());
+        }
+        // Both fresh claims and restart discovery enter here before private/native writes.
+        self.activation_configuration_binding(
+            &agent,
+            activation_binding_target(revision, saved.as_ref())?,
+        )
+        .await
+        .map_err(|error| binding_preflight_failure(error, saved.is_some()))?;
         let config = self
             .config
             .fleet
@@ -1388,18 +1511,11 @@ impl LocalRuntimeSupervisor {
             "{}.{}.activation.json",
             agent.id, revision.revision
         ));
-        let saved = self
-            .repo
-            .get_container_activation(agent.id, revision.revision)
-            .await?;
         let launch = self
             .repo
             .get_container_launch(agent.id)
             .await?
             .ok_or_else(held)?;
-        if saved.as_ref().is_some_and(|a| a.phase.terminal()) {
-            return Ok(());
-        }
         self.activation_marker(&agent).await?;
         let has_plan = match tokio::fs::symlink_metadata(&path).await {
             Ok(_) => true,
@@ -1529,6 +1645,12 @@ impl LocalRuntimeSupervisor {
             {
                 return Err(held().into());
             }
+            // Rollback verifies the exact previous working revision, not the failed desired one.
+            self.activation_configuration_binding(
+                &agent,
+                activation_binding_target(revision, Some(&record))?,
+            )
+            .await?;
             let mut next = record.clone();
             use Phase::*;
             match record.phase {
@@ -1759,6 +1881,303 @@ impl LocalRuntimeSupervisor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn binding_permanent_failures_hold_on_first_attempt_without_native_permit() {
+        for recorded in [false, true] {
+            for error in [
+                AppError::conflict("Workflow namespace binding changed"),
+                AppError::Forbidden,
+                AppError::validation("pinned package invalid"),
+                AppError::Unauthorized,
+                AppError::internal("unexpected readback failure"),
+            ] {
+                let mut error = Some(error);
+                let mut attempts = 0;
+                let result = retry_preplan(Uuid::new_v4(), Duration::ZERO, || {
+                    attempts += 1;
+                    std::future::ready(Err(binding_preflight_failure(
+                        error.take().expect("permanent failure was retried"),
+                        recorded,
+                    )))
+                })
+                .await;
+                assert!(matches!(result, Err(ActivationFailure::Held(_))));
+                assert_eq!(attempts, 1);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn binding_unavailable_retries_only_before_recorded_activation() {
+        let mut attempts = 0;
+        retry_preplan(Uuid::new_v4(), Duration::ZERO, || {
+            attempts += 1;
+            std::future::ready(if attempts == 1 {
+                Err(binding_preflight_failure(
+                    AppError::Unavailable("Workflow readback unavailable".into()),
+                    false,
+                ))
+            } else {
+                Ok(())
+            })
+        })
+        .await
+        .unwrap();
+        assert_eq!(attempts, 2);
+        let mut attempts = 0;
+        let result = retry_preplan(Uuid::new_v4(), Duration::ZERO, || {
+            attempts += 1;
+            assert_eq!(attempts, 1, "recorded binding failure was retried");
+            std::future::ready(Err(binding_preflight_failure(
+                AppError::Unavailable("Workflow readback unavailable".into()),
+                true,
+            )))
+        })
+        .await;
+        assert!(matches!(result, Err(ActivationFailure::Held(_))));
+        assert_eq!(attempts, 1);
+    }
+
+    fn binding_revision(record: &Activation) -> domain::AgentConfigRevision {
+        domain::AgentConfigRevision {
+            agent_id: record.claim.agent_id,
+            revision: record.claim.revision,
+            state: "activating".into(),
+            snapshot: domain::AgentConfigurationSnapshot {
+                config: domain::UpdateAgentConfigRequest {
+                    config_json: json!({"fleet_sdlc_package":{"commit":"exact-package-pin"}}),
+                    soul_md: "target".into(),
+                    env_json: json!({}),
+                },
+                skills: vec![],
+            },
+            validation_errors: vec![],
+            last_error: None,
+            is_desired: true,
+            is_effective: false,
+            draining: true,
+            created_at: "2026-10-10T00:00:00Z".into(),
+        }
+    }
+
+    #[test]
+    fn workflow_preflight_selects_immutable_target_for_fresh_and_resumed_forward_phases() {
+        let mut record = Activation::planned(plan().claim().unwrap());
+        let revision = binding_revision(&record);
+        let target = (
+            Some(revision.revision),
+            Some(canonical_hash(&revision.snapshot).unwrap()),
+        );
+        assert_eq!(activation_binding_target(&revision, None).unwrap(), target);
+        record.claim.configuration_sha256 = target.1.clone().unwrap();
+        use Phase::*;
+        for phase in [
+            Planned,
+            StoppingPrevious,
+            PreviousStopped,
+            ApplyingCandidate,
+            PreparingCandidate,
+            CandidatePrepared,
+            StartingCandidate,
+            CandidateRunning,
+            CandidateReady,
+            Committed,
+        ] {
+            record.phase = phase;
+            assert_eq!(
+                activation_binding_target(&revision, Some(&record)).unwrap(),
+                target
+            );
+        }
+        let mut changed = revision.clone();
+        changed.snapshot.config.soul_md = "changed-after-claim".into();
+        assert_eq!(
+            activation_binding_target(&changed, Some(&record)).unwrap(),
+            target,
+            "fresh lookup must match the original claim hash, not modified cached bytes"
+        );
+    }
+
+    #[test]
+    fn workflow_rollback_preflight_selects_current_effective_not_desired_or_root_revision() {
+        let mut record = Activation::planned(plan().claim().unwrap());
+        let revision = binding_revision(&record);
+        record.claim.previous_revision = Some(91);
+        record.claim.previous_configuration_sha256 = Some("e".repeat(64));
+        record.claim.previous.prepared.configuration_revision = Some(91);
+        let mut anchor = record.claim.previous.clone();
+        anchor.prepared.configuration_revision = Some(2);
+        record.claim.lineage = Some(Lineage {
+            anchor,
+            family_id: Uuid::new_v4(),
+            predecessor_activation_id: Uuid::new_v4(),
+            predecessor_intent_sha256: "a".repeat(64),
+        });
+        use Phase::*;
+        for phase in [
+            StoppingCandidate,
+            CandidateStopped,
+            ApplyingRollback,
+            PreparingRollback,
+            RollbackPrepared,
+            StartingRollback,
+            RollbackRunning,
+            RollbackReady,
+            RolledBack,
+        ] {
+            record.phase = phase;
+            assert_eq!(
+                activation_binding_target(&revision, Some(&record)).unwrap(),
+                (Some(91), Some("e".repeat(64)))
+            );
+        }
+        record.claim.previous_revision = None;
+        record.claim.previous_configuration_sha256 = None;
+        assert_eq!(
+            activation_binding_target(&revision, Some(&record)).unwrap(),
+            (None, None)
+        );
+    }
+
+    #[test]
+    fn workflow_preflight_never_rebinds_foreign_activation_or_changed_revision() {
+        let record = Activation::planned(plan().claim().unwrap());
+        let revision = binding_revision(&record);
+        let mut foreign = revision.clone();
+        foreign.agent_id = Uuid::new_v4();
+        assert!(activation_binding_target(&foreign, Some(&record)).is_err());
+        foreign = revision;
+        foreign.revision += 1;
+        assert!(activation_binding_target(&foreign, Some(&record)).is_err());
+    }
+
+    #[tokio::test]
+    async fn workflow_owner_http_failure_is_read_only_and_never_enters_package_or_native_io() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let hits = Arc::new(AtomicUsize::new(0));
+        let counter = hits.clone();
+        let router = axum::Router::new().route(
+            "/internal/runtime/base/namespace-bindings/123",
+            axum::routing::get(move |headers: axum::http::HeaderMap| {
+                let counter = counter.clone();
+                async move {
+                    assert_eq!(headers["authorization"], "Bearer workflow-fixture-pat");
+                    if counter.fetch_add(1, Ordering::SeqCst) < 2 {
+                        (
+                            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                            "private upstream diagnostic".to_owned(),
+                        )
+                    } else {
+                        let mut changed = crate::base_package::binding_fixture();
+                        changed.catalog_sha256 = "b".repeat(64);
+                        (
+                            axum::http::StatusCode::OK,
+                            json!({"ok":true,"binding":changed}).to_string(),
+                        )
+                    }
+                }
+            }),
+        );
+        let mut config = AppConfig::default();
+        config.sdlc.workflow_binding.url = format!("http://{}", listener.local_addr().unwrap());
+        config.sdlc.workflow_binding.read_pat = "workflow-fixture-pat".into();
+        let root =
+            std::env::temp_dir().join(format!("fleet-binding-no-effects-{}", Uuid::new_v4()));
+        let scratch = Scratch(root.clone());
+        config.fleet.base_package_checkout = root.to_string_lossy().into_owned();
+        let record = Activation::planned(plan().claim().unwrap());
+        let mut agent =
+            crate::tests::test_agent(&root, record.claim.agent_id, AgentStatus::Running);
+        agent.sdlc_role = Some(domain::SdlcRole::Developer);
+        agent.namespace_id = Some("123".into());
+        agent.workflow_id = Some("456".into());
+        let mut revision = binding_revision(&record);
+        revision.snapshot.config.config_json["fleet_sdlc_workflow_binding"] =
+            serde_json::to_value(crate::base_package::binding_fixture()).unwrap();
+        let repo: Arc<dyn FleetRepository> = Arc::new(crate::PostgresFleetRepository::new(
+            sea_orm::MockDatabase::new(sea_orm::DatabaseBackend::Postgres).into_connection(),
+        ));
+        let (events, _) = broadcast::channel(4);
+        // No background workers, Engine or native transport are created by this fixture.
+        let supervisor = LocalRuntimeSupervisor {
+            config: Arc::new(config),
+            repo: repo.clone(),
+            children: Arc::new(Mutex::new(HashMap::new())),
+            controller_id: Uuid::new_v4(),
+            container_operations: Arc::new(container_workers::ContainerOperations::default()),
+            client: reqwest::Client::new(),
+            events,
+            alerts: Arc::new(app::RepositoryAlertService { repository: repo }),
+        };
+        let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        for _ in 0..2 {
+            let result = supervisor
+                .verify_config_activation_binding(&agent, &revision)
+                .await;
+            assert!(matches!(&result, Err(AppError::Unavailable(_))));
+            let error = result.unwrap_err();
+            let detail = error.to_string();
+            assert!(!detail.contains("private upstream diagnostic"));
+            assert!(!detail.contains("workflow-fixture-pat"));
+            assert!(matches!(
+                binding_preflight_failure(error, false),
+                ActivationFailure::RetryReadOnly(_)
+            ));
+            assert!(
+                !root.exists(),
+                "readback failure must not create package or plan files"
+            );
+        }
+        assert_eq!(
+            hits.load(Ordering::SeqCst),
+            2,
+            "one fresh read per attempt, no hidden retry"
+        );
+        let mut attempts = 0;
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            retry_preplan(agent.id, Duration::ZERO, || {
+                attempts += 1;
+                async {
+                    supervisor
+                        .verify_config_activation_binding(&agent, &revision)
+                        .await
+                        .map_err(|error| binding_preflight_failure(error, false))
+                }
+            }),
+        )
+        .await;
+        let result = result.expect("authoritative owner refusal did not exit retry loop");
+        assert!(matches!(
+            result,
+            Err(ActivationFailure::Held(AppError::Conflict(_)))
+        ));
+        assert_eq!(attempts, 1, "changed owner binding must not retry");
+        assert_eq!(hits.load(Ordering::SeqCst), 3);
+        assert!(!root.exists(), "authoritative refusal remains read-only");
+        let mut unbound = revision;
+        unbound
+            .snapshot
+            .config
+            .config_json
+            .as_object_mut()
+            .unwrap()
+            .remove("fleet_sdlc_package");
+        supervisor
+            .verify_config_activation_binding(&agent, &unbound)
+            .await
+            .unwrap();
+        assert_eq!(
+            hits.load(Ordering::SeqCst),
+            3,
+            "legacy unbound path remains compatible"
+        );
+        server.abort();
+        let _ = server.await;
+        drop(scratch);
+    }
 
     fn recovered_plan() -> (Plan, Activation) {
         let mut p = plan();

@@ -120,3 +120,14 @@ releasing runtime capacity even when the event stream was lost. A delayed EOF or
 cached running/waiting event cannot reopen the old run; unknown acceptance still
 holds the agent slot. A generic terminal cache update without verified PM proof
 is rejected. Transcript finalization and Tracker stage completion remain separate.
+
+## Configuration Foundation Candidate
+
+The [bounded release unit](plans/2026-10-09-runtime-config-release.md) adds pinned
+package drafts and Workflow owner checks to the existing configuration lifecycle,
+not a second installer. Supervisor owner preflight runs before apply; failed
+preflight preserves old files/head and releases drain. Unknown rollback retains
+the existing drain guard. Exact managed-file/role-package readback is not native
+runtime inventory or business completion; machine `runtime_ready=false`.
+Container lifecycle, endpoint attach/readback, native-context and later runtime
+schema/migration changes are not included.
