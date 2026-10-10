@@ -2,37 +2,38 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-### Latest Gate Disposition
+### Current Gate Disposition
 
-- Narrow C11 credential gate is verified by strict authenticated readback of
-  [run38028716924](https://github.com/FerrPOINT/fleet-control/actions/runs/38028716924),
-  controls7296506/source0e49430/artifact11661626156. All28 stages pass, including
-  real-Auth2 and credential PG15;18 ignored workspace cases are not counted as
-  passes. Installed Auth, runtime credential custody and PM admission stay open.
-  The earlier green01f run has an incomplete artifact and is not accepted.
-- Full backend controls1200321/source7dd6020 fail in
-  [run38028965529](https://github.com/FerrPOINT/fleet-control/actions/runs/38028965529).
-  Authenticated artifact11661374366 names the same eight authorization cases
-  at341/368 after successful preceding probes; both cleanup checks pass. Cause
-  and full acceptance stay open;116 pure control tests do not close that gate.
-- Frontend0917/sourcebf0 reaches capture after21 passed stages, including browser
-  fixtures, then fails in38027721811. Source60f35db includes a reproduced capture
-  fixture repair/native4 checks and journal-revocation guards/seven component
-  regressions. Current-source unit/browser/capture/visual acceptance is pending.
-  Reviewed controls4972214/run38030851556 are now executing on exact60f35db;
-  parent69 pure passes qualify controls, not frontend completion.
-- Private Base7170d3c publication is held for three review P2s: trailing-backslash
-  argv quoting, relative registry/output resolution, and disk-floor override.
-  A new isolated fix is required before Forge may pin/qualify that packet.
-  Source successor43d0205 fixes the three P2s and is separately published in
-  Draft [Base PR183](https://github.com/FerrPOINT/services-base/pull/183).
-  Parent92 focused checks pass. Private CI jobs do not start due to an explicit
-  billing-limit annotation; installation/native/consumer acceptance stay open.
-- Hermes is not to be modified: the owner rejected the extra producer pre-model
-  authorization mechanism. That proposed dependency is removed. Fleet dispatch,
-  supported PM tools and live continuation still need implementation/acceptance;
-  ordinary backend access and workflow business gates remain required. Historical
-  producer-blocker statements below are superseded by the current
+- Source32b9 Rust OpenAPI generation is authenticated and matches the committed
+  schema: [run38036399848](https://github.com/FerrPOINT/fleet-control/actions/runs/38036399848).
+  Full backend [run38037641800](https://github.com/FerrPOINT/fleet-control/actions/runs/38037641800)
+  is running81 gates, including14 activation PG cases. The additive SQL alias
+  repair021 must pass actual PostgreSQL; source review is insufficient.
+- Source32b9 frontend [run38036497333](https://github.com/FerrPOINT/fleet-control/actions/runs/38036497333)
+  passes typecheck/default unit/lint/build/format stages, then times out at the
+  fixture gate after1200 seconds. Authenticated artifact11665170160 has no
+  completed browser report or assertion locations; cleanup passes. The timeout
+  is not evidence of a specific failing assertion. Browser/capture/visual
+  acceptance remains open; diagnose without raising budgets or masking failures.
+- PM candidate3b234a1 integrates structured tools and saved-answer continuation.
+  Streaming/final persistence/restart attachment, owner composer/controls and
+  delivered-answer resume visibility remain product blockers. Rust/PG/HTTP and
+  live PM acceptance are not established. Current schema counts are23/26 only
+  for this candidate, not for the independently frozen32b9 gates.
+- Forge [run38037085181](https://github.com/FerrPOINT/CI-CD/actions/runs/38037085181)
+  fails at manager bootstrap with exit1, before any first-job test stage.
+  Authenticated cleanup/daemon stop pass. The selected dynamic Delegate setter
+  is incompatible with loaded units in the
+  [systemd255 setter](https://github.com/systemd/systemd/blob/v255/src/core/dbus-cgroup.c#L2083);
+  supported runtime configuration,
+  physical resource enforcement and full12 remain required. Resource limits
+  must not be waived to pass the gate.
+- Base43d0205 is separately published in Draft
+  [PR183](https://github.com/FerrPOINT/services-base/pull/183);92 focused checks pass.
+  Private CI billing, installation/native and consumer acceptance remain open.
+- Existing narrower PRs are dependencies, not a release of this assembly. No
+  fixture, healthy process, native ACK or completed run proves SDLC success.
+  Hermes remains unchanged under the agreed
   [runtime decision](contracts/CHAT_CLARIFICATION_CONTRACT.md#runtime-scope-decision-2026-10-10).
 
 ### Earlier Same-Day Evidence
