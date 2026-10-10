@@ -65,17 +65,15 @@ pub async fn controls(
     if bound
         && owner
         && let (Some(run), Some(Extension(subject)), Some(_)) = (active, subject, human)
-    {
-        if require_pm_owner(&ctx, &user, &subject.0, id, &headers)
+        && require_pm_owner(&ctx, &user, &subject.0, id, &headers)
             .await
             .is_ok()
-        {
-            pm_controls = ctx
-                .runtime
-                .pm_human_controls(&agent, run, user.id)
-                .await
-                .unwrap_or_default();
-        }
+    {
+        pm_controls = ctx
+            .runtime
+            .pm_human_controls(&agent, run, user.id)
+            .await
+            .unwrap_or_default();
     }
     Ok(Json(domain::ChatControls {
         can_send: owner && supported && !bound && active.is_none() && !pending,

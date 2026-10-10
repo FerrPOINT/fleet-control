@@ -521,9 +521,9 @@ class SourceContracts(unittest.TestCase):
                                   "--", "frontend/playwright.config.ts", "frontend/pnpm-lock.yaml",
                                   "frontend/src/previews/pm-draft", "frontend/e2e/pm-draft-preview.spec.ts"), b"")
 
-        self.assertEqual(gate.SOURCE_SHA, "c59dbea1ab73a782a28cf6106155c84d73e2e14d")
-        self.assertEqual(gate.SOURCE_TREE, "6acba662312af8d48069ed07f2d087379739c5c5")
-        self.assertEqual(gate.SOURCE_PARENTS, ["7b49c77aa4e0614b1efd5dff6ad5e92f09eab3f1"])
+        self.assertEqual(gate.SOURCE_SHA, "3c900b00f15aeda2016a45d080d850fa028cdcfd")
+        self.assertEqual(gate.SOURCE_TREE, "b975beb628bb68c03fb5bce45e7c43085837e41f")
+        self.assertEqual(gate.SOURCE_PARENTS, ["ad2b6ac1a2d4f286edd00eeb1e1ecc137c1f3223"])
         gate.qualify_source(ROOT)
         final = git_blob_inventory(gate.SOURCE_SHA)
         self.assertEqual(len(final), 895)
@@ -531,8 +531,9 @@ class SourceContracts(unittest.TestCase):
         self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), final)
         self.assertEqual({p: final[p] for p in paths}, {p: inventory[p] for p in paths})
         history = "frontend/e2e/fleet-control.spec.ts"
+        runtime_fixture = "frontend/e2e/runtime-controls.spec.ts"
         self.assertEqual(gate.git(ROOT, "diff", "--name-only", source, gate.SOURCE_SHA,
-                                  "--", "frontend", "openapi").decode().splitlines(), [history])
+                                  "--", "frontend", "openapi").decode().splitlines(), [history, runtime_fixture])
         old_history = gate.git(ROOT, "show", source + ":" + history).decode()
         final_history = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + history).decode()
         self.assertEqual(final[history], "e08e845d51739a8bfbbe7c698649290cfb6f5cf9acece60f261866516b052707")
@@ -541,15 +542,29 @@ class SourceContracts(unittest.TestCase):
         self.assertEqual(final_history, old_history[:start] + old_history[start:].replace(
             old_setup, "  await installChatUxFixtures(page)\n", 1))
         self.assertEqual(final_history.count("expect("), old_history.count("expect("))
-        # Saved authentic codegen 38048577514: final source changes only infra test inputs.
+        fixture_fix = "8f53740e6102c2fc9c5547aa572a8f413c2d9d8b"
+        self.assertEqual(final[runtime_fixture], "49264145bb9ebfef37a24e28ef37fd7c1711b4ead7b286e99aa7f9726ed68723")
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", fixture_fix, gate.SOURCE_SHA,
+                                  "--", runtime_fixture), b"")
+        old_runtime = gate.git(ROOT, "show", "c59dbea1ab73a782a28cf6106155c84d73e2e14d:" + runtime_fixture).decode()
+        new_runtime = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + runtime_fixture).decode()
+        clarification = "test('fixture: uncertain clarification"
+        self.assertEqual(new_runtime[new_runtime.index(clarification):], old_runtime[old_runtime.index(clarification):])
+        self.assertEqual(new_runtime.count("expect("), old_runtime.count("expect(") + 1)
+        self.assertIn("json: { binding: null, tracker: null }", new_runtime)
+        self.assertIn("data-runtime-controls-owner=\"true\"", new_runtime)
+        for route in ("/messages", "/stream"):
+            self.assertIn("path.endsWith('" + route + "')", new_runtime[:new_runtime.index(clarification)])
+        # Historical receipt 38048577514 qualifies c59 only; new source receipt remains pending.
+        prior_source = "c59dbea1ab73a782a28cf6106155c84d73e2e14d"
         codegen_source = "4449a3b1cdd915e265543a24054506f15385393d"
         self.assertEqual(gate.digest(gate.git(ROOT, "show", codegen_source + ":openapi/openapi.json")),
                          gate.SCHEMA_SHA256)
-        self.assertEqual(gate.git(ROOT, "diff", "--name-only", codegen_source, gate.SOURCE_SHA,
+        self.assertEqual(gate.git(ROOT, "diff", "--name-only", codegen_source, prior_source,
                                   "--", "backend").decode().splitlines(),
                          ["backend/infra/src/runtime/pm_recovery_pg_tests.rs",
                           "backend/infra/src/runtime/pm_recovery_tests.rs"])
-        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", codegen_source, gate.SOURCE_SHA,
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", codegen_source, prior_source,
                                   "--", "backend/api", "backend/app", "backend/domain", "backend/shared",
                                   "backend/Cargo.toml", "backend/Cargo.lock", ".base-revision", "openapi"), b"")
 
@@ -814,8 +829,12 @@ class WorkflowContracts(unittest.TestCase):
         history = b"frontend/e2e/fleet-control.spec.ts"
         accepted = gate.git(ROOT, "ls-tree", "-z", "2a3491683df0e5e19f7a60114b0e99f36fbfa8d2",
                             history.decode()).rstrip(b"\0")
+        runtime_fixture = b"frontend/e2e/runtime-controls.spec.ts"
+        accepted_runtime = gate.git(ROOT, "ls-tree", "-z", "8f53740e6102c2fc9c5547aa572a8f413c2d9d8b",
+                                    runtime_fixture.decode()).rstrip(b"\0")
+        accepted_fixtures = {history: accepted, runtime_fixture: accepted_runtime}
         self.assertEqual(retained(gate.SOURCE_SHA),
-                         [accepted if entry.split(b"\t", 1)[1] == history else entry
+                         [accepted_fixtures.get(entry.split(b"\t", 1)[1], entry)
                           for entry in retained(previous)])
         self.assertEqual(gate.GATES["fixtures"][0][:-1],
                          ["pnpm", "exec", "playwright", "test", "--reporter=list,json"])
@@ -1131,7 +1150,7 @@ class FailureContracts(unittest.TestCase):
 
     def browser_report(self):
         return dict(errors=[dict(message="PRIVATE_SENTINEL")], suites=[dict(title="PRIVATE_SENTINEL", specs=[dict(
-            title="PRIVATE_SENTINEL", file="runtime-controls.spec.ts", line=90, tests=[dict(
+            title="PRIVATE_SENTINEL", file="runtime-controls.spec.ts", line=95, tests=[dict(
                 projectName="webkit", status="unexpected", results=[dict(status="failed",
                     error=dict(message="PRIVATE_SENTINEL"), stdout=["PRIVATE_SENTINEL"],
                     attachments=[dict(path="PRIVATE_SENTINEL")])])])])])
@@ -1172,19 +1191,19 @@ class FailureContracts(unittest.TestCase):
     def test_fixture_parser_never_serializes_private_fields_or_runtime_titles(self):
         result = self.browser()
         self.assertEqual(result["report"], "valid")
-        self.assertEqual(result["diagnostics"], [dict(file="frontend/e2e/runtime-controls.spec.ts", line=90,
+        self.assertEqual(result["diagnostics"], [dict(file="frontend/e2e/runtime-controls.spec.ts", line=95,
             project="webkit", status="unexpected", results=["failed"])])
         self.assertEqual(result["browsers"]["webkit"]["unexpected"], 1)
         self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
         self.verify(self.receipt())
 
     def test_file_and_line_are_canonical_source_declarations_only(self):
-        self.assertIn(90, self.locations["frontend/e2e/runtime-controls.spec.ts"])
+        self.assertIn(95, self.locations["frontend/e2e/runtime-controls.spec.ts"])
         self.assertNotIn(93, self.locations["frontend/e2e/runtime-controls.spec.ts"])
-        for file, line in (("../runtime-controls.spec.ts", 90), ("services-base/private.spec.ts", 90),
-                           ("/tmp/e2e/runtime-controls.spec.ts", 90), ("runtime-controls.spec.tsPRIVATE_SENTINEL", 90),
-                           ("runtime-controls.spec.ts", 93), ("runtime-controls.spec.ts", True),
-                           ("runtime-controls.spec.ts", "90")):
+        for file, line in (("../runtime-controls.spec.ts", 95), ("services-base/private.spec.ts", 95),
+                           ("/tmp/e2e/runtime-controls.spec.ts", 95), ("runtime-controls.spec.tsPRIVATE_SENTINEL", 95),
+                           ("runtime-controls.spec.ts", 90), ("runtime-controls.spec.ts", 93), ("runtime-controls.spec.ts", True),
+                           ("runtime-controls.spec.ts", "95")):
             report = self.browser_report()
             report["suites"][0]["specs"][0].update(file=file, line=line)
             self.assertEqual(self.browser(report)["report"], "rejected")
