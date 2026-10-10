@@ -66,7 +66,7 @@ pub(crate) async fn verify(
             Err(error) if error.kind() == ErrorKind::NotFound => None,
             Err(_) => return Err(mismatch()),
         };
-        if expected.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+        if crate::request_observer_package::absent(&path, &expected) {
             if metadata.is_some() {
                 return Err(mismatch());
             }

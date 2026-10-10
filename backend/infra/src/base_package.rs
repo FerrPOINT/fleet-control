@@ -278,7 +278,7 @@ async fn bounded_output(
     }
 }
 
-async fn git(checkout: &Path, args: &[&str]) -> Result<Vec<u8>, AppError> {
+pub(crate) async fn git(checkout: &Path, args: &[&str]) -> Result<Vec<u8>, AppError> {
     let mut command = Command::new("git");
     command
         .arg("--no-replace-objects")
@@ -328,20 +328,27 @@ async fn blob(checkout: &Path, path: &str) -> Result<Vec<u8>, AppError> {
 }
 
 async fn package_blobs(checkout: &Path) -> Result<BTreeMap<String, Vec<u8>>, AppError> {
-    let inventory = git(
+    pinned_blobs(
         checkout,
-        &[
-            "ls-tree",
-            "-r",
-            "-l",
-            "-z",
-            BASE_PACKAGE_COMMIT,
-            "--",
-            "agent-skills/roles",
-            "agent-skills/skills",
-        ],
+        BASE_PACKAGE_COMMIT,
+        &["agent-skills/roles", "agent-skills/skills"],
+        21,
     )
-    .await?;
+    .await
+}
+
+pub(crate) async fn pinned_blobs(
+    checkout: &Path,
+    revision: &str,
+    paths: &[&str],
+    count: usize,
+) -> Result<BTreeMap<String, Vec<u8>>, AppError> {
+    if count == 0 || count > 21 {
+        return Err(invalid());
+    }
+    let mut args = vec!["ls-tree", "-r", "-l", "-z", revision, "--"];
+    args.extend_from_slice(paths);
+    let inventory = git(checkout, &args).await?;
     let mut entries = Vec::new();
     for record in std::str::from_utf8(&inventory)
         .map_err(|_| invalid())?
@@ -363,7 +370,7 @@ async fn package_blobs(checkout: &Path) -> Result<BTreeMap<String, Vec<u8>>, App
         }
         entries.push((path.to_owned(), fields[2].to_owned(), size));
     }
-    if entries.len() != 21 {
+    if entries.len() != count {
         return Err(invalid());
     }
     // Git's bounded binary batch protocol avoids one process per private blob.
@@ -387,7 +394,7 @@ async fn package_blobs(checkout: &Path) -> Result<BTreeMap<String, Vec<u8>>, App
     let output = bounded_output(
         &mut command,
         input.as_bytes(),
-        21 * (MAX_BLOB_BYTES + 100),
+        count * (MAX_BLOB_BYTES + 100),
         Duration::from_secs(5),
     )
     .await?;

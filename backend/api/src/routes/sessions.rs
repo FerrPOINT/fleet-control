@@ -2,8 +2,11 @@ use app::{AppContext, SessionListFilter};
 use axum::{
     Extension, Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, header},
-    response::sse::{Event, KeepAlive, Sse},
+    http::{HeaderMap, HeaderValue, header},
+    response::{
+        IntoResponse, Response,
+        sse::{Event, KeepAlive, Sse},
+    },
 };
 use domain::{
     AgentSession, AssignSessionLeaderRequest, CreateSessionDelegationRequest,
@@ -466,6 +469,51 @@ pub async fn list_session_agent_runs(
 #[derive(Debug, Deserialize)]
 pub struct StreamQuery {
     pub cursor: Option<i64>,
+}
+
+#[utoipa::path(get, path = "/api/v1/sessions/{session_id}/runs/{run_id}/request-observation", tag = "sessions", params(("session_id" = Uuid, Path), ("run_id" = Uuid, Path)), responses((status = 200, body = serde_json::Value), (status = 403, description = "Session access denied"), (status = 503, description = "Original native observation unavailable")))]
+pub async fn read_request_observation(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<crate::middleware::CurrentUser>,
+    Path((session_id, run_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Response {
+    let result: Result<Json<serde_json::Value>, AppError> = async {
+        let session = ctx.repo.get_session(session_id).await?;
+        ensure_session_read_access(&session, &user)?;
+        if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
+            return Err(AppError::Unavailable(
+                "task observation admission is not verified".into(),
+            ));
+        }
+        super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
+        let run = ctx.repo.get_session_agent_run(run_id).await?;
+        ensure_run_belongs_to_session(&run, session_id)?;
+        let agent = ctx.repo.get_agent(run.agent_id).await?;
+        let value = ctx.runtime.read_request_observation(&agent, &run).await?;
+        let current = ctx.repo.get_session(session_id).await?;
+        ensure_session_read_access(&current, &user)?;
+        if current.primary_agent_id != session.primary_agent_id
+            || current.user_id != session.user_id
+        {
+            return Err(AppError::conflict(
+                "session identity changed during observation",
+            ));
+        }
+        super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
+        if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
+            return Err(AppError::Unavailable(
+                "task observation admission changed".into(),
+            ));
+        }
+        Ok(Json(value))
+    }
+    .await;
+    let mut response = result.into_response();
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
 }
 
 #[utoipa::path(get, path = "/api/v1/sessions/{session_id}/stream", tag = "sessions", params(("session_id" = Uuid, Path), ("cursor" = Option<i64>, Query, description = "Replay events after this session cursor; Last-Event-ID is also supported")), responses((status = 200, description = "Durable session-scoped SSE event stream")))]

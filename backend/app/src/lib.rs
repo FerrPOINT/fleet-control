@@ -1281,6 +1281,18 @@ pub trait FleetRepository: Send + Sync {
 
 #[async_trait]
 pub trait AgentProvisioner: Send + Sync {
+    async fn prepare_request_observer_configuration(
+        &self,
+        _config: &AppConfig,
+        request: UpdateAgentConfigRequest,
+    ) -> Result<UpdateAgentConfigRequest, AppError> {
+        if request.config_json.get("fleet_request_observer").is_some() {
+            return Err(AppError::Unavailable(
+                "request observer preparation is unavailable".into(),
+            ));
+        }
+        Ok(request)
+    }
     /// Fresh readback only; successful verification does not grant dispatch authority.
     async fn verify_effective_configuration(
         &self,
@@ -1317,6 +1329,15 @@ pub trait PmRuntimeCustody: Send + Sync {
 
 #[async_trait]
 pub trait RuntimeSupervisor: Send + Sync {
+    async fn read_request_observation(
+        &self,
+        _agent: &Agent,
+        _run: &SessionAgentRun,
+    ) -> Result<serde_json::Value, AppError> {
+        Err(AppError::Unavailable(
+            "native request observation is unavailable".into(),
+        ))
+    }
     async fn resolve_original_approval(
         &self,
         _agent: &Agent,

@@ -8,6 +8,15 @@ Free-chat journal rules remain in force. Downgrade refuses retained PM history.
 The private execution/admission readback derives its observation from existing
 run/configuration records; it does not add an admission table to Fleet.
 
+
+Managed observer adds no schema/migration. Explicit renderer-3 drafts store exact
+Base repository/revision/four-file raw hashes in existing
+`config_json.fleet_request_observer`; legacy snapshot serialization is unchanged.
+The existing immutable dispatch `capabilities` JSON preserves the reserved
+observer incarnation with the original launch and optional recovery facts.
+Signed activation backups now cover exact observer file bytes/absence on install,
+remove and rollback. No observation is backfilled or persisted as readiness.
+See [contract and pending gates](contracts/MANAGED_REQUEST_OBSERVER_V1.md).
 The optional `workflow_assignment` journal in the existing PM creation operation
 stores the server-derived reservation/input command, canonical hash, fixed origin
 and assignment-token fingerprint, then an immutable Workflow/mode/initial-phase

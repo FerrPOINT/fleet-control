@@ -1,5 +1,20 @@
 # Security
 
+## Managed Observation Is Not Admission
+
+The optional observer is consumed only from exact Base Git objects and signed
+renderer3 configuration history. Original accepted free-chat readback holds
+lifecycle exclusion and rechecks source, launch, run, endpoint and credential
+after bounded authenticated HTTP. Session access is checked before and after;
+task-bound observations are denied pending trusted admission. Handler responses,
+including errors, use no-store and expose only scoped digests, not raw prompts,
+tools, credentials or private launch/controller state. Incomplete native evidence
+cannot authorize model dispatch or promote ready-for-SDLC. Installation/removal
+uses the ordinary drain/journal/backup/rollback path and preserves foreign files.
+QA executable/opt-in/Git trust are isolated read-only artifacts, not production
+whitelist changes or wildcard repository trust. See the
+[contract](contracts/MANAGED_REQUEST_OBSERVER_V1.md).
+
 Machine-only PM lease readback binds the acknowledged child/journal and reserved
 machine subject before outbound HTTP, then checks fresh central introspection
 and Tracker owner/assignment. Fixed origin, five-second/16 KiB exact-JSON GET,

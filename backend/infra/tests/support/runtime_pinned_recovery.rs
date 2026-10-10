@@ -733,12 +733,12 @@ async fn pinned_recovery_original_context_legacy_private_other_and_task_pm_fail_
 }
 
 #[tokio::test]
-async fn pinned_recovery_keyset_reaches_valid_terminal_after_twenty_invalid_pinned_runs() {
+async fn pinned_recovery_keyset_reaches_valid_terminal_after_two_hundred_invalid_pinned_runs() {
     let Some(f) = Fixture::new().await else {
         return;
     };
     let mut pinned = Vec::new();
-    for _ in 0..22 {
+    for _ in 0..202 {
         pinned.push(
             f.seed(Reply::Partial, SessionRunState::Running, false, false)
                 .await,

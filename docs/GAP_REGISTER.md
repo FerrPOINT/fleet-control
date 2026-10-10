@@ -1,5 +1,26 @@
 # Gap Register
 
+## Managed Observer Consumer: 8 October 2026
+
+Source implements explicit pinned renderer-3 install/remove through signed
+activation/rollback and bounded Rust original-run digest GET. Both admission
+blockers and complete=false/runtime_ready=false remain. This closes neither
+native inventory nor actual installed/task/PM acceptance. Focused tests and an
+ignored two-Hermes production consumer scenario are added. The frozen full Linux/
+PostgreSQL workspace packet now passes647 tests, fmt/check/strict Clippy and Rust
+OpenAPI parity;33 special cases remain explicitly ignored. The earlier activation
+SOUL timeout remains recorded without an established cause. Both actual native
+observer startup packets fail because of QA launcher defects (noexec,
+then cleared child environment). The next packet reaches configuration preparation
+but fails on root-owned read-only Git cache trust. Matching native probes prove
+the cause; the reviewed isolated single-path Git config and startup fixes pass54
+host tests. The corrected actual two-Hermes core gate now passes196.53s, including
+install/removal/rollback, request HMACs, source-tamper race and unknown ACK recovery,
+with271 input hashes and owned cleanup verified. Complete loaded inventory,
+interrupted observer activation/Fleet death and task admission remain. See the exact
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#managed-observer-source-slice-8-october-2026).
+See [contract](contracts/MANAGED_REQUEST_OBSERVER_V1.md).
+
 ## PM Lease Consumer: 8 October 2026
 
 **Closed for typed source and controlled HTTP/PostgreSQL readback only.** The
@@ -55,7 +76,7 @@ stays closed. See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#native-request-o
 ## Exact Producer Predispatch Limits: 8 October 2026
 
 Read-only inspection of Tracker114 `357caa7` and Workflow90 Git objects at
-`44e7183` confirms that prerequisite observations do not yet authorize model work.
+`1139871` confirms that prerequisite observations do not yet authorize model work.
 Tracker's reserved PM assignment keeps `dispatch_allowed=false`; expired or
 already-claimed leases require quiescence recovery. Workflow's v3 Base step
 unconditionally requires missing trusted owner assignment/config/evidence;
@@ -71,6 +92,15 @@ Workflow mutations or model requests. Do not claim leases during Draft creation
 before expiry/quiescence and non-circular first-step recovery are implemented.
 Producer advancement and actual interoperability remain separate acceptance;
 these read-only repositories are not changed by this runtime task.
+The fresh audit also confirms that enrolled business commands are rejected by
+Tracker's SDLC repository before applying clarification/requirements mutations.
+Workflow's initial PM bind demands both a finalized runtime binding and a running
+callback; its Base step still unconditionally rejects missing trusted owner
+evidence. Implementing only a Fleet claim loop or tool proxy cannot close this
+cycle. Required producer acceptance is an admitted transition with original-key
+readback, expired-lease quiescence recovery and a pre-model first-step contract
+that does not require post-decomposition delivery identities. See the
+[remaining gates](IMPLEMENTATION_PLAN.md#merge-ready-remaining-gates-8-october-2026).
 
 ## Heartbeat Alert Persistence: 7 October 2026
 

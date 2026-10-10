@@ -7,9 +7,10 @@ impl LocalRuntimeSupervisor {
             handle.spawn(async move {
                 let mut after = None;
                 loop {
-                    match supervisor.repo.list_recoverable_hermes_acceptances(after).await {
+                    let idle = match supervisor.repo.list_recoverable_hermes_acceptances(after).await {
                         Ok(records) => {
-                            if records.is_empty() { after = None; }
+                            let idle = records.is_empty();
+                            if idle { after = None; }
                             for (message, run) in records {
                                 // Invalid old ACKs must not starve later pending or pinned readbacks.
                                 after = Some(run.id);
@@ -23,13 +24,17 @@ impl LocalRuntimeSupervisor {
                                     tracing::warn!(run_id = %run.id, "Hermes acceptance readback requires reconciliation");
                                 }
                             }
+                            idle
                         }
-                        Err(_) => tracing::warn!("Hermes acceptance readback queue is unavailable"),
-                    }
+                        Err(_) => {
+                            tracing::warn!("Hermes acceptance readback queue is unavailable");
+                            true
+                        }
+                    };
                     if supervisor.repo.reconcile_runtime_controls().await.is_err() {
                         tracing::warn!("Runtime control terminal readback is unavailable");
                     }
-                    sleep(Duration::from_secs(5)).await;
+                    if idle { sleep(Duration::from_secs(5)).await; }
                 }
             });
         }

@@ -17,6 +17,42 @@ It checks private mode-0600 dotenv ownership. These are not OS/tool isolation,
 descendant quiescence or task/PM admission proofs. Unknown-ACK recovery is a
 separate `recovery` case below, not a claim made by the lifecycle case.
 
+## Managed Request Observer
+
+`--scenario observer` selects the two-agent production observer consumer in
+`native_request_observer`. It exercises journaled install/removal and startup
+failure rollback, original accepted-run digest GETs, owner/foreign access,
+prepared/unknown ACK recovery and existing control/recovery extensions. Native
+execution and current Rust compilation must pass before claiming acceptance;
+this scenario does not prove task admission, complete loaded inventory or
+interrupted activation/Fleet SIGKILL recovery with the observer enabled.
+
+This scenario requires `--base-revision
+dd9ce31a6b97e31e2467662658e38dd7a6485f45` for the launcher and existing extension
+fixtures, and `--observer-checkout <owned-bare-cache>` for the independently
+pinned observer at `43b365fd97e8955821312cbc2e68b4d83e5bd240`. The bare cache must
+have the Base origin, exact four raw-byte hashes and no shared Git alternate or
+linked-worktree paths. It is mounted read-only; its source is installed only
+through Fleet's real configuration activation. The unchanged SDK remains a
+separate exact-pin input. Mutable Base HEAD cannot select observer fixtures.
+Because the host bind may appear root-owned in Linux, the QA process uses its
+own read-only Git config trusting only `/qa/observer-base.git`. The runner records
+its hash; no wildcard safe-directory entry or shared Git configuration is changed.
+
+The one-shot startup fault uses a QA-only launcher in a read-only executable
+bind, not an executable under the protected `noexec` `/tmp`. The runner mounts
+an exact literal opt-in file read-only at `/qa/observer-start-fault-opt-in` and
+records its hash. This works with the production supervisor's cleared child
+environment without expanding its whitelist. The launcher validates the owned
+agent HOME and consumes only the exact regular, single-link fault marker; all
+normal arguments are forwarded unchanged to the pinned Hermes launcher.
+
+Host safety tests cover this selector/cache contract, not native behavior:
+`python -B -m unittest discover -s scripts/native_supervisor_live -p 'test_*.py'`.
+Builds use a separate read-only snapshot of every backend/script input, including
+untracked candidate files. Reports retain those hashes and require unchanged
+original/frozen bytes after native execution; previous binaries are not reused.
+
 The first chat also installs a disposable Fleet PostgreSQL fault after its
 exact prepared intent is committed but before its submission claim can commit.
 The message must remain pending, with no model request or native run ID. A
@@ -263,7 +299,7 @@ cache and dependency image are preserved; no image/volume prune is used.
 Host-only CI tests:
 
 ```bash
-python3 -B -m unittest discover -s scripts/native_supervisor_live -p test_harness.py -v
+python3 -B -m unittest discover -s scripts/native_supervisor_live -p 'test_*.py' -v
 ```
 
 The `approval-recovery` scenario uses two distinct Fleet OS processes and one

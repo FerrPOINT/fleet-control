@@ -154,6 +154,54 @@ fn journal_path(supervisor: &LocalRuntimeSupervisor, agent: &Agent) -> PathBuf {
     )
 }
 
+#[derive(Debug, Default)]
+struct ActivationPollState {
+    polls: u64,
+    first_poll_after_ms: Option<u128>,
+    last_poll_started_after_ms: Option<u128>,
+    last_poll_finished_after_ms: Option<u128>,
+    longest_poll_ms: u128,
+    in_poll: bool,
+    returned: bool,
+}
+
+struct ActivationPollTrace {
+    queued_at: std::time::Instant,
+    state: std::sync::Mutex<ActivationPollState>,
+}
+
+impl ActivationPollTrace {
+    fn new() -> Self {
+        Self {
+            queued_at: std::time::Instant::now(),
+            state: std::sync::Mutex::new(ActivationPollState::default()),
+        }
+    }
+
+    fn before_poll(&self) -> std::time::Instant {
+        let now = std::time::Instant::now();
+        let elapsed = now.duration_since(self.queued_at).as_millis();
+        let mut state = self.state.lock().unwrap();
+        state.polls += 1;
+        state.first_poll_after_ms.get_or_insert(elapsed);
+        state.last_poll_started_after_ms = Some(elapsed);
+        state.in_poll = true;
+        now
+    }
+
+    fn after_poll(&self, started: std::time::Instant, returned: bool) {
+        let mut state = self.state.lock().unwrap();
+        state.last_poll_finished_after_ms = Some(self.queued_at.elapsed().as_millis());
+        state.longest_poll_ms = state.longest_poll_ms.max(started.elapsed().as_millis());
+        state.in_poll = false;
+        state.returned = returned;
+    }
+
+    fn snapshot(&self) -> String {
+        format!("{:?}", self.state.lock().unwrap())
+    }
+}
+
 #[cfg(target_os = "linux")]
 #[tokio::test]
 async fn separate_supervisors_cannot_activate_until_original_journal_is_settled() {
@@ -267,9 +315,11 @@ async fn activation_keeps_lifecycle_lock_through_file_readback_and_event_persist
         return;
     };
     let revision = revision(&repo, &agent, owner).await;
-    crate::configuration_files(&agent, &config, &revision)
+    let planning_started = std::time::Instant::now();
+    let plan = crate::configuration_files(&agent, &config, &revision)
         .await
         .unwrap();
+    let planning_ms = planning_started.elapsed().as_millis();
     repo.request_config_activation(agent.id, revision.revision, owner)
         .await
         .unwrap();
@@ -287,11 +337,47 @@ async fn activation_keeps_lifecycle_lock_through_file_readback_and_event_persist
         ))
         .await
         .unwrap();
+    let event_lock_pid: i32 = transaction
+        .query_one(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT pg_backend_pid() AS pid".to_owned(),
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "pid")
+        .unwrap();
     let supervisor = supervisor(config, repo.clone());
     let worker = supervisor.clone();
+    let trace = Arc::new(ActivationPollTrace::new());
+    let worker_trace = trace.clone();
+    eprintln!(
+        "activation diagnostic setup: agent={}, revision={}, renderer={}, observer={}, planned_files={}, planning_ms={}, event_lock_pid={}",
+        agent.id,
+        revision.revision,
+        revision.snapshot.renderer_version,
+        revision
+            .snapshot
+            .config
+            .config_json
+            .get("fleet_request_observer")
+            .is_some(),
+        plan.len(),
+        planning_ms,
+        event_lock_pid,
+    );
     let mut activation = tokio::spawn(async move {
         let mut journal = None;
-        let result = worker.apply_config_revision(&revision, &mut journal).await;
+        let result = {
+            let mut apply = std::pin::pin!(worker.apply_config_revision(&revision, &mut journal));
+            std::future::poll_fn(|context| {
+                let started = worker_trace.before_poll();
+                let result = std::future::Future::poll(apply.as_mut(), context);
+                worker_trace.after_poll(started, result.is_ready());
+                result
+            })
+            .await
+        };
         (result, journal)
     });
     let soul = PathBuf::from(&agent.paths.config).join("SOUL.md");
@@ -299,7 +385,10 @@ async fn activation_keeps_lifecycle_lock_through_file_readback_and_event_persist
         loop {
             if activation.is_finished() {
                 let (result, _journal) = (&mut activation).await.unwrap();
-                panic!("activation exited before locked event persistence: {result:?}");
+                panic!(
+                    "activation exited before locked event persistence: {result:?}; poll_trace={}",
+                    trace.snapshot(),
+                );
             }
             if tokio::fs::read(&soul).await.ok().as_deref() == Some(b"Updated lifecycle SOUL") {
                 break;
@@ -309,33 +398,85 @@ async fn activation_keeps_lifecycle_lock_through_file_readback_and_event_persist
     })
     .await;
     if file_readback.is_err() {
-        let waits = repo
-            .db
-            .query_all(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "SELECT state, wait_event_type, wait_event FROM pg_stat_activity
-             WHERE datname=current_database() AND pid<>pg_backend_pid()"
-                    .to_owned(),
-            ))
-            .await
-            .unwrap();
-        let waits = waits
-            .into_iter()
-            .map(|row| {
+        let poll_trace = trace.snapshot();
+        let lifecycle_lock = match supervisor.lifecycle_locks.try_lock() {
+            Err(_) => "registry_busy",
+            Ok(locks) => match locks.get(&agent.id) {
+                None => "agent_lock_not_created",
+                Some(lock) => match lock.try_lock() {
+                    Ok(_) => "agent_lock_free",
+                    Err(_) => "agent_lock_held",
+                },
+            },
+        };
+        let controller_lock_exists = PathBuf::from(&supervisor.config.fleet.controller_root)
+            .join(format!("{}.activation.lock", agent.id))
+            .exists();
+        let file_presence = plan
+            .iter()
+            .map(|(path, _)| {
                 (
-                    row.try_get::<Option<String>>("", "state").unwrap(),
-                    row.try_get::<Option<String>>("", "wait_event_type")
-                        .unwrap(),
-                    row.try_get::<Option<String>>("", "wait_event").unwrap(),
+                    path.strip_prefix(&agent.paths.config)
+                        .unwrap()
+                        .to_path_buf(),
+                    path.exists(),
                 )
             })
             .collect::<Vec<_>>();
+        eprintln!(
+            "activation deadline snapshot: task_finished={}, poll_trace={}, lifecycle_lock={}, controller_lock_exists={}, journal_exists={}, file_presence={file_presence:?}",
+            activation.is_finished(),
+            poll_trace,
+            lifecycle_lock,
+            controller_lock_exists,
+            journal_path(&supervisor, &agent).exists(),
+        );
+        // Use the independent diagnostic pool, not an acquisition on the worker's pool.
+        // Report classifications only: raw SQL can contain private configuration values.
+        let postgres = timeout(Duration::from_secs(2), db.query_one(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT jsonb_build_object(
+                'activity', (SELECT COALESCE(jsonb_agg(to_jsonb(a)), '[]'::jsonb) FROM (
+                    SELECT pid, state, wait_event_type, wait_event,
+                        pg_blocking_pids(pid) AS blocking_pids,
+                        xact_start IS NOT NULL AS has_transaction,
+                        CASE WHEN query ILIKE '%agent_events%' THEN 'agent_events'
+                             WHEN query ILIKE '%runtime_launch%' THEN 'runtime_launch'
+                             WHEN query ILIKE '%agent_config%' THEN 'agent_config'
+                             WHEN query ILIKE '%agents%' THEN 'agent_lookup'
+                             ELSE 'other' END AS query_phase
+                    FROM pg_stat_activity
+                    WHERE datname=current_database() AND pid<>pg_backend_pid()
+                    ORDER BY (state='active') DESC, pid LIMIT 64
+                ) a),
+                'event_locks', (SELECT COALESCE(jsonb_agg(to_jsonb(l)), '[]'::jsonb) FROM (
+                    SELECT locks.pid, locks.mode, locks.granted
+                    FROM pg_locks locks JOIN pg_class relation ON relation.oid=locks.relation
+                    WHERE locks.database=(SELECT oid FROM pg_database WHERE datname=current_database())
+                        AND relation.relname='agent_events'
+                    ORDER BY locks.granted, locks.pid LIMIT 64
+                ) l)) AS snapshot".to_owned(),
+        ))).await;
+        let postgres = match postgres {
+            Err(_) => "diagnostic_query_timeout_2s".into(),
+            Ok(Err(_)) => "diagnostic_query_failed".into(),
+            Ok(Ok(None)) => "diagnostic_query_missing_row".into(),
+            Ok(Ok(Some(row))) => match row.try_get::<Value>("", "snapshot") {
+                Ok(value) => value.to_string(),
+                Err(_) => "diagnostic_query_invalid_snapshot".into(),
+            },
+        };
         panic!(
-            "activation readback deadline: journal_exists={}, soul_exists={}, postgres_waits={waits:?}",
+            "activation readback deadline (original 5s): poll_trace={poll_trace}, lifecycle_lock={lifecycle_lock}, controller_lock_exists={controller_lock_exists}, journal_exists={}, soul_exists={}, event_lock_pid={event_lock_pid}, postgres={postgres}",
             journal_path(&supervisor, &agent).exists(),
             soul.exists(),
         );
     }
+    eprintln!(
+        "activation SOUL observed under original 5s deadline: poll_trace={}, journal_exists={}",
+        trace.snapshot(),
+        journal_path(&supervisor, &agent).exists(),
+    );
     assert!(!activation.is_finished());
     let worker = supervisor.clone();
     let stale = agent.clone();

@@ -1,5 +1,73 @@
 # Implementation Plan
 
+## Merge-Ready Remaining Gates: 8 October 2026
+
+This is the remaining full execution scope, not a completion percentage. The
+integration branch is not an installed release. No fixture, process health or
+individual terminal run substitutes for business acceptance.
+
+| Gate | Required implementation and acceptance | Ownership/dependency |
+| --- | --- | --- |
+| Runtime/configuration | Complete initialized/loaded inventory and readiness; remaining activation stop/post-commit/ack crash and backup-loss cases; preserve original custody and unknown-command holds. | Fleet; consume exact compatible Base utilities. |
+| Predispatch admission | Trusted current assignment, lease claim/heartbeat/fence and original-key recovery; a non-circular first workflow step before any model call. No invented delivery/decomposition references before PM. | Tracker/Workflow producer changes are external, read-only here; Fleet consumes verified contracts. |
+| PM execution/resume | Structured scoped tools, saved-answer delivery distinct from persistence, checkpoint/rebind after terminal or proven safe stop, and unknown acceptance readback without redispatch. | Fleet, after producer admission compatibility. |
+| Production Chats | Agent/task hierarchy and dialogue/clarification/requirements against real APIs; owner-only actions, stale/conflict/partial-success states, no parallel run or prompt bypass of clarification. | Authorized parallel Chats task; preserve separate agent transcripts. |
+| Forge delivery | Current-source native PostgreSQL/OCI recovery, task attempt/candidate pipeline and artifact checks, deployment/health/acceptance receipts and rollback. Local verification remains non-admitting until trusted producer authority exists. | CI-CD; PR87 is a separate prerequisite, PR88 stays Draft pending gates. |
+| Live acceptance/evidence | Actual PM question -> owner answer -> final exact revision -> owner confirmation; full agreed seven-agent delivery/integration/Rework/deployment flow and restart/foreign-access/stale-lease negatives. Current screenshots and docs must distinguish live evidence from fixtures. | Compatible isolated test project; do not promote accepted runtime. |
+| Ordered publication | Separate task-owned commits/PRs, normal history reconciliation, each migration released in its owned packet, exact main-target heads and current CI/review evidence. | Fleet/CI-CD/Base only; no force push or automatic merge. |
+
+Read-only producer audit at Tracker114 `357caa7` and Workflow90 `1139871`
+confirms that enrolled Tracker business commands reject without verified PM
+admission; the existing Workflow PM bind requires an already-running Fleet run,
+and its Base first-step gate still refuses missing trusted owner evidence.
+The lease GET implemented by Fleet is observation, not a claim or permission.
+Producer acceptance must cover admitted transition/original-key readback,
+expired-lease quiescence and a pre-model first-step/identity contract before
+Fleet wires tools or resume. See [producer gaps](GAP_REGISTER.md#exact-producer-predispatch-limits-8-october-2026).
+
+Current publication boundaries: Base PR169 at `893c582` has ten successful
+exact-head checks and remains unmerged; Fleet integration at `f04abbb` is
+published but has no full main-target release gate. Forge PR88's four successful
+checks are for `56f1217`, not subsequent uncommitted reader/proof hardening.
+Its latest hardening native PostgreSQL epoch records one of three cases passing,
+with OCI not executed; the separate source gate passes219 workspace and26 Python
+tests. A PostgreSQL backend crash during database creation is reproduced, but its
+cause and fresh current-source PG/OCI acceptance remain open. Earlier passing
+scenarios and old-head CI are not current-source acceptance.
+
+Parallel Chats PR60 at `99d1c7f` targets the integration branch rather than the
+approved `main`. Directly changing its base would import the broad integration
+tail; do not do that or claim the PR as main-ready. Prepare the dependency/main
+release sequence first. Its component/browser/screenshot evidence does not
+prove a live PM round trip. Tracker and Workflow remain unchanged by this task.
+
+### Next Main Release Unit
+
+Fresh readback identifies main `c8093aa`,180 integration-only commits and12
+main-only commits. Foundation PR47 is Draft/main at
+`4cc9a8ade539b9df67b9aaebf6ebe039d72814e5`, CLEAN with five successful checks.
+Its only new migration is task chats000010; its published populated-down guard
+must survive subsequent normal history reconciliation. It still does not claim
+live PM admission. Do not import the integration tail or retarget Chats PR60.
+
+After foundation47 is accepted, the next schema unit is persisted PM credential
+preparation from `9d92f1b`: immutable credential intent/receipt, coordinator,
+repository persistence, Draft continuation and server wiring, with only000011
+registered for both supported database lineages. Exclude journal12+, later lease
+readback and observer/container/controller work. Retain the accepted main SDK pin
+`875cac2`; earlier gates against another pin do not certify this release head.
+Required acceptance: populated canonical/split upgrade preserving data/history,
+empty down/up, populated credential downgrade refusal, concurrent/lost-ACK/restart
+preparation, rotation/revocation/expiry, audit rollback, redaction and zero model
+dispatch. Publish against main only after exact-source gates and review.
+
+Release order then follows the actual registry: journal12, controls13, time14,
+control outcomes15, approval outcomes16, launches17, preparations18, endpoints19,
+recovery20, recovery delivery21 and stop delivery22. Each release owns at most one
+new migration and retains accepted historical bytes. Preserve all integration
+commits and main fixes without rebase/squash/force push; existing source packets
+are not permission to bypass dependent release checks or install the candidate.
+
 ## Current Publication And Remaining Work
 
 The original preparation custody correction is source/component verified:

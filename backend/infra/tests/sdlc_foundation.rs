@@ -86,6 +86,10 @@ async fn fixture_at(url: String) -> (PostgresFleetRepository, Uuid, Uuid) {
         connect_timeout_seconds: 10,
         idle_timeout_seconds: 60,
     };
+    fixture_with_config(config).await
+}
+
+async fn fixture_with_config(config: DatabaseConfig) -> (PostgresFleetRepository, Uuid, Uuid) {
     run_migrations(config.clone()).await.unwrap();
     let db = connect_database(config).await.unwrap();
     let owner = Uuid::new_v4();
@@ -4621,13 +4625,27 @@ async fn runtime_http_events_scenario(
     expected: SessionRunState,
     expected_reply: bool,
 ) -> Option<(Arc<PostgresFleetRepository>, Uuid)> {
-    let (repo, owner, _) = fixture().await?;
+    let url = std::env::var("FLEET_TEST_DATABASE_URL").ok()?;
+    let (repo, owner, _) = fixture_with_config(DatabaseConfig {
+        url,
+        max_connections: 3,
+        min_connections: 0,
+        connect_timeout_seconds: 10,
+        idle_timeout_seconds: 1,
+    })
+    .await;
     let agent_id = agent(&repo).await;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
-    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
-        .await
-        .unwrap();
+    let db = connect_database(DatabaseConfig {
+        url: std::env::var("FLEET_TEST_DATABASE_URL").unwrap(),
+        max_connections: 1,
+        min_connections: 0,
+        connect_timeout_seconds: 10,
+        idle_timeout_seconds: 1,
+    })
+    .await
+    .unwrap();
     db.execute(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
         "UPDATE agents SET api_port = $2 WHERE id = $1",

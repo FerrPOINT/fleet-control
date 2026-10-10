@@ -28,6 +28,17 @@ pnpm markdown:check
 
 Additional gates:
 
+- managed observer: explicit renderer3 install/remove and rollback plus bounded
+  original-run readback. Run all native harness host tests with discovery pattern
+  `test_*.py`; the race and startup-fault tests must not be omitted. The native
+  `observer` scenario requires the pinned read-only Git cache, committed recovery/
+  control files and exact SDK. Keep the QA executable and literal opt-in read-only,
+  production environment clearing and `/tmp` noexec. Fresh original/frozen source
+  equality, two actual Hermes agents and owned cleanup are required;647 component
+  passes,54 host passes or a reused diagnostic binary do not satisfy this gate.
+  Interrupted observer activation and combined Fleet-death recovery remain
+  separate acceptance, as specified in the
+  [contract](contracts/MANAGED_REQUEST_OBSERVER_V1.md)
 - original preparation readback: both uncertain and cached-prepared receipts
   must reject missing DB custody and a foreign controller. Execute the regression
   on its disposable PostgreSQL database; its damaged-restore fixture intentionally

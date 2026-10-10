@@ -73,7 +73,7 @@ jobs:
         run: python3 -B -m unittest discover -s scripts/hermes_protocol_live -p test_harness.py -v
       - name: Managed native supervisor harness safety tests (no runtime or Docker)
         working-directory: fleet-control
-        run: python3 -B -m unittest discover -s scripts/native_supervisor_live -p test_harness.py -v
+        run: python3 -B -m unittest discover -s scripts/native_supervisor_live -p 'test_*.py' -v
       - name: Container supervisor harness safety tests (no runtime or Docker)
         working-directory: fleet-control
         run: python3 -B -m unittest scripts.tests.test_container_supervisor_gate -v

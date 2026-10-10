@@ -332,7 +332,7 @@ held; installed enablement and task admission remain independent gates.
 [ADR 0019](adr/0019-native-original-key-recovery.md) records
 the boundary. This protocol change adds no public Fleet route or migration.
 
-New Hermes snapshots use [renderer 2](adr/0017-versioned-native-hermes-renderer.md):
+Ordinary new Hermes snapshots use [renderer 2](adr/0017-versioned-native-hermes-renderer.md):
 native `platforms.api_server.enabled`, loopback host/assigned port in config and
 protected host/port/credential/HOME/CORS in dotenv. Launcher env alone is not
 authoritative after Hermes dotenv loading. Version 1 preserves historical
@@ -528,7 +528,11 @@ credential scope, bound to the native run/agent and factory incarnation, and hel
 on cancellation/owner loss. Actual pinned Hermes tests cover two isolated
 processes and restart; selected system/tools/model HMACs match the deterministic
 model's received request. See [verification](CHAT_CLARIFICATION_VERIFICATION.md#native-request-observation-8-october-2026).
-This candidate is not installed or consumed as admission. It reports
+Fleet now has an explicit [renderer-3 managed install/remove and bounded Rust
+consumer](contracts/MANAGED_REQUEST_OBSERVER_V1.md), including signed rollback
+bytes/absence and original run/launch/incarnation binding. This new Fleet path's
+Linux/native acceptance is pending; the producer-only evidence above does not
+validate it. No accepted runtime was changed or consumed as admission. It reports
 `complete=false`, `runtime_ready=false`: effective revision, full source
 inventory and post-builder transformations remain unverified. It narrows one
 observation gap without closing the full inventory requirement below.
