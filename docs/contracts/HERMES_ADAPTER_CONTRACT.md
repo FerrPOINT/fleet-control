@@ -16,6 +16,11 @@ free-form launch remains unsupported under the inspected Workflow contract.
 This source integration is not native/live acceptance; no Hermes patch or
 custom pre-model handshake is required.
 
+Disabling new PM dispatch does not disable the read-only follower of an already
+submitted, acknowledged run. Original runtime/session pins and terminal-once
+guards remain mandatory; an unknown ACK never authorizes a replacement POST.
+See [runtime behavior](../RUNTIME.md) and [operator recovery](../OPERATIONS.md#accepted-pm-runs).
+
 ## Original-Key And Pinned Recovery Candidate
 
 The default-off free-chat [recovery extension](HERMES_RECOVERY_V1.md) freezes verified
