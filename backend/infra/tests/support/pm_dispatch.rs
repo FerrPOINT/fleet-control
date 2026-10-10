@@ -419,10 +419,9 @@ async fn pm_submission_is_one_shot_across_concurrent_claims_and_repository_resta
     let id = reservation.session_run_id;
     let (left, right) = tokio::join!(repo.claim_pm_submission(id), repo.claim_pm_submission(id));
     assert_ne!(left.unwrap(), right.unwrap());
-    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
-        .await
-        .unwrap();
-    let restarted = PostgresFleetRepository::new(db.clone());
+    let url = std::env::var("FLEET_TEST_DATABASE_URL").unwrap();
+    let db = sea_orm::Database::connect(&url).await.unwrap();
+    let restarted = PostgresFleetRepository::new(sea_orm::Database::connect(&url).await.unwrap());
     assert!(!restarted.claim_pm_submission(id).await.unwrap());
     let unknown = restarted.prepare_pm_dispatch(intent.clone()).await.unwrap();
     assert!(unknown.submitted);
