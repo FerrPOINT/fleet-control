@@ -12,11 +12,11 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Independent review of frontend controls60eee4d | Read-only review of the three new workflow/helper/test files, exact source and private-token boundary, standard frontend gates and bounded artifact readback. Own report only; no control edits, heavy jobs or publication. |
+| Pascal | Close two frontend-control P2 findings | Independent review of60eee4d reproduced malformed PNG acceptance and an unbounded pipe-reader join. Authorized successor edits only helper/tests in the frozen frontend-control checkout; preserve workflow/source/gates and add negative regressions. No heavy jobs or publication before parent review. |
 | Feynman | Narrow C11 credential release candidate | New owned checkout from the reviewed47/64 dependency baseline. Extract only credential modules/hunks, migration11 and related tests/docs/CI fromafc5bb4. Preserve configuration semantics; no migrations12..20, heavy jobs or publication before review. Backend controlsaa5ac3f remain frozen. |
 | Curie | Production Chats UX regression closure | New owned checkout at34858b3; write only chat-detail components and their focused tests. Verify draft retention, unsaved navigation, stale/conflict input, explicit choices and keyboard/focus behavior; fix reproduced defects or add missing regression coverage. No backend/schema/lock/control edits or live-PM claim. Frontend controls60eee4d remain frozen. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
-| Parent | Critical path, integration and publication | Authenticate the terminal result of active backend38017066472 without restarting it; review frontend controls60eee4d before hosted publication. Integrate worker candidates only after review, preserve source/evidence boundaries, and publish narrow release units after their own gates. |
+| Parent | Critical path, integration and publication | Authenticate active backend38018281445 on reviewed controls9e838718/source1303be6. Prior38017066472 has authenticated config_files_unit failure evidence. Review frontend-control fixes before publication; integrate worker candidates after review and publish narrow release units after their own gates. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
@@ -24,8 +24,8 @@ integrates the generated API/type alias. Final integrated Rust parity is still
 required; code generation is not runtime acceptance.
 
 The prior diagnostic and backend controls are frozen. The new assignments above
-are independent: Pascal does not edit Curie's frozen frontend controls, Feynman
-uses a separate credential-release checkout, and Curie owns only chat UX changes
+are independent: Pascal now owns only the two reviewed frontend-control fixes,
+Feynman uses a separate credential-release checkout, and Curie owns chat UX changes
 in a new checkout. Parent owns generated API/client files,
 integration and this ledger. Historical worker scopes below
 are complete, not concurrent assignments. Deliverables identify exact commits,
@@ -49,11 +49,25 @@ safe artifact11656123142/ZIP0ce97501fabd6d423035cfbc73b64e9adcbe41b14eeeb2cab7c7
 two diagnostic source locations122/131 and successful scratch/synthetic DB cleanup.
 Normal sourceafc5bb4 fixes only those panic expression chains. Reviewed normal
 successoraa5ac3f starts [run38017066472](https://github.com/FerrPOINT/fleet-control/actions/runs/38017066472),
-now in progress on exactafc. Source-to-controls delta is exactly
+now terminal FAILURE on exactafc at config_files_unit. Source-to-controls delta is exactly
 six additions; all prior ignored identities and migration registries remain.
 Controls pure evidence: Linux110/110; parent Windows108 PASS/two POSIX-only skips.
 These do not accept the product. The two run/source pairs remain distinct;
 neither Clippy result resolves historical recovered-activation PG62.
+
+Parent authenticates run38017066472 artifact11657125102/ZIP
+d00558cf68d03fec24bb1c43a13b478b040f4a75d9e50de9d1a24d27e3e2716e.
+The named failure occurs before the special-entry safety assertion, at Unix
+socket bind. A lightweight WSL probe reproduces overflow with the long fixture
+path and succeeds with the compact path. Source1303be6 changes only fixture
+directory naming/exclusive creation; formatting passes, product Rust execution
+remains pending. The next controls are prepared in a new parent-owned checkout,
+leaving Feynman's frozenaa5 checkout and ongoing C11 extraction independent.
+Normal successor9e838718 is independently verified against380 canonical compiled
+files,170 Rust files, all81 stages/167 ignored identities and unchanged migration
+registries. Windows108 PASS/two POSIX skips and Linux110/110 PASS qualify controls
+only. Public fast-forward starts actual run38018281445, confirmed in progress;
+do not restart or retarget it before terminal result and authenticated readback.
 
 Current regenerated-client frontend suite passes337 tests/36 files using threads
 and one worker. The default local fork attempt was stopped without a test result

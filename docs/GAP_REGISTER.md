@@ -2,8 +2,8 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current source candidate isafc5bb4, retaining8c93f43 normally integrated at65b4f33;
-the last completed81-stage source isb0ad56c (Clippy failure). The union retains runtime
+The current source candidate is1303be6, retaining8c93f43 normally integrated at65b4f33;
+the last completed81-stage source isafc5bb4 (config_files_unit failure). The union retains runtime
 corrections, journal3b41, human guard, private-approval ownership and PR64 config.
 Source integration is progress, not release acceptance. Its remaining gates are:
 
@@ -28,14 +28,25 @@ OpenAPI drift and compatibility against mainb750e7b pass. The union still needs
 actual all-target/Clippy/tests/PG and native qualification; PR64's separate green
 CI does not accept the combined runtime. Diagnostic-only activation probes and
 an updated, exact-input combined backend inventory now targetafc5bb4 in actual
-81-stage run38017066472 (in progress), controlsaa5ac3f. Parent independently
+81-stage run38017066472 (terminal FAILURE), controlsaa5ac3f. Parent independently
 verifies all380 Git inputs/170 Rust files and unchanged ignored/migration
 identities. Prior38016562420 atb0 completes FAILURE at Clippy; authenticated safe
 artifact11656123142 identifies the two diagnostic expression locations122/131
 and successful scratch/DB cleanup. afc changes only those redacted panic
-expressions; its exact gate remains open. No PG cause is inferred from Clippy.
+expressions. Run38017066472 then fails the Unix socket fixture bind in
+effective_configuration.rs294. Parent authenticates artifact11657125102,
+ZIPd00558cf68d03fec24bb1c43a13b478b040f4a75d9e50de9d1a24d27e3e2716e;
+scratch and synthetic DB cleanup pass. A lightweight WSL probe reproduces long
+pathname failure and short-path success; source1303be6 shortens the exclusive
+temporary fixture without removing tests or changing production guards. Reviewed
+normal controls9e838718 bind1303be6 and start actual81-stage run38018281445,
+confirmed in progress. All380 input files,167 ignored identities and migration
+registries are reverified; controls Linux110/110 pass, not product acceptance.
+No PG cause is inferred from either fixture failure.
 Frontend337/36 passes with threads, not the stopped default-fork
-attempt; the standard hosted frontend gate remains pending.
+attempt; the standard hosted frontend gate remains pending. Independent review
+of controls60eee4d finds two P2 issues in PNG pixel validation and command timeout
+cleanup. They must be fixed and rechecked before that gate is published.
 
 Use the [current gate matrix](CURRENT_STATE.md#current-integration-snapshot-10-october-2026)
 for exact candidates and acceptance boundaries. Earlier failures below are

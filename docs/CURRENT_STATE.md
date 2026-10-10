@@ -2,16 +2,17 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current source candidate `afc5bb4` retains8c93f43, normally integrated at65b4f33, and combines
+Current source candidate `1303be6` retains8c93f43, normally integrated at65b4f33, and combines
 configuration PR64 with runtime corrections, durable clarification custody and
 private-approval ownership. Genuine union codegen is verified below. The last
-completed81-stage run targetsb0ad56c and fails Clippy; the new81-stage run
-targetsafc5bb4 and is in progress. The newer assembly is **not
+completed81-stage run targetsafc5bb4 and fails config_files_unit. Its test-only
+socket fixture correction is prepared in1303be6; reviewed successor38018281445
+is in progress. The newer assembly is **not
 merge-ready or live SDLC accepted**. Historical evidence qualifies only its own head.
 
 | Current gate | Exact source / authority | State |
 | --- | --- | --- |
-| Combined backend | Sourceafc5bb4, controlsaa5ac3f, run38017066472 |81-stage gate in progress; priorb0 fails Clippy, prior688 fails activation62/74 |
+| Combined backend | Source1303be6, controls9e838718, run38018281445 |81-stage gate in progress; priorafc config_files_unit failure authenticated; correction not yet Rust-qualified |
 | Config release PR64 | Head820a1af, normally merged into candidate8c93f43 | Separate five-job PASS; combined Rust/PG acceptance pending |
 | Union API/client | Source8c93f43, workflow5e57d5b, run38015043570 | Authenticated codegen PASS; typecheck/drift/compatibility PASS, not runtime acceptance |
 | Production Chats presentation | Frontend tree13ccbaba, regenerated union client |337 unit tests/36 files pass with threads; earlier six three-engine fixtures remain scoped; standard hosted gate pending |
@@ -40,7 +41,36 @@ preserving assertions and redaction. Reviewed controlsaa5ac3f normally succeed
 ef3 and start38017066472 againstafc, with unchanged81 gates and distinct pins.
 Neither run diagnoses the earlier recovered-activation PG predicate yet.
 Current frontend threads337/36 PASS does not accept the stopped
-default-fork attempt; a separate hosted standard frontend gate is being prepared.
+default-fork attempt; frozen hosted frontend controls60eee4d pass40 pure tests and
+have two independent P2 findings being fixed before publication: malformed PNG
+pixel streams and a pipe-reader join that can outlive a command timeout.
+
+Actual run38017066472 completes FAILURE at config_files_unit, exit101. Parent
+authenticates artifact11657125102, ZIP SHA256
+d00558cf68d03fec24bb1c43a13b478b040f4a75d9e50de9d1a24d27e3e2716e.
+The sole named failure is the linked/special-entry readback test at
+effective_configuration.rs294, the UnixListener bind before its safety assertion.
+A lightweight WSL socket probe reproduces pathname overflow at128 bytes and a
+successful bind at90 bytes. Source1303be6 shortens only the temporary fixture
+name and creates its directory exclusively; all four tests and production guards
+remain unchanged. Formatting passes; the product Rust test still requires Linux
+execution. This result does not resolve the older activation authorization failure.
+
+Normal controls9e838718 preserveaa5 history and bind exact source1303be6. Parent
+re-verifies380 canonical compiled Git files/170 Rust files, all prior74/total81
+stages,167 ignored identities, migration registries and22 package metadata entries.
+Only the workflow source pin, helper pins and inventory/hash/four line references
+change; parser/tests/gate/init remain unchanged. Pure controls pass110/110 on
+Linux and108 plus two POSIX-only skips on Windows. Public fast-forwardaa5 to9e
+starts [run38018281445](https://github.com/FerrPOINT/fleet-control/actions/runs/38018281445),
+confirmed in progress. None of these control checks accepts product Rust/native/PM.
+
+The requested Base source-status ledger is located at published branch
+feat/pdlc-source-implementation, commit331d1cd2c9b262a3a7770c0fa62bcc2856f8fcf5,
+path docs/plans/base-pdlc-source-status.md, bloba74c8e229b7ca376a49f8712c8bdab5d0c1b1c66.
+Its historical source/native evidence explicitly distinguishes remaining
+producer admission, PM continuation and Forge acceptance from installed readiness.
+It is not a current compatibility receipt or permission to change SDK/helper pins.
 
 Run38011797295 completes FAILURE at container_activation_pg, exit101. Parent
 authenticates safe artifact11654672637, ZIP SHA256
