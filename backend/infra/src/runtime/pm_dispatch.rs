@@ -518,9 +518,10 @@ pub(super) async fn dispatch(
         input.input.description
     );
     crate::pm_tool_config::reject_server_secrets(&prompt, &supervisor.config)?;
-    let intent = supervisor
-        .repo
-        .prepare_pm_dispatch(PmDispatchIntent {
+    let intent = pm_recovery::prepare(
+        supervisor,
+        &agent,
+        PmDispatchIntent {
             session_run_id: reservation.session_run_id,
             origin: base.clone(),
             credential_fingerprint: hermes_wire::credential_fingerprint(&token),
@@ -542,8 +543,9 @@ pub(super) async fn dispatch(
             runtime_context,
             submitted: false,
             hermes_run_ref: None,
-        })
-        .await?;
+        },
+    )
+    .await?;
     let assigned: AssignmentResponse = decode(
         workflow
             .call(
@@ -567,36 +569,15 @@ pub(super) async fn dispatch(
             None => Err(error),
         })?;
     verify_context(supervisor, &agent, &intent).await?;
-    let run_ref = if let Some(run_ref) = intent.hermes_run_ref {
-        run_ref
-    } else {
+    if intent.hermes_run_ref.is_none() {
         app::pm_draft::verify_dispatch(supervisor.repo.as_ref(), tracker, operation).await?;
-        if intent.submitted
-            || !supervisor
-                .repo
-                .claim_pm_submission(reservation.session_run_id)
-                .await?
-        {
-            return Err(AppError::Unavailable(
-                "PM Hermes acceptance is unknown; no automatic resubmission".into(),
-            ));
-        }
-        let run_ref = hermes_wire::submit(
-            &supervisor.client,
-            &base,
-            &token,
-            reservation.session_run_id,
-            &intent.request_body,
-            None,
-        )
-        .await?;
-        // Save the ACK before GET: a lost readback must never cause a second POST.
-        supervisor
-            .repo
-            .record_pm_submission(reservation.session_run_id, run_ref.clone())
-            .await?;
-        run_ref
-    };
+        crate::pm_tool_config::verify(supervisor.repo.as_ref(), &agent, &supervisor.config).await?;
+    }
+    let run_ref = pm_recovery::submit(supervisor, &agent, &intent, async {
+        app::pm_draft::verify_dispatch(supervisor.repo.as_ref(), tracker, operation).await?;
+        crate::pm_tool_config::verify(supervisor.repo.as_ref(), &agent, &supervisor.config).await
+    })
+    .await?;
     let native =
         hermes_wire::read_accepted_run(&supervisor.client, &base, &token, &run_ref).await?;
     let effective_session = hermes_wire::effective_session(&native, &run_ref)?;
@@ -765,7 +746,7 @@ pub(super) async fn verify_context(
         .await?;
     let token = crate::agent_runtime_token(&supervisor.config, agent.id)?;
     if origin != intent.origin
-        || context != intent.runtime_context
+        || context != pm_recovery::context(&intent.runtime_context)?
         || hermes_wire::credential_fingerprint(&token) != intent.credential_fingerprint
     {
         return Err(AppError::conflict("PM original runtime context changed"));

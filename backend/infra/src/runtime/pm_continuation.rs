@@ -292,35 +292,23 @@ pub(super) async fn resume(
         hermes_run_ref: None,
         ..intent.clone()
     };
-    let next = supervisor.repo.prepare_pm_dispatch(next).await?;
+    let next = pm_recovery::prepare(supervisor, &agent, next).await?;
     let base = pm_dispatch::verify_context(supervisor, &agent, &next).await?;
     let token = crate::agent_runtime_token(&supervisor.config, agent.id)?;
     hermes_wire::task_protocol(&supervisor.probe_hermes(&agent).await?)?;
-    let run_ref = if let Some(run) = next.hermes_run_ref {
-        run
-    } else {
+    if next.hermes_run_ref.is_none() {
         coordinator.machine_context(&operation, &credential).await?;
         crate::pm_tool_config::verify(supervisor.repo.as_ref(), &agent, &supervisor.config).await?;
-        if next.submitted || !supervisor.repo.claim_pm_submission(saved.id).await? {
-            return Err(AppError::Unavailable(
-                "PM continuation acceptance is unknown; no automatic resubmission".into(),
-            ));
-        }
-        let run = hermes_wire::submit(
-            &supervisor.client,
-            &base,
-            &token,
-            saved.id,
-            &next.request_body,
-            None,
-        )
-        .await?;
+    }
+    let run_ref = pm_recovery::submit(supervisor, &agent, &next, async {
         supervisor
             .repo
-            .record_pm_submission(saved.id, run.clone())
+            .get_clarification_command(actor, saved.id)
             .await?;
-        run
-    };
+        coordinator.machine_context(&operation, &credential).await?;
+        crate::pm_tool_config::verify(supervisor.repo.as_ref(), &agent, &supervisor.config).await
+    })
+    .await?;
     let native =
         hermes_wire::read_accepted_run(&supervisor.client, &base, &token, &run_ref).await?;
     if record

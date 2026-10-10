@@ -22,6 +22,19 @@ The [bounded stream profile](contracts/HERMES_EVENT_STREAM_V1.md) discards an
 unterminated EOF frame and requires independent status proof. It does not replay
 missed tools/approvals, prove safe process stop or authorize task/PM execution.
 Native compatibility and exact-source acceptance remain pending.
+
+PM unknown-ACK recovery is distinct from that optional free-chat lookup extension.
+New container PM intents retain a pre-submit immutable native durable capability,
+original key/body/hash and launch/generation/PID/start proof. Initial dispatch and
+clarification continuation may replay only that same native request while a
+conservative 86340-second horizon still contains the full 30-second HTTP budget,
+after fresh owner/assignment/configuration/token/container checks. Native key
+reservation resolves an accepted request to its original run; Fleet persists the
+ACK before existing status GET/bind. Old/no-proof, non-container, expired or
+changed-generation unknown intents remain held without a new key or launch.
+No Hermes patch or extension is required for this PM path. Source-only: authored
+Rust HTTP tests, PostgreSQL custody and real native qualification are pending.
+
 Docker config activation now has a bounded live-custodian fresh-generation path;
 see [unit18 source contract](CONTAINER_ACTIVATION_RELEASE.md). Desired/effective
 publication, drain, original safe-stop and exact rollback remain separate gates.
