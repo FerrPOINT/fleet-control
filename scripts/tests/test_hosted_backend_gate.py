@@ -804,8 +804,8 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(artifact["with"]["retention-days"], "14")
         self.assertEqual(artifact["with"]["archive"], "true")
         self.assertEqual(artifact["with"]["overwrite"], "false")
-        paths = artifact["with"]["path"].splitlines()
-        self.assertEqual({Path(path).name for path in paths}, gate.ARTIFACT_FILES)
+        self.assertEqual(artifact["with"]["path"], "${{ runner.temp }}/fleet-backend-evidence/")
+        self.assertEqual(gate.ARTIFACT_FILES, {"report.json", "provenance.json", "SHA256SUMS"})
         cleanup = next(step for step in steps if step.get("run", "").endswith(" cleanup"))
         self.assertEqual(cleanup["if"], "always() && steps.controls.outcome == 'success'")
         helper = (ROOT / gate.HELPER).read_text()
@@ -1230,6 +1230,9 @@ class HostedBackendTests(unittest.TestCase):
             "Exact isolated C11 product source; no integration tail.",
             "Exact C11 regressions with the test-only iterator correction."), Loader=yaml.BaseLoader)
         current_workflow = self.workflow()
+        steps = prior_workflow["jobs"]["backend"]["steps"]
+        artifact = next(step for step in steps if step.get("id") == "artifact")
+        artifact["with"]["path"] = "${{ runner.temp }}/fleet-backend-evidence/"
         self.assertEqual(current_workflow, prior_workflow)
         self.assertEqual(len(gate.GATES), 28)
         self.assertEqual((gate.DEFAULT_COUNT, gate.IGNORED_COUNT), (248, 18))
@@ -1349,9 +1352,31 @@ class HostedBackendTests(unittest.TestCase):
         functions = lambda tree: {node.name: ast.dump(node, include_attributes=False)
             for node in tree.body if isinstance(node, ast.FunctionDef)}
         old = functions(ast.parse(self.source_blob(gate.HELPER, "42447728419b69011efbd69f9f7ff5935c1e271f")))
-        new = functions(ast.parse((ROOT / gate.HELPER).read_bytes()))
-        self.assertEqual(set(old), set(new))
-        self.assertTrue(all(new[name] == body for name, body in old.items() if name != "reviewed_inventory"))
+        current = (ROOT / gate.HELPER).read_text()
+        new = functions(ast.parse(current))
+        self.assertEqual(set(new) - set(old), {"validate_evidence_files", "verify_evidence_directory"})
+        self.assertFalse(set(old) - set(new))
+        self.assertTrue(all(new[name] == body for name, body in old.items()
+                            if name not in {"reviewed_inventory", "validate_readback", "execute"}))
+        tree = ast.parse(current)
+        readback = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "validate_readback")
+        shared = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "validate_evidence_files")
+        self.assertEqual(ast.dump(readback.body[-1], include_attributes=False), ast.dump(ast.parse(
+            "return validate_evidence_files(files, workflow_sha=workflow_sha, run_id=run_id, attempt=attempt)").body[0],
+            include_attributes=False))
+        self.assertEqual(ast.dump(shared.body[0], include_attributes=False), ast.dump(ast.parse(
+            'require(set(files) == ARTIFACT_FILES, "Incomplete safe evidence file set")').body[0], include_attributes=False))
+        readback.body = readback.body[:-1] + shared.body[1:]
+        self.assertEqual(ast.dump(readback, include_attributes=False), old["validate_readback"])
+        added_verification = ('    if success:\n'
+            '        verify_evidence_directory(evidence, workflow_sha=workflow_sha, run_id=identity["run_id"],\n'
+            '                                  attempt=identity["run_attempt"])\n')
+        self.assertEqual(current.count(added_verification), 1)
+        normalized = current.replace(added_verification, '')
+        self.assertEqual(functions(ast.parse(normalized))["execute"], old["execute"])
+        execute = current[current.index("def execute():"):current.index("def cleanup_fallback():")]
+        self.assertLess(execute.index('(evidence / "SHA256SUMS").write_text'), execute.index(added_verification))
+        self.assertLess(execute.index(added_verification), execute.index('state="backend_quality_gate_passed"'))
         selectors = lambda tree: {node.name for cls in tree.body if isinstance(cls, ast.ClassDef)
             for node in cls.body if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
         previous = selectors(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", "42447728419b69011efbd69f9f7ff5935c1e271f")))
@@ -1660,6 +1685,77 @@ class HostedBackendTests(unittest.TestCase):
             run, artifact, payload, args = self.artifact(extra={name: b"private"})
             with self.assertRaises(ValueError):
                 gate.validate_readback(run, artifact, payload, **args)
+
+    def evidence_fixture(self, directory):
+        _, _, payload, args = self.artifact()
+        root = Path(directory) / "evidence"
+        root.mkdir()
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            for name in gate.ARTIFACT_FILES:
+                (root / name).write_bytes(archive.read(name))
+        identity = {name: args[name] for name in ("workflow_sha", "run_id", "attempt")}
+        return root, identity
+
+    def test_preupload_verifies_same_complete_evidence_as_authenticated_readback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, identity = self.evidence_fixture(directory)
+            gate.verify_evidence_directory(root, **identity)
+            for name in ("provenance.json", "SHA256SUMS"):
+                original = (root / name).read_bytes()
+                (root / name).unlink()
+                with self.subTest(missing=name), self.assertRaises(ValueError):
+                    gate.verify_evidence_directory(root, **identity)
+                (root / name).write_bytes(original)
+
+    def test_preupload_rejects_private_extra_file_directory_and_checksum_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, identity = self.evidence_fixture(directory)
+            extra = root / "PRIVATE_SENTINEL.log"
+            extra.write_bytes(b"PRIVATE_SENTINEL")
+            with self.assertRaises(ValueError):
+                gate.verify_evidence_directory(root, **identity)
+            extra.unlink()
+            sums = root / "SHA256SUMS"
+            original = sums.read_bytes()
+            sums.unlink()
+            sums.mkdir()
+            with self.assertRaises(ValueError):
+                gate.verify_evidence_directory(root, **identity)
+            sums.rmdir()
+            sums.write_bytes(original + b"tampered")
+            with self.assertRaises(ValueError):
+                gate.verify_evidence_directory(root, **identity)
+
+    @unittest.skipUnless(os.name == "posix", "Linux symlink fixture")
+    def test_preupload_rejects_linked_directory_and_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, identity = self.evidence_fixture(directory)
+            alias = Path(directory) / "alias"
+            alias.symlink_to(root, target_is_directory=True)
+            with self.assertRaises(ValueError):
+                gate.verify_evidence_directory(alias, **identity)
+            path = root / "provenance.json"
+            target = Path(directory) / "provenance.json"
+            path.replace(target)
+            path.symlink_to(target)
+            with self.assertRaises(ValueError):
+                gate.verify_evidence_directory(root, **identity)
+
+    def test_preupload_rejects_stale_run_and_incomplete_gate_without_readback_bypass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, identity = self.evidence_fixture(directory)
+            with self.assertRaises(ValueError):
+                gate.verify_evidence_directory(root, **dict(identity, run_id=999))
+            files = {name: (root / name).read_bytes() for name in gate.ARTIFACT_FILES}
+            report = json.loads(files["report.json"])
+            report["gates"] = report["gates"][:-1]
+            files["report.json"] = gate.canonical(report)
+            files["SHA256SUMS"] = "".join(gate.digest(files[name]) + "  " + name + "\n"
+                                          for name in ("report.json", "provenance.json")).encode()
+            for name, data in files.items():
+                (root / name).write_bytes(data)
+            with self.assertRaises(ValueError):
+                gate.verify_evidence_directory(root, **identity)
 
     def test_all9_databases_init_environment_and_finally_match(self):
         text = (ROOT / gate.INIT).read_text()

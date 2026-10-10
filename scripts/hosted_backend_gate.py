@@ -1110,6 +1110,9 @@ def execute():
         (evidence / name).write_bytes(canonical(value))
     (evidence / "SHA256SUMS").write_text("".join(digest((evidence / name).read_bytes()) + "  " + name + "\n"
                                               for name in ("report.json", "provenance.json")), newline="\n")
+    if success:
+        verify_evidence_directory(evidence, workflow_sha=workflow_sha, run_id=identity["run_id"],
+                                  attempt=identity["run_attempt"])
     if not success and compiler_failure is not None:
         failure_artifact = dict(version=1, kind="safe_inventory_failure" if compiler_stage == "runtime_inventory" else
                                "safe_compiler_failure" if compiler_stage in ("check", "clippy") else "safe_test_failure", status="failure", repository=REPOSITORY,
@@ -1173,6 +1176,11 @@ def validate_readback(run, artifact, payload, *, run_id, attempt, workflow_sha, 
                 and all(item.file_size <= 8 * 1024 ** 2 and (item.external_attr >> 16) & 0o170000 != 0o120000
                         for item in members), "Unsafe artifact members")
         files = {item.filename: archive.read(item) for item in members}
+    return validate_evidence_files(files, workflow_sha=workflow_sha, run_id=run_id, attempt=attempt)
+
+
+def validate_evidence_files(files, *, workflow_sha, run_id, attempt):
+    require(set(files) == ARTIFACT_FILES, "Incomplete safe evidence file set")
     provenance, report = json.loads(files["provenance.json"]), json.loads(files["report.json"])
     controls = Path(__file__).resolve().parents[1]
     expected = dict(version=1, repository=REPOSITORY, branch=BRANCH, source_sha=SOURCE_SHA, base_sha=BASE_SHA,
@@ -1215,6 +1223,22 @@ def validate_readback(run, artifact, payload, *, run_id, attempt, workflow_sha, 
     expected_sums = "".join(digest(files[name]) + "  " + name + "\n" for name in ("report.json", "provenance.json"))
     require(files["SHA256SUMS"] == expected_sums.encode(), "Checksum manifest mismatch")
     return files
+
+
+def verify_evidence_directory(root, *, workflow_sha, run_id, attempt):
+    require(root.is_dir() and not root.is_symlink(), "Unsafe evidence directory")
+    require({item.name for item in root.iterdir()} == ARTIFACT_FILES, "Incomplete safe evidence directory")
+    files = {}
+    for name in sorted(ARTIFACT_FILES):
+        path = root / name
+        metadata = path.lstat()
+        require(stat.S_ISREG(metadata.st_mode) and 0 < metadata.st_size <= 8 * 1024 ** 2,
+                "Unsafe evidence file")
+        with path.open("rb") as handle:
+            data = handle.read(8 * 1024 ** 2 + 1)
+        require(len(data) == metadata.st_size, "Evidence file changed or exceeded bound")
+        files[name] = data
+    validate_evidence_files(files, workflow_sha=workflow_sha, run_id=run_id, attempt=attempt)
 
 
 def validate_failure_readback(run, artifact, payload, *, run_id, attempt, workflow_sha, artifact_digest):
