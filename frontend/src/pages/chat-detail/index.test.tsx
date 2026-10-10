@@ -1178,8 +1178,8 @@ describe('production chat', () => {
           pageParams: [undefined],
         })
       })
+      await waitFor(() => expect(status.textContent).not.toBe(before))
       expect(screen.getByRole('status', { name: 'Доставка сообщения' })).toBe(status)
-      expect(status.textContent).not.toBe(before)
     })
   })
   it('never allows an operator reading another owner chat to consent', async () => {
