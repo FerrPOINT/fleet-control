@@ -12,21 +12,32 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Safe test-reason diagnostic categories | Actual38008974895 fails message_order; safe artifact independently authenticated. Add only fixed enum hints and strict parser/readback regression tests in owned controls; preserve all74 gates/source inventory/pins, no push or rerun. |
-| Feynman | Review candidate late-bound migration lookups | PR64 CI watch complete, all five jobs PASS. Independently review four Rust files addressing the source OID hazard and strengthening same-connection roundtrip. No product writes, native execution or causal CI claim. |
+| Pascal | Backend gate and external prerequisites | Watch actual38011797295 at controls a7d7db2/source6881c04 to terminal; authenticate the safe receipt and cleanup, without cancel/rerun or raw logs. Independently refresh published PM/Workflow and Forge/Base prerequisites, read-only; report actionable differences only. |
+| Feynman | Independent review and release-unit split | Migration lookup review and diagnostic framing P2 counterreview complete. Prepare exact disjoint path sets and dependency order for small release PRs from source6881c04, with missing evidence explicit. No public writes, product edits or broad assembly PR. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
-| Parent | Correct the migration roundtrip and integrate release evidence | Authenticate actual380089 failure; implement parameterized current-object lookup and stable-connection/OID regression. Review worker controls, preserve every authority/ledger assertion and publish only after exact-source checks. |
+| Parent | Integration, corrections and publication | Source6881c04 is published; corrected controls a7d7db2 start actual38011797295. Integrate reviewed task-owned changes and maintain docs, preserving every authority/ledger assertion. No deployment or full backend acceptance before evidence. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
 integrates the generated API/type alias. Final integrated Rust parity is still
 required; code generation is not runtime acceptance.
 
-The three worker streams have disjoint write sets: backend gate controls,
-the existing PR47 approval patch, and frontend browser tests. Parent alone writes
-the combined product source and this release ledger. Completed work is not
-reassigned as a new audit. Deliverables are a concrete commit, exact commands and
-results, and a bounded blocker list, rather than a fresh broad plan.
+The current worker streams are read-only against product source and use owned
+local reports/checkouts. Parent alone writes the combined product source and
+this release ledger. Historical worker implementation scopes below are complete,
+not concurrent assignments. Deliverables identify exact commits, commands,
+results and bounded blockers rather than repeat completed broad audits.
+
+Current gate: [38011797295](https://github.com/FerrPOINT/fleet-control/actions/runs/38011797295),
+verified in progress at publication. Controls preserve all74 stages,9 journal
+cases, canonical21/split24 migrations,167 ignored/294 ordinary cases and all
+dependency/API pins. Source-to-controls delta remains exactly six additions;
+gate.sh and init.sql are unchanged. The fixed-hint parser now clears previous
+panic detail at thread/test framing boundaries. Independent counterreview closes
+the synthetic false-attribution P2:14 focused cases and9 independent vectors
+pass. Parent full helper suite runs98 cases,96 PASS/two Linux-only skips. These
+are control-tool checks, not product Rust/PG or live SDLC acceptance. No hint
+alone establishes the cause of an earlier hosted failure.
 
 Integration order: review and integrate product corrections; publish the narrow
 PR successor independently; merge the final product source into backend controls
