@@ -147,47 +147,6 @@ impl PostgresFleetRepository {
         self.get_session(id).await
     }
 
-    pub(crate) async fn message_by_id(&self, id: Uuid) -> Result<SessionMessage, AppError> {
-        let row = session_message::Entity::find_by_id(id)
-            .one(&self.db)
-            .await
-            .map_err(AppError::database)?
-            .ok_or_else(|| AppError::not_found("session_message", id))?;
-        let author_type = parse_message_author_type(&row.author_type);
-        let author_user = match row.author_user_id {
-            Some(id) => user::Entity::find_by_id(id)
-                .one(&self.db)
-                .await
-                .map_err(AppError::database)?,
-            None => None,
-        };
-        let author_agent = match row.author_agent_id {
-            Some(id) => agent::Entity::find_by_id(id)
-                .one(&self.db)
-                .await
-                .map_err(AppError::database)?,
-            None => None,
-        };
-        Ok(SessionMessage {
-            id: row.id,
-            session_id: row.session_id,
-            author_type,
-            author_user_id: row.author_user_id,
-            author_agent_id: row.author_agent_id,
-            author_display_name: message_author_display_name(
-                author_type,
-                author_user.as_ref(),
-                author_agent.as_ref(),
-            ),
-            body: redact_text(&row.body),
-            message_kind: parse_message_kind(&row.message_kind),
-            runtime_message_id: row.runtime_message_id,
-            delivery_state: parse_message_delivery_state(&row.delivery_state),
-            delivery_error: row.delivery_error.map(|error| redact_text(&error)),
-            replayed: false,
-            created_at: api_ts(row.created_at),
-        })
-    }
     pub(crate) async fn task_binding(
         &self,
         session_id: Uuid,
@@ -362,6 +321,7 @@ impl PostgresFleetRepository {
                 delivery_state: parse_message_delivery_state(&row.delivery_state),
                 delivery_error: row.delivery_error.map(|error| redact_text(&error)),
                 replayed: false,
+                request_payload_hash: None,
                 created_at: api_ts(row.created_at),
             });
         }

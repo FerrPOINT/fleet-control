@@ -126,6 +126,34 @@ The managed-settings fixture changes themes through the shared account menu,
 checks the selected radio item and preserves preview/apply/rollback assertions.
 The removed standalone theme button is not an alternative control contract.
 
+## Message Receipt Boundary Regression
+
+`message_receipts_and_replay_are_independent_of_history_limit` requires a
+disposable `FLEET_TEST_DATABASE_URL`; missing configuration fails the test.
+It preserves the session's initial system event while populating exactly 499
+and 500 history rows. It verifies the committed 500th/501st receipt, identical-key
+replay, conflicting payload and foreign-owner denial. Dispatch receives the
+original prompt; public receipts remain redacted. Assistant mirror receipts and
+deduplication also work outside the history page. History remains limited to 500.
+The POST digest matches the client protocol fixture; history and runtime reads
+omit it. The fixture retains unknown runtime acceptance rather than claiming
+that an external runner executed the command.
+Fresh detail reports no pending delivery despite its valid unbound preparation
+run. After a prompt, complete detail reports pending delivery even when that
+prompt falls outside the first 500 history rows.
+
+```bash
+cargo test --locked -p infra --test sdlc_foundation \
+  message_receipts_and_replay_are_independent_of_history_limit -- --exact
+```
+
+Chats browser regressions separately cover a valid redacted POST receipt and
+missing/wrong request digests retaining the original command. Their API/SSE
+fixtures do not replace the PostgreSQL boundary regression or live delivery.
+Additional cases cover the first prompt with an unbound preparation slot,
+bound pending run identities, full-session delivery outside visible history and
+an absent activity projection.
+
 ## Heartbeat Incident Regression
 
 `backend/infra/tests/heartbeat_alerts.rs` requires `FLEET_TEST_DATABASE_URL`

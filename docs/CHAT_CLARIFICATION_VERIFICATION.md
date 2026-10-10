@@ -3,6 +3,27 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Integrated Chats Review (2026-10-10)
+
+Интеграция с принятым main `c39ff84` сохраняет private receipts/recovery из #59
+и server-scoped directory/task controllers foundation. Выбор контроллера берётся
+из необязательной detail-проекции `task_bound`, а не legacy task key. Private
+transcript использует cursor history; старый GET сообщений сохраняет свой API.
+
+Настоящий disposable PostgreSQL воспроизвёл ошибку controls для pending run с
+единственным runtime session ID. После исправления проходят подготовительный
+слот без identities и три комбинации bound identities. Paginated history не
+выдаёт POST-only request digest. Семь DTO сверены с опубликованным Tracker #114
+`357caa7a60a717eb7b0ac72f286b793326992931`, accepted snapshot не переписан.
+
+Steer/stop и Task commands удерживают неизвестный исход после reload без
+сохранения текста/токенов; поздний или чужой receipt не снимает блокировку.
+Текущий legacy API controls не предоставляет persisted command receipt/lookup,
+поэтому metadata не выдаётся за серверный idempotency protocol и неизвестная
+команда не повторяется автоматически. Admission, PM delivery/resume и Backlog
+остаются отдельной вертикальной приёмкой. Fixtures и локальная компиляция не
+подтверждают установку конечного image; exact-head CI/native gate ещё обязательны.
+
 ## Published Monitoring Merge Gate (2026-10-09)
 
 Hosted [CI37930186282](https://github.com/FerrPOINT/fleet-control/actions/runs/37930186282)

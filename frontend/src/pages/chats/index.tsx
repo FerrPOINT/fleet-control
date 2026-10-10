@@ -1,14 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Bot, MessageSquare, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label } from '@sdlc/ui/ui'
-import { createSession } from '@/api/fleet'
+import { createSession, getSession, listAgentDirectory } from '@/api/fleet'
+import { apiBaseUrl } from '@/api/client'
 import { getChatsDirectory } from '@/api/chats-directory'
-import type { AgentDirectoryItem } from '@/api/types'
+import type { AgentDirectoryItem, AgentSession } from '@/api/types'
 import { useSessionUserFilter, SessionUserFilter } from '@/shared/session-user-filter'
-import { useAuthStore } from '@/shared/auth/store'
+import { isCurrentAuth, ssoConfig, useAuthStore } from '@/shared/auth/store'
+import {
+  clearDispatch,
+  commandService,
+  dispatchHeld,
+  markDispatch,
+  payloadDigest,
+  unknownOutcome,
+  type DispatchMarker,
+} from '../chat-detail/core'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { sdlcRoleLabel } from '@/shared/sdlc-roles'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
@@ -218,7 +228,7 @@ export function ChatsPage() {
                   {visibleSessions.map((session) => (
                     <li key={session.id}>
                       <Link
-                        to={`/chats/${session.id}?returnTo=${encodeURIComponent(returnTo)}`}
+                        to={`/chats/${session.id}?backTo=${encodeURIComponent(returnTo)}`}
                         className="flex min-w-0 items-start gap-3 rounded-sm px-2 py-4 hover:bg-surface-raised focus-visible:outline-focus"
                       >
                         <UserAvatar
@@ -296,6 +306,7 @@ export function ChatsPage() {
       ) : null}
       {selected ? (
         <CreatePrivateChat
+          key={selected.agent.id}
           agent={selected.agent}
           open={createOpen}
           onOpenChange={setCreateOpen}
@@ -307,35 +318,133 @@ export function ChatsPage() {
 }
 
 function CreatePrivateChat({
+  returnTo,
   agent,
   open,
   onOpenChange,
-  returnTo,
 }: {
+  returnTo: string
   agent: AgentDirectoryItem
   open: boolean
   onOpenChange: (value: boolean) => void
-  returnTo: string
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const client = useQueryClient()
   const [title, setTitle] = useState('')
   const [key, setKey] = useState(() => crypto.randomUUID())
+  const auth = useAuthStore()
+  const scopeId = `create:${agent.id}`
+  const [held, setHeld] = useState(() => dispatchHeld(scopeId))
+  const original = useRef<{ title: string; marker: DispatchMarker; uncertain: boolean } | null>(
+    null,
+  )
+  const live = useRef(true)
+  const dispatching = useRef(false)
+  useEffect(() => {
+    live.current = true
+    return () => {
+      live.current = false
+    }
+  }, [])
   const mutation = useMutation({
-    mutationFn: () =>
-      createSession({
-        primary_agent_id: agent.id,
-        title: title.trim(),
-        leader_agent_id: null,
-        idempotency_key: key,
-      }),
+    mutationFn: async () => {
+      if (dispatching.current) throw new Error('Dispatch pending')
+      dispatching.current = true
+      const scope = useAuthStore.getState()
+      try {
+        const directory = await listAgentDirectory()
+        const current = directory.find((entry) => entry.id === agent.id)
+        if (
+          !isCurrentAuth(scope) ||
+          !scope.permissions.includes('sessions:write_own') ||
+          current?.product_role !== 'executor' ||
+          current.status === 'archived'
+        )
+          throw new Error('Read-only')
+        if (!original.current) {
+          if (dispatchHeld(scopeId)) throw new Error('Reconciliation required')
+          const marker = {
+            actor: scope.userId!,
+            agent: agent.id,
+            service: commandService(apiBaseUrl, ssoConfig.issuer),
+            key,
+            digest: await payloadDigest({
+              title: title.trim(),
+              primary_agent_id: agent.id,
+              leader_agent_id: null,
+            }),
+          }
+          if (!isCurrentAuth(scope) || !live.current) throw new Error('Authentication changed')
+          markDispatch(scopeId, marker)
+          original.current = { title: title.trim(), marker, uncertain: false }
+          setHeld(true)
+        }
+        const command = original.current
+        if (
+          command.marker.actor !== scope.userId ||
+          command.marker.agent !== agent.id ||
+          command.marker.service !== commandService(apiBaseUrl, ssoConfig.issuer)
+        )
+          throw new Error('Authentication or command target changed')
+        let created: AgentSession
+        try {
+          created = await createSession({
+            primary_agent_id: command.marker.agent,
+            title: command.title,
+            leader_agent_id: null,
+            idempotency_key: command.marker.key,
+          })
+        } catch (failure) {
+          if (
+            live.current &&
+            isCurrentAuth(scope) &&
+            !command.uncertain &&
+            !unknownOutcome(failure) &&
+            clearDispatch(scopeId, command.marker)
+          ) {
+            original.current = null
+            setHeld(false)
+          }
+          if (unknownOutcome(failure)) command.uncertain = true
+          throw failure
+        }
+        command.uncertain = true
+        // Confirm the returned id against the protected session before releasing the key.
+        const confirmed = await getSession(created.id)
+        if (
+          !isCurrentAuth(scope) ||
+          !live.current ||
+          confirmed.user_id !== scope.userId ||
+          confirmed.primary_agent_id !== command.marker.agent ||
+          confirmed.title !== command.title
+        )
+          throw new Error('Unconfirmed creation')
+        return confirmed
+      } finally {
+        dispatching.current = false
+      }
+    },
+    onError: () => {
+      if (!live.current) return
+      setHeld(dispatchHeld(scopeId))
+    },
     onSuccess: async (session) => {
+      if (
+        !live.current ||
+        !original.current ||
+        original.current.marker.actor !== useAuthStore.getState().userId ||
+        !clearDispatch(scopeId, original.current.marker)
+      )
+        return
+      original.current = null
+      setHeld(false)
       await client.invalidateQueries({ queryKey: ['chats-directory'] })
       onOpenChange(false)
       setTitle('')
       setKey(crypto.randomUUID())
-      navigate(`/chats/${session.id}?returnTo=${encodeURIComponent(returnTo)}`)
+      if (!live.current || useAuthStore.getState().signingOut) return
+      navigate(`/chats/${session.id}?backTo=${encodeURIComponent(returnTo)}`)
     },
   })
   return (
@@ -356,7 +465,14 @@ function CreatePrivateChat({
           aria-busy={mutation.isPending}
           onSubmit={(event) => {
             event.preventDefault()
-            if (title.trim() && !mutation.isPending) mutation.mutate()
+            if (
+              title.trim() &&
+              !mutation.isPending &&
+              auth.permissions.includes('sessions:write_own') &&
+              !auth.signingOut &&
+              (!held || original.current)
+            )
+              mutation.mutate()
           }}
         >
           <Label htmlFor="chat-title">{t('sessions.sessionTitle')}</Label>
@@ -366,15 +482,29 @@ function CreatePrivateChat({
             value={title}
             required
             maxLength={200}
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || held}
             onChange={(event) => {
               setTitle(event.target.value)
               setKey(crypto.randomUUID())
               mutation.reset()
             }}
           />
+          {held ? (
+            <p role="alert" className="text-sm text-text-secondary">
+              {t('chatCore.createHeld')}
+            </p>
+          ) : null}
           {mutation.isError ? <ErrorState message={t('sessions.createError')} /> : null}
-          <Button type="submit" disabled={mutation.isPending || !title.trim()}>
+          <Button
+            type="submit"
+            disabled={
+              mutation.isPending ||
+              !title.trim() ||
+              auth.signingOut ||
+              !auth.permissions.includes('sessions:write_own') ||
+              (held && !original.current)
+            }
+          >
             <Plus className="h-4 w-4" />
             {mutation.isPending ? t('sessions.creating') : t('sessions.create')}
           </Button>

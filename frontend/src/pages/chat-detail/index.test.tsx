@@ -1,8 +1,8 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ChatDetailPage } from './index'
+import { TaskChatDetailPage as ChatDetailPage } from './task-detail'
 import * as fleet from '@/api/fleet'
 import * as chats from '@/api/task-chats'
 import type { AgentSession, SessionMessage } from '@/api/types'
@@ -124,7 +124,8 @@ function renderPage(tab = 'dialogue') {
 }
 beforeEach(() => {
   vi.clearAllMocks()
-  useAuthStore.setState({ userId: 'owner', token: null })
+  sessionStorage.clear()
+  useAuthStore.setState({ userId: 'owner', token: 'owned-fixture-token', signingOut: false })
   vi.mocked(fleet.getSession).mockResolvedValue({
     id: 'session1',
     user_id: 'owner',
@@ -134,6 +135,7 @@ beforeEach(() => {
     title: 'Task',
     visibility: 'private',
     task_key: 'TASK-1',
+    task_bound: true,
   } as AgentSession)
   vi.mocked(fleet.listAgentDirectory).mockResolvedValue([])
   vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([])
@@ -170,6 +172,138 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it('retains the original confirmation key while switching tabs after an unknown receipt', async () => {
+    vi.mocked(chats.confirmRequirements).mockRejectedValueOnce(new Error('Unknown confirmation'))
+    renderPage('requirements')
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить редакцию 3' }))
+    await screen.findByText('Unknown confirmation')
+    const original = vi.mocked(chats.confirmRequirements).mock.calls.at(0)
+    await userEvent.click(screen.getByRole('tab', { name: /Диалог/ }))
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: /Диалог/ })).toHaveAttribute('aria-selected', 'true'),
+    )
+    await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
+    expect(screen.getByRole('button', { name: 'Подтвердить редакцию 3' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить редакцию 3' }))
+    await waitFor(() => expect(chats.confirmRequirements).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(chats.confirmRequirements).mock.calls.at(1)).toEqual(original)
+    await screen.findByText('Подтверждение сохранено. Следующее назначение проверяется отдельно.')
+  })
+
+  it('accepts the matching late confirmation while its tab is hidden', async () => {
+    let resolve!: (value: Awaited<ReturnType<typeof chats.confirmRequirements>>) => void
+    vi.mocked(chats.confirmRequirements).mockReturnValue(
+      new Promise((value) => {
+        resolve = value
+      }),
+    )
+    renderPage('requirements')
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить редакцию 3' }))
+    await waitFor(() => expect(chats.confirmRequirements).toHaveBeenCalledOnce())
+    await userEvent.click(screen.getByRole('tab', { name: /Диалог/ }))
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: /Диалог/ })).toHaveAttribute('aria-selected', 'true'),
+    )
+    await act(async () =>
+      resolve({
+        id: 'confirmation',
+        task_id: 'task',
+        revision: 3,
+        content_hash: 'hash3',
+        owner_subject: 'subject-owner',
+        created_at: '2026-10-01T12:00:00Z',
+        stage: 'Backlog',
+      }),
+    )
+    expect(
+      sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1:confirmation'),
+    ).toBeNull()
+    await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
+    expect(screen.getByRole('button', { name: 'Подтвердить редакцию 3' })).toBeDisabled()
+  })
+  it('holds a foreign answer receipt without discarding its draft', async () => {
+    vi.mocked(chats.answerClarification).mockResolvedValue({
+      id: 'foreign-answer',
+      question_id: 'foreign-question',
+      question_version: 1,
+      requirement_revision: 3,
+      selected_option_ids: ['project'],
+      text: null,
+      comment: null,
+      author_subject: 'subject-owner',
+      created_at: '2026-10-01T12:00:00Z',
+    })
+    renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.change(screen.getByLabelText('Комментарий'), { target: { value: 'Retained draft' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Не удалось проверить подтверждение сохранения ответа.')
+    expect(screen.getByLabelText('Комментарий')).toHaveValue('Retained draft')
+    expect(sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1:answer')).not.toBeNull()
+    expect(
+      screen.queryByText('Ответ сохранён. Требования ещё не опубликованы.'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not release an unknown answer after a later definitive rejection', async () => {
+    vi.mocked(chats.answerClarification)
+      .mockRejectedValueOnce(new Error('Lost first answer'))
+      .mockRejectedValueOnce(new ApiError(409, 'Later version conflict'))
+    renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Lost first answer')
+    const original = vi.mocked(chats.answerClarification).mock.calls.at(0)?.[2]
+    expect(original).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Later version conflict')
+    expect(vi.mocked(chats.answerClarification).mock.calls.at(1)?.[2]).toEqual(original)
+    expect(sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1:answer')).not.toBeNull()
+    expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeDisabled()
+  })
+
+  it('holds unknown requirements confirmation through reload', async () => {
+    vi.mocked(chats.confirmRequirements).mockRejectedValue(new Error('Lost confirmation receipt'))
+    renderPage('requirements')
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить редакцию 3' }))
+    await screen.findByText('Lost confirmation receipt')
+    expect(
+      sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1:confirmation'),
+    ).not.toBeNull()
+    cleanup()
+    renderPage('requirements')
+    await screen.findByText(
+      'Исход подтверждения требует сверки после перезагрузки. Новая команда заблокирована.',
+    )
+    expect(screen.getByRole('button', { name: 'Подтвердить редакцию 3' })).toBeDisabled()
+    expect(chats.confirmRequirements).toHaveBeenCalledTimes(1)
+  })
+
+  it('holds an unknown answer through reload without saving its private payload', async () => {
+    vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Lost answer receipt'))
+    const view = renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.change(screen.getByLabelText('Комментарий'), {
+      target: { value: 'Private answer comment' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Lost answer receipt')
+    const raw = sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1:answer')!
+    expect(raw).not.toContain('Private answer comment')
+    expect(raw).not.toContain('owned-fixture-token')
+    view.router.dispose()
+    // A new mounted form models reload; storage survives, private form memory does not.
+    cleanup()
+    renderPage('clarification')
+    await screen.findByText(
+      'Исход сохранения ответа требует сверки после перезагрузки. Новый ответ заблокирован.',
+    )
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+  })
   const message = (
     id: string,
     body: string,
@@ -227,7 +361,7 @@ describe('production chat', () => {
       )
       await screen.findByText('Arrived while loading')
       expect(
-        [...document.querySelectorAll('.fc-chat-message > p')].map((node) => node.textContent),
+        [...document.querySelectorAll('.fc-task-chat-message > p')].map((node) => node.textContent),
       ).toEqual(['Older history', 'Existing latest', 'Arrived while loading'])
       expect(chats.getChatHistory).toHaveBeenCalledTimes(4)
     },
@@ -252,7 +386,7 @@ describe('production chat', () => {
     renderPage()
     await screen.findByText('Third message')
     const texts = () =>
-      [...document.querySelectorAll('.fc-chat-message > p')].map((node) => node.textContent)
+      [...document.querySelectorAll('.fc-task-chat-message > p')].map((node) => node.textContent)
     expect(texts()).toEqual(['Second message', 'Third message'])
     await userEvent.click(screen.getByRole('button', { name: 'Предыдущие сообщения' }))
     await waitFor(() =>
@@ -421,7 +555,7 @@ describe('production chat', () => {
     expect(screen.getByLabelText('Комментарий')).toHaveValue('New draft')
     expect(screen.getByText('Old draft')).toBeVisible()
   })
-  it('never converts an uncertain steer into a new prompt after controls change', async () => {
+  it('keeps ordinary task commands disabled even if a control response advertises steer', async () => {
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: false,
@@ -430,12 +564,9 @@ describe('production chat', () => {
       active_run_id: 'run-1',
       blocked_reason: null,
     })
-    vi.mocked(fleet.steerSessionRun).mockRejectedValue(new Error('Unknown steer outcome'))
     const { client } = renderPage()
-    const input = await screen.findByLabelText('Уточнение активному запуску')
-    fireEvent.change(input, { target: { value: 'A scoped steer' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Передать уточнение запуску' }))
-    await screen.findByText('Unknown steer outcome')
+    expect(await screen.findByLabelText('Сообщение агенту')).toBeDisabled()
+    expect(screen.queryByLabelText('Уточнение активному запуску')).not.toBeInTheDocument()
     client.setQueryData(['chat-controls', 'session1'], {
       can_send: true,
       can_steer: false,
@@ -447,6 +578,6 @@ describe('production chat', () => {
       expect(screen.getByRole('button', { name: 'Отправить сообщение' })).toBeDisabled(),
     )
     expect(fleet.createSessionMessage).not.toHaveBeenCalled()
-    expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1)
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
   })
 })
