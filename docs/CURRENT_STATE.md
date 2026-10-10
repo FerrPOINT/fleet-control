@@ -2,7 +2,7 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current tested-source candidate `5d91b13`, a normal descendant
+Current tested-source candidate `6881c04`, a normal descendant
 of b249 with runtime corrections, durable clarification custody, generated API
 and the private-approval ownership correction, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
@@ -10,7 +10,7 @@ heads; they do not accept this assembly.
 
 | Current gate | Exact source / authority | State |
 | --- | --- | --- |
-| Combined backend | Source5d91b13, controlsf34ed9b, run38008974895 | FAILURE at message_order; candidate late-binding correction pending PG |
+| Combined backend | Source6881c04, controlsa7d7db2, run38011797295 | Linux/PG gate in progress; no full backend acceptance |
 | Config release PR64 | Head820a1af, run38008810511, dependency PR47 at11f97aa | All five CI jobs PASS; Draft, dependency/live gates open |
 | Production Chats presentation | Frontend tree13ccbaba, correction6c022f3 |42 unit cases and six three-engine fixture cases pass; no live PM acceptance |
 | PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
@@ -20,6 +20,15 @@ heads; they do not accept this assembly.
 The run states are publication checkpoints, not live status widgets. Terminal
 results must be authenticated before changing acceptance. Documentation-only
 successors do not change the frozen source of either CI run.
+
+Run38011797295 passes exact-source/codegen preflight and reaches the full
+Linux/PostgreSQL step. The source includes the reviewed parameterized catalog
+lookups and same-connection/OID roundtrip regression after historical38008974895's
+message_order failure. Controls change no gate inventory or authority:74 stages,
+9 journal cases,21 canonical/24 split migrations and dependency pins remain.
+The safe diagnostic framing correction has independent counterreview closure;
+its98 helper tests comprise96 PASS/two Linux-only skips, not Rust/PG acceptance.
+The previous failure's exact database cause remains unproved.
 
 ### Retained Evidence And Earlier Corrections
 

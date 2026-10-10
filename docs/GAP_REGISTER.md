@@ -2,10 +2,18 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current tested-source candidate is5d91b13
+The current tested-source candidate is6881c04
 (runtime corrections, journal3b41, human guard, genuine generated API and private-
 approval ownership correction), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
+
+Published controlsa7d7db2 now test that exact source in
+[run38011797295](https://github.com/FerrPOINT/fleet-control/actions/runs/38011797295).
+Exact-source/codegen preflight passes; the Linux/PostgreSQL gate is in progress
+at this checkpoint. The reviewed catalog lookup correction and strengthened
+same-connection/OID test still need its actual result. Historical38008974895's
+message_order failure is not a failure receipt for the successor. Neither pure
+diagnostic checks nor the absence of a new failure establishes backend success.
 
 Use the [current gate matrix](CURRENT_STATE.md#current-integration-snapshot-10-october-2026)
 for exact candidates and acceptance boundaries. Earlier failures below are
