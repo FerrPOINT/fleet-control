@@ -12,9 +12,9 @@ Tracker and Workflow stay read-only; root Base foreign changes are untouched.
 
 | Owner | Current isolated write scope / deliverable | Handoff criterion |
 | --- | --- | --- |
-| Curie | Exactbf0 frontend controls in a new owned successor | Both fixture fixes are reviewed/integrated; retain23 gates, all scenarios/engines and canonical835 source inventory; no heavy/publication actions; fresh browser acceptance remains parent-owned |
-| Pascal | Test-only read-only SQL probes in an owned exact56 successor | Source review found no proved contradiction; diagnose exact checked/current/authority predicates without INSERT/locks/renewals or weaker production guards |
-| Feynman | Forge maintenance-packet closure in a separate owned successor | Qualified immutable Base helper inputs or exact missing blobs; minimum public-safe Forge patch and pure tests; no private ancestry/source publication or guessed pin |
+| Curie | New isolated frontend chat-detail/hooks/unit-test successor from7dd6020 | Close actual missing owner-revocation, session-switch and original-answer custody regressions; minimal fixes only for demonstrated bugs; no changes to frozen browser candidate, API, backend or E2E |
+| Pascal | New full-backend controls successor on exact7dd6020 | Integrate reviewed read-only SQL probes; preserve81 gates, selectors, migration lineages and privacy; parent reviews and publishes; no relaxed authority predicates |
+| Feynman | New clean private Base maintenance-packet candidate from verified upstream main | Locate canonical source provenance or disclose installed-byte origin; review exact three helpers and focused tests/docs; root dirty Base and PR180 stay untouched; no private source in public Forge history |
 | Parent | Fleet integration, exact-source controls, CI, documentation and publication | Review worker diffs; qualify source/control closure; normal history/push; authenticate terminal receipts before any acceptance claim |
 
 C11 controlscfe7805 normally publish exact3d1;
@@ -22,12 +22,22 @@ C11 controlscfe7805 normally publish exact3d1;
 completes FAILURE at Clippy, authenticated artifact11660525394. Test-only iterator
 correction0e49430 and normal controls01f32fe start
 [run38026636805](https://github.com/FerrPOINT/fleet-control/actions/runs/38026636805),
-confirmed in progress. Source still declares248 default/18 ignored tests,
+completes SUCCESS. However, its authenticated ZIP digest matches artifact11660627606
+while the archive contains only one nested report.json entry, not the required
+report/provenance/SHA256SUMS set. Frozen readback rejects it; provenance acceptance
+is withheld pending packaging diagnosis. Source still declares248 default/18 ignored tests,
 preserving all original identities. Parent115 pure passes/four Linux skips
 qualify the new controls, not product/Auth/PG acceptance.
 Both earlier full-backend38023648801 and browser38023185173 are terminal FAILURE;
 the independent runtime/UI tasks address those actual results, not active jobs.
 No worker runs heavy local jobs, publishes branches or edits another scope.
+
+Reviewed browser controls0917f33 are published normally on their dedicated branch;
+[run38027721811](https://github.com/FerrPOINT/fleet-control/actions/runs/38027721811)
+starts on that exact head. Parent repeats68 pure checks successfully, without skips.
+Metadata-only Playwright enumeration registers35 cases per engine:26 fixture and
+nine live opt-in cases. Registration is not execution or live acceptance. Neither
+the workers nor this checkpoint claim successful fresh browser screenshots.
 
 ### Historical Assignment Checkpoints
 
