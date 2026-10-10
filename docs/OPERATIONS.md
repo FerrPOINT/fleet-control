@@ -1,5 +1,25 @@
 # Operations
 
+## PM Stop And Terminal Readback025 Candidate
+
+With025, the owner may Stop an originally accepted PM run even when the initial
+guidance ACK was lost. Steer still requires acknowledged guidance or a continuation
+checkpoint. This is not a dispatch permit: current owner/project/assignment,
+original native/request custody, drain and prior-stop checks still apply. Unknown
+initial dispatch acceptance does not gain authority from the guidance exception.
+Retain the same control key/body for recovery; do not create a new run or clear holds.
+
+PM readback uses the same terminal validator as Hermes event/readback handling.
+A `completed` status without exact boolean completed/partial/interrupted flags
+is not terminal proof; unknown evidence retains the hold. Stop ACK alone does
+not release capacity or prove business completion.
+
+Rehearse025 on both supported lineages before deployment; source counts are26/29.
+Downgrade refuses retained Stops that require the new guidance exception. Preserve
+receipts and use forward reconciliation, not history deletion or manual flag edits.
+See [upgrade/downgrade boundaries](MIGRATIONS.md#pm-stop-custody025-candidate).
+The source candidate and authored tests do not constitute PG/native acceptance.
+
 ## PM Human Controls Migration Gate
 
 Migration023 requires a clean and historical-data PostgreSQL rehearsal for both

@@ -33,6 +33,15 @@ and receipt, not a new submission. Idle PM free-form launch currently reports
 `pm_idle_prompt_contract_unavailable`; no fabricated clarification or unbound
 chat fallback is permitted. Operators cannot substitute for owner decisions.
 
+The025 candidate allows owner Stop of an originally accepted PM run despite a
+lost initial guidance ACK; Steer still requires acknowledged guidance or a
+continuation checkpoint, with all other authority/custody checks unchanged.
+PM readback uses shared strict terminal validation: completed requires matching
+native identity and exact boolean completed=true/partial=false/interrupted=false.
+Unknown evidence retains the hold; Stop ACK is not terminal proof. No endpoint,
+public DTO/OpenAPI schema change or Hermes producer patch is introduced.
+Current-source PostgreSQL/native qualification remains pending.
+
 ## Hermes Recovery Candidate
 
 The recovery slice changes no public Fleet route, DTO or OpenAPI schema. The default-off original-key

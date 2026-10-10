@@ -194,9 +194,42 @@ Reported pure checks are Windows196 selectors (193 PASS/three skips), Linux196
 PASS and parent three focused checks PASS, with Curie approval.
 Parent fresh API verification identifies actual push run
 [38092256984](https://github.com/FerrPOINT/fleet-control/actions/runs/38092256984)/1,
-created2026-10-10T22:39:45Z, in progress on exact50cb/source5bc.
-No terminal result or qualification is claimed; afab remains the latest
-terminal backend observation.
+created2026-10-10T22:39:45Z on exact50cb/source5bc. It completed FAILURE
+at23:05:58Z, job114330922636. Original unchanged50cb strict readback verifies
+artifact11685286092, ZIP SHA256
+`96286abe61e7b4d27be5f17075a1ae4a1441f5510b0ac53ffed5a9bbd46e83db`;
+safe JSON SHA256 `e19ceb75c9ada144d22af555191ca493bb961dcec7777a017c74669696731891`.
+The latest terminal backend receipt records runtime_stream_bounds51/84, exit101,
+test_failure, null signal/command/harness exit numbers, readable/untruncated log
+and exact failed test
+`runtime_stream_bounds::runtime_stream_bounds_invalid_json_utf8_and_foreign_control_payloads_never_mirror`.
+The retained frame is `backend/infra/tests/sdlc_foundation.rs:121:10`, at
+create_agent.unwrap; no SQLSTATE/AppError detail or unique cause is retained.
+Both scoped cleanups are true and all acceptance flags false. The immutable
+sequential gate and completion checks establish that PM recovery13 passed before
+gate51, not all84 or later-source qualification. This receipt has no stack-overflow
+category or PM layout/phase object. Earlier afab remains a separate actual failure;
+the historical45096 bytes measure the bounded helper future, not submit internals.
+
+Reviewed fixture-only `949318d31a0895767a1cda3ac014966fa8dfeda7` gives each
+invalid-stream scenario its own Tokio runtime, retaining all inputs/assertions.
+Source inspection verifies the former fixture kept detached supervisor workers
+and their repository pools alive between cases. The per-case shutdown corrects
+that lifetime/isolation defect; actual connections, failing iteration and the
+gate51 SQL cause were not retained, so no causal or passing-fix claim follows.
+Source successor `8f8e69d637a64b2d7a3e8c2bc6dca00517539667`, sole949 child,
+reuses strict shared Hermes terminal validation and permits custodial owner Stop
+after lost initial guidance ACK, retaining Steer's prerequisite and other guards.
+Additive025 preserves010-024 bytes; registry counts are26 canonical/29 split.
+Its authored terminal/control and both-lineage down/up/refusal tests require
+current-source execution. No endpoint/schema/Hermes producer patch is introduced.
+The5bc PM13 result does not qualify this newer source or the separately reviewed
+test-connection fixture correction. Neither source review nor passing an earlier suite grants
+complete PM/native/SDLC acceptance.
+
+Git inventory of exact8f versus unchanged mainc39 verifies524 changed paths and
+16 new migration files010-025. Historical exact698's523 paths/15 migrations010-024
+remain a historical audit, not current release size or merge-readiness authority.
 
 Earlier backend admission refusal
 [38078901349](https://github.com/FerrPOINT/fleet-control/actions/runs/38078901349),
@@ -330,6 +363,22 @@ not an independent full Docker resource inventory. No native acceptance is
 claimed. Earlier38075925575 failed at parent_pull with no exact parent/cause;
 this newer observation neither repeats nor retroactively explains that failure.
 
+Current Forge qualification is a separate fresh run
+[38093642467](https://github.com/FerrPOINT/CI-CD/actions/runs/38093642467)/1,
+controls `278c7fb5863dd7b151a2c6bf0c202a274cc459f3`, source
+`e781b533bfb25fa669d5a5c65f8fa7094de7af02`, SDK19a/maintenance66b7.
+Original bounded authenticated A readback verifies artifact11684774894,
+ZIP SHA256 `9aa9454f4a52198bbe4cfee0e8961e53207677930b34f929e9b402a0fa9082ae`;
+report SHA256 `366c59b3607200a9de25b8943d0d1dce7e9b72153f54e5527dfdb6e2b942b21e`.
+Actual A passes Python81 (PG49/OCI32 declarations), row-smoke, smoke, check and
+Clippy with source266 parity, five distinct cleaned stage journals and exact
+resource-enforcement proofs. A cleanup/daemon stop/delegation removal and final
+baseline inventory preservation pass; these are A-only receipts, not native PG
+or OCI acceptance. Fresh GH metadata at2026-10-10T23:30Z confirms exact278,
+A114334959561 SUCCESS (completed23:09:32Z), B114336131953 in progress at its
+stage6 step, no C job/result and no aggregate/full12 acceptance. No historical
+20e A/B receipt qualifies this merged PG source; B/C require their own fresh proof.
+
 Earlier Forge admission refusal
 [38083675365](https://github.com/FerrPOINT/CI-CD/actions/runs/38083675365)/1
 is FAILURE on controls `29447047bc1eb5a63bea3048c2706a865a363d85` and unchanged
@@ -390,8 +439,8 @@ source, PM or native Hermes acceptance is granted. Historical A-only and partial
 B reports retain their scopes; no old receipt is reused or overwritten.
 Product5f is unchanged. Historicalabf/d744 first-six-stage PASS and its distinct
 OCI failure follow without retrospective attribution.
-Preparede781 normally merges903; fresh qualification is pending,
-not a new run or a replacement for this terminal receipt.
+Later sourcee781 normally merges903 and has its own fresh qualification above;
+it does not replace or reuse this terminal20e receipt.
 
 Earlier Forge workload observation
 [38077188736](https://github.com/FerrPOINT/CI-CD/actions/runs/38077188736)/1

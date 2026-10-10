@@ -11,7 +11,9 @@ Integration input `dd482b91517d8faf30947c6abec6771502a5c0de` normally
 merges the Chats foundation and runtime assembly, original-command recovery,
 canonical clarification answers and accepted-PM-run following while new dispatch
 is disabled. Migration024 repairs the ACK constraint additively; original022 is
-unchanged. Canonical/split lineages are25/28. These fixes are source-reviewed;
+unchanged. Reviewed source8f8e69d adds025 for custodial owner Stop after lost
+guidance ACK and shares strict terminal validation;010-024 remain unchanged.
+Canonical/split lineages are26/29. These fixes are source-reviewed;
 current-source Rust/PostgreSQL and native qualification remain required.
 Frontend candidate `dc7d1ee2574c1a05b55d794f4252b6ba37916a82` retains the final
 live-region update barrier and corrects the browser fixture to read the existing
@@ -19,10 +21,11 @@ live-region update barrier and corrects the browser fixture to read the existing
 The integration also includes exact-run PM instruction receipts in the existing
 tool journal. New question/revision claims require a validated matching receipt;
 continuation cannot reuse the old run's proof. This is not proof that the model
-read the instructions or completed the workflow. Latest terminalafab/sourcecb1 backend qualification
-passes6 GiB admission and the gates before `pm_recovery_pg`, then stops there
-with attested runtime stack overflow and SIGABRT. The aborted original-key
-recovery test is identified, but no frame, assertion or cause is established. Existing custody,
+read the instructions or completed the workflow. Latest terminal50cb/source5bc backend
+qualification advances past PM recovery13 and fails at runtime_stream_bounds51/84.
+The retained create_agent frame identifies no SQL error or unique cause. Fixture949
+isolates each invalid-stream case and its background-worker runtime, correcting
+a verified lifetime defect, not proving the cause or a qualified fix. Existing custody,
 denial, ledger and no-redispatch assertions remain; prior fixture corrections
 and migration-boundary limitations are recorded in the verification ledger.
 Full PG/HTTP and native acceptance remain open. The UI correction hides the unavailable warning after a
@@ -49,18 +52,18 @@ new acceptance here; exact dependency provenance is in the verification ledger.
 
 ## Current Evidence
 
-| Scope                    | Verified evidence                                                                                                                                                                                                                                                                                                                                              | Still open                                                                                                                                                                                    |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust OpenAPI, sourceaa11 | [38066257094](https://github.com/FerrPOINT/fleet-control/actions/runs/38066257094) SUCCESS; artifact11674599663; original strict readback verified; schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`. Schema bytes equal the actuala5f schema compared against seven immutable Tracker357 DTOs; eight verifier units pass      | Complete backend/DB/native checks remain separate from schema generation                                                                                                                      |
-| Backend                  | [38090509225](https://github.com/FerrPOINT/fleet-control/actions/runs/38090509225)/1 FAIL onafab/sourcecb1 at pm_recovery_pg13/84, exit101; strict readback verifies stack overflow/test_failure/SIGABRT, readable/untruncated, aborted original-key recovery test identified, no frame, both cleanups true                                                    | cb1 remains unqualified. Test identity and submit_entered/layout52440/45096 do not establish assertion, cause, peak stack or other tests passing; exact receipt is in the verification ledger |
-| Frontend, sourceaca/fc0  | [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687) SUCCESS; original strict readback verifies artifact11677891567. All23 gates,461 units,135 catalogue/186 fixture images; all three browsers47 passed/zero flaky with nine opt-in live skips each. 135 catalogue and9 PM views imported, selected corrected captures reviewed | Complete live PM acceptance; fixture success does not qualify backend or installed runtime                                                                                                    |
-| PM execution             | Structured tools, checkpoint continuation, controls, stream recovery and exact-run instruction receipts are integrated; current backend qualification stops at PM recovery                                                                                                                                                                                     | Complete PG/HTTP receipt and recovery regressions; real compatible service calls and owner flow remain required                                                                               |
-| Forge                    | [38084941580](https://github.com/FerrPOINT/CI-CD/actions/runs/38084941580)/1 FAIL on20e4/source5f. Authenticated A/B first six stages PASS, Python78/PG3+24 negatives; C OCI Cargo101/CLI1 at603, checkpointchild/childErrorClassRuntimeError; later five NOT_RUN                                                                                              | All three scoped cleanups true; original aggregate refuses C, full12 false. Child category is fixture observation, not root cause/SDK bug/API authority or PM/native Hermes acceptance        |
-| Base                     | [PR183](https://github.com/FerrPOINT/services-base/pull/183) merged externally as66b7faf; three maintenance helper blobs match the previously qualified payload and the Forge successor pins that merged object                                                                                                                                                | Consumer/native checks remain separate; no silent SDK or installed-packet promotion                                                                                                           |
+| Scope                    | Verified evidence                                                                                                                                                                                                                                                                                                                                              | Still open                                                                                                                                                        |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust OpenAPI, sourceaa11 | [38066257094](https://github.com/FerrPOINT/fleet-control/actions/runs/38066257094) SUCCESS; artifact11674599663; original strict readback verified; schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`. Schema bytes equal the actuala5f schema compared against seven immutable Tracker357 DTOs; eight verifier units pass      | Complete backend/DB/native checks remain separate from schema generation                                                                                          |
+| Backend                  | [38092256984](https://github.com/FerrPOINT/fleet-control/actions/runs/38092256984)/1 FAIL on50cb/source5bc at runtime_stream_bounds51/84, exit101; strict readback verifies test_failure, sdlc_foundation.rs:121:10, readable/untruncated, both cleanups true                                                                                                  | Sequential PM recovery13 passed; all84/source8f/native/live acceptance remain open. No stack-overflow category or SQL cause is established by this receipt        |
+| Frontend, sourceaca/fc0  | [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687) SUCCESS; original strict readback verifies artifact11677891567. All23 gates,461 units,135 catalogue/186 fixture images; all three browsers47 passed/zero flaky with nine opt-in live skips each. 135 catalogue and9 PM views imported, selected corrected captures reviewed | Complete live PM acceptance; fixture success does not qualify backend or installed runtime                                                                        |
+| PM execution             | Structured tools, checkpoint continuation, controls, stream recovery and instruction receipts are integrated; source5bc passes PM recovery13 before failing runtime stream bounds51                                                                                                                                                                            | Complete PG/HTTP receipt and recovery regressions; real compatible service calls and owner flow remain required                                                   |
+| Forge                    | [38093642467](https://github.com/FerrPOINT/CI-CD/actions/runs/38093642467)/1 on278/sourcee781: authenticated A five stages PASS (Python81, row-smoke, smoke, check, Clippy). Fresh metadata A SUCCESS/B in progress; no C/full12 receipt                                                                                                                       | A scoped cleanup/daemon/delegation proofs pass; B/C/full12 pending. Historical20e A/B receipts do not qualify this merged PG source or grant PM/native acceptance |
+| Base                     | [PR183](https://github.com/FerrPOINT/services-base/pull/183) merged externally as66b7faf; three maintenance helper blobs match the previously qualified payload and the Forge successor pins that merged object                                                                                                                                                | Consumer/native checks remain separate; no silent SDK or installed-packet promotion                                                                               |
 
-Reviewed controls50cb/source5bc are published; actual push run
-[38092256984](https://github.com/FerrPOINT/fleet-control/actions/runs/38092256984)/1
-is in progress, not a result or proven fix. afab remains the latest terminal backend observation.
+Source8f/025 and fixture949 require qualification on their final inputs; passing
+PM recovery on older5bc does not qualify these later changes. afab and Forge20e
+remain distinct historical receipts in the verification ledger.
 
 Native [38081865039](https://github.com/FerrPOINT/fleet-control/actions/runs/38081865039)/1
 fails on257/source5db at Hermes candidate build, exit1/UNKNOWN/TAIL; five
@@ -71,8 +74,8 @@ resource audit. No recipe cause is established. Exact receipts and earlier
 431/579/1fa/bb failures remain in the
 [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#current-hosted-qualification-2026-10-10).
 
-Backend controls retain all existing checks. The new024 ignored migration test
-must be explicitly selected and its own disposable database cleaned.
+Backend controls retain all existing checks. Additive024/025 migration tests
+must be explicitly selected and their own disposable databases cleaned.
 Source/pure checks do not execute PostgreSQL, HTTP or native runtimes.
 
 Frontend diagnostics preserve the original unit command, pool and assertions.
@@ -104,8 +107,9 @@ a healthy process, runtime ACK or a completed run. The real owner PM clarificati
 and exact-revision confirmation flow and the broader seven-agent delivery/
 integration scenario are both still required.
 
-Release audit of exact698 versus mainc39 finds523 changed paths and15 new
-migrations010-024. That assembly is not a narrow one-migration main PR. Existing
+Historical exact698 versus mainc39 had523 changed paths and15 new migrations010-024.
+Current8f versus that same mainc39 has524 changed paths and16 new migrations010-025.
+This assembly is not a narrow one-migration main PR. Existing
 PR47 owns010; PR64's configuration delta requires reconciliation with current
 foundation/main. The prepared C11 unit owns011 relative to that prerequisite,
 not relative to current main. Keep release units and additive repairs separate;

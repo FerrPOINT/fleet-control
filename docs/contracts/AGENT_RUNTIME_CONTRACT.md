@@ -1,5 +1,16 @@
 # Agent Runtime Contract
 
+## PM Stop Custody025 Candidate
+
+For an originally accepted PM run,025 permits owner Stop despite a lost initial
+guidance ACK; Steer still requires acknowledged guidance or a continuation
+checkpoint. All other current authority/original-custody guards remain. PM
+terminal readback shares Hermes validation: completed requires matching native
+identity and exact boolean completed=true/partial=false/interrupted=false.
+Unknown evidence stays held; Stop ACK is not terminal or business completion.
+No endpoint/schema change or Hermes producer patch is introduced. This candidate
+remains unqualified for current-source PostgreSQL/native acceptance.
+
 ## Free-Chat Recovery Candidate
 
 Original-key recovery is an authenticated, non-dispatch observation of a durable
