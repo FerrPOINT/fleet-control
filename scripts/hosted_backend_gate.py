@@ -948,6 +948,29 @@ def resource_guard(root):
     current = int(Path("/sys/fs/cgroup/memory.current").read_text())
     free = shutil.disk_usage(root).free
     require(maximum.isdigit() and int(maximum) == 4 * 1024 ** 3, "Hosted compiler cgroup must be bounded at 4 GiB")
+    if int(maximum) - current < 3 * 1024 ** 3:
+        counters = dict(anon=None, file=None, slab=None)
+        try:
+            with Path("/sys/fs/cgroup/memory.stat").open("rb") as stream:
+                body = stream.read(16 * 1024 + 1)
+            if len(body) <= 16 * 1024:
+                lines = body.decode("ascii").splitlines()
+                for name in counters:
+                    rows = [line.split(" ") for line in lines if line.partition(" ")[0] == name]
+                    if len(rows) == 1 and len(rows[0]) == 2 and re.fullmatch(r"[0-9]{1,19}", rows[0][1]):
+                        value = int(rows[0][1])
+                        if value <= 2 ** 63 - 1:
+                            counters[name] = value
+        except (OSError, UnicodeError, ValueError) as error:
+            if isinstance(error, TimeoutError):
+                raise
+        observation = dict(cgroup_limit_bytes=int(maximum), cgroup_current_bytes=current,
+                           cgroup_anon_bytes=counters["anon"], cgroup_file_bytes=counters["file"],
+                           cgroup_slab_bytes=counters["slab"], proc_mem_available_bytes=mem.get("MemAvailable"))
+        observation = {key: value if type(value) is int and 0 <= value <= 2 ** 63 - 1 else None
+                       for key, value in observation.items()}
+        print(json.dumps(dict(state="backend_resource_observation", reason="cgroup_headroom", **observation,
+                              backend_quality_gate=False, all_quality_gate=False, sdlc_acceptance=False)))
     require(int(maximum) - current >= 3 * 1024 ** 3, "Hosted initial cgroup headroom below 3 GiB")
     require(free >= 5 * 1024 ** 3, "Disposable hosted CI requires 5 GiB free; no waiver")
     return dict(mem, cgroup_limit_bytes=int(maximum), cgroup_current_bytes=current, disk_free_bytes=free,
