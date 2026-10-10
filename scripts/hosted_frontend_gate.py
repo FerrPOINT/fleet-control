@@ -54,6 +54,7 @@ MAX_ARTIFACT = 192 * 1024 ** 2
 MAX_MEMBERS = 800
 FAILURE_LIMIT = 128 * 1024
 FAILURE_FILE = "failure.json"
+COMPILER_LOG_LIMIT = 1024 ** 2
 FAILURE_SCOPE = dict(frontend_unit_build_fixture=False, live_pm_acceptance=False,
                      live_runtime_acceptance=False, all_sdlc_acceptance=False)
 BROWSER_PROJECTS = ("chromium", "firefox", "webkit")
@@ -371,6 +372,45 @@ def safe_browser_failure(data, locations):
             name: {status: 0 for status in BROWSER_STATUSES} for name in BROWSER_PROJECTS})
 
 
+def attested_compiler_paths(controls):
+    paths = set()
+    for entry in filter(None, git(controls, "ls-tree", "-rz", SOURCE_SHA, "frontend/src").split(b"\0")):
+        meta, name = entry.split(b"\t", 1)
+        mode, kind, _ = meta.split()
+        name = name.decode()
+        if name.endswith((".ts", ".tsx")):
+            require(mode in (b"100644", b"100755") and kind == b"blob", "Invalid compiler source input")
+            paths.add(name)
+    require(0 < len(paths) <= 4096, "Invalid compiler source inventory")
+    return paths
+
+
+def safe_compiler_failure(data, paths):
+    if data is None:
+        return dict(report="unavailable", diagnostics=[])
+    if len(data) > COMPILER_LOG_LIMIT:
+        return dict(report="truncated", diagnostics=[])
+    frames = []
+    try:
+        for line in data.decode("utf-8").splitlines():
+            if "error TS" not in line:
+                continue
+            # Only the tsc non-pretty header is public; never copy its message or continuation.
+            match = re.fullmatch(r"((?:frontend/)?src/[A-Za-z0-9_./-]+\.tsx?)\(([1-9][0-9]{0,5}),"
+                                 r"([1-9][0-9]{0,5})\): error TS([1-9][0-9]{3,4}):[^\r\n]*", line)
+            require(match is not None, "Invalid compiler header")
+            file, row, column, code = match.groups()
+            file = file if file.startswith("frontend/") else "frontend/" + file
+            require(file in paths, "Unattested compiler path")
+            frame = dict(code=int(code), file=file, line=int(row), column=int(column))
+            if frame not in frames:
+                frames.append(frame)
+            require(len(frames) <= 128, "Compiler frame bound")
+        return dict(report="valid" if frames else "unavailable", diagnostics=frames)
+    except (ValueError, UnicodeError):
+        return dict(report="rejected", diagnostics=[])
+
+
 def validate_failure(value, *, workflow_sha, run_id, attempt, locations):
     controls = Path(__file__).resolve().parents[1]
     expected = dict(version=1, kind="safe_frontend_failure", status="failure", repository=REPOSITORY,
@@ -381,7 +421,7 @@ def validate_failure(value, *, workflow_sha, run_id, attempt, locations):
         control_sha256={name: digest((controls / name).read_text(encoding="utf-8").encode())
                         for name in sorted(WRITE_SET)}, **QUALIFIED_INPUTS, **FAILURE_SCOPE)
     extra = {"gate", "completed_gates", "category", "exit_code", "browser", "cleanup"}
-    require(isinstance(value, dict) and set(value) == set(expected) | extra
+    require(isinstance(value, dict) and set(value) in (set(expected) | extra, set(expected) | extra | {"compiler"})
             and all(type(value.get(k)) is type(v) and value.get(k) == v for k, v in expected.items()),
             "Invalid failure identity/provenance/scope")
     name, completed = value["gate"], value["completed_gates"]
@@ -421,6 +461,24 @@ def validate_failure(value, *, workflow_sha, run_id, attempt, locations):
     require(browser["report"] == "valid" or not browser["diagnostics"] and total == 0,
             "Invalid unavailable browser evidence")
     require(name == "fixtures" or browser["report"] == "unavailable", "Browser evidence outside fixture gate")
+    if "compiler" in value:
+        compiler = value["compiler"]
+        require(name == "typecheck" and value["category"] == "exit"
+                and isinstance(compiler, dict) and set(compiler) == {"report", "diagnostics"}
+                and compiler["report"] in ("valid", "unavailable", "rejected", "truncated")
+                and isinstance(compiler["diagnostics"], list) and len(compiler["diagnostics"]) <= 128,
+                "Invalid compiler failure schema")
+        paths = attested_compiler_paths(controls)
+        seen = set()
+        for row in compiler["diagnostics"]:
+            require(isinstance(row, dict) and set(row) == {"code", "file", "line", "column"}
+                    and isinstance(row["file"], str) and row["file"] in paths
+                    and type(row["code"]) is int and 1000 <= row["code"] <= 99999
+                    and all(type(row[k]) is int and 1 <= row[k] <= 999999 for k in ("line", "column")),
+                    "Unattested compiler frame")
+            seen.add(canonical(row))
+        require(len(seen) == len(compiler["diagnostics"])
+                and (compiler["report"] == "valid") == bool(compiler["diagnostics"]), "Invalid compiler report")
     require(len(canonical(value)) <= FAILURE_LIMIT, "Failure receipt exceeds bound")
 
 
@@ -461,6 +519,18 @@ def record_failure(name, error):
         gate=name, completed_gates=completed, category=category, exit_code=code,
         browser=browser, cleanup=dict(private_absent=False),
         **QUALIFIED_INPUTS, **FAILURE_SCOPE)
+    if name == "typecheck" and category == "exit":
+        compiler = dict(report="unavailable", diagnostics=[])
+        if (private / "typecheck.log").exists():
+            try:
+                if (private / "typecheck.log").stat().st_size > COMPILER_LOG_LIMIT:
+                    compiler["report"] = "truncated"
+                else:
+                    compiler = safe_compiler_failure(bounded_file(private, "typecheck.log", limit=COMPILER_LOG_LIMIT),
+                                                     attested_compiler_paths(workspace / "controls"))
+            except (OSError, ValueError):
+                compiler["report"] = "rejected"
+        value["compiler"] = compiler
     validate_failure(value, workflow_sha=sha, run_id=value["run_id"], attempt=value["run_attempt"], locations=locations)
     with (private / "failure-pending.json").open("xb") as pending:
         pending.write(canonical(value))

@@ -1259,6 +1259,115 @@ class FailureContracts(unittest.TestCase):
         self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
         self.verify(self.receipt())
 
+    def compiler_receipt(self):
+        return dict(self.receipt(), gate="typecheck", exit_code=2,
+            completed_gates=list(gate.GATES)[:list(gate.GATES).index("typecheck")],
+            browser=gate.safe_browser_failure(None, self.locations),
+            compiler=gate.safe_compiler_failure(
+                b"src/pages/chat-detail/index.test.tsx(1969,7): error TS2322: PRIVATE_SENTINEL\n",
+                gate.attested_compiler_paths(ROOT)))
+
+    def test_compiler_frames_copy_only_attested_header_numbers_and_path(self):
+        paths = gate.attested_compiler_paths(ROOT)
+        self.assertIn("frontend/src/pages/chat-detail/index.test.tsx", paths)
+        self.assertTrue(all(p.startswith("frontend/src/") and p.endswith((".ts", ".tsx")) for p in paths))
+        data = (b"> private command\nfrontend/src/pages/chat-detail/index.test.tsx(1969,7): error TS2322: PRIVATE_SENTINEL\n"
+                b"  Type PRIVATE_SENTINEL is not assignable\n"
+                b"src/pages/chat-detail/index.test.tsx(1969,7): error TS2322: PRIVATE_SENTINEL\n")
+        result = gate.safe_compiler_failure(data, paths)
+        self.assertEqual(result, self.compiler_receipt()["compiler"])
+        self.assertEqual(result["diagnostics"], [dict(code=2322,
+            file="frontend/src/pages/chat-detail/index.test.tsx", line=1969, column=7)])
+        self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_compiler_wrong_private_traversal_or_malformed_headers_reject_all_frames(self):
+        paths = gate.attested_compiler_paths(ROOT)
+        valid = b"src/pages/chat-detail/index.test.tsx(1,1): error TS2322: PRIVATE_SENTINEL\n"
+        for header in ("../src/private.ts(1,1)", "/tmp/src/private.ts(1,1)", "src/../api/generated.ts(1,1)",
+                       "src/PRIVATE_SENTINEL.ts(1,1)", "e2e/runtime-controls.spec.ts(1,1)",
+                       "node_modules/private.ts(1,1)", "src/pages/chat-detail/index.test.tsx(0,1)",
+                       "src/pages/chat-detail/index.test.tsx(1,1000000)", "src/pages/chat-detail/index.test.tsx(1,x)"):
+            with self.subTest(header=header):
+                result = gate.safe_compiler_failure(valid + (header + ": error TS2322: PRIVATE_SENTINEL\n").encode(), paths)
+                self.assertEqual(result, dict(report="rejected", diagnostics=[]))
+        for suffix in (b"error TS0: PRIVATE_SENTINEL", b"error TS2322 PRIVATE_SENTINEL", b"error TS999999: PRIVATE_SENTINEL"):
+            self.assertEqual(gate.safe_compiler_failure(valid + suffix, paths)["report"], "rejected")
+
+    def test_compiler_byte_frame_encoding_and_absent_bounds(self):
+        paths = gate.attested_compiler_paths(ROOT)
+        self.assertEqual(gate.safe_compiler_failure(None, paths)["report"], "unavailable")
+        self.assertEqual(gate.safe_compiler_failure(b"PRIVATE_SENTINEL", paths)["diagnostics"], [])
+        self.assertEqual(gate.safe_compiler_failure(b"\xff", paths)["report"], "rejected")
+        self.assertEqual(gate.safe_compiler_failure(b"x" * (gate.COMPILER_LOG_LIMIT + 1), paths),
+                         dict(report="truncated", diagnostics=[]))
+        frames = [f"src/pages/chat-detail/index.test.tsx({n},1): error TS2322: PRIVATE_SENTINEL\n".encode()
+                  for n in range(1, 130)]
+        self.assertEqual(len(gate.safe_compiler_failure(b"".join(frames[:128]), paths)["diagnostics"]), 128)
+        self.assertEqual(gate.safe_compiler_failure(b"".join(frames), paths), dict(report="rejected", diagnostics=[]))
+
+    def test_compiler_schema_and_numeric_types_fail_closed(self):
+        self.verify(self.compiler_receipt())
+        for change in (dict(message="PRIVATE_SENTINEL"), dict(file="src/pages/chat-detail/index.test.tsx"),
+                       dict(code=True), dict(code=0), dict(code=100000), dict(line=False), dict(line=0),
+                       dict(column=1000000), dict(column="7")):
+            value = self.compiler_receipt()
+            value["compiler"]["diagnostics"][0].update(change)
+            with self.assertRaises(ValueError):
+                self.verify(value)
+        for change in (dict(raw="PRIVATE_SENTINEL"), dict(report="PRIVATE_SENTINEL"),
+                       dict(report="rejected"), dict(diagnostics=[])):
+            value = self.compiler_receipt()
+            value["compiler"].update(change)
+            with self.assertRaises(ValueError):
+                self.verify(value)
+        value = self.compiler_receipt()
+        value["compiler"]["diagnostics"] *= 2
+        with self.assertRaises(ValueError):
+            self.verify(value)
+
+    def test_compiler_optional_field_is_typecheck_exit_only_with_original_authenticated_reader(self):
+        self.verify(self.receipt())  # Older version-1 receipts have no compiler field.
+        value = self.compiler_receipt()
+        payload = zipped(self.files(value))
+        self.assertEqual(self.readback(payload), self.files(value))
+        for name in gate.GATES:
+            if name != "typecheck":
+                other = dict(value, gate=name, completed_gates=list(gate.GATES)[:list(gate.GATES).index(name)])
+                with self.assertRaises(ValueError):
+                    self.verify(other)
+        with self.assertRaises(ValueError):
+            self.verify(dict(value, category="timeout", exit_code=None))
+
+    def test_compiler_log_record_cleanup_and_readback_never_publish_private_text(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            private = self.cleanup_fixture(root, self.compiler_receipt())
+            for name in gate.WRITE_SET:
+                target = root / "controls" / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((ROOT / name).read_text(encoding="utf-8").encode())
+            (private / "failure-pending.json").unlink()
+            (private / "typecheck.log").write_bytes(
+                b"src/pages/chat-detail/index.test.tsx(1969,7): error TS2322: PRIVATE_SENTINEL\n")
+            (private / "preflight.json").write_bytes(gate.canonical(dict(
+                workflow_sha="a" * 40, run_id="123", attempt="2", public=True)))
+            (private / "state.json").write_bytes(gate.canonical(dict(workflow_sha="a" * 40,
+                gates=self.compiler_receipt()["completed_gates"])))
+            with patch.object(gate, "controls_preflight", return_value=(root, "a" * 40)), \
+                    patch.object(gate, "hosted_identity", return_value=(ROOT.parent, "a" * 40)), \
+                    patch.object(gate, "workspace_temp", return_value=root), \
+                    patch.object(gate, "attested_test_locations", return_value=self.locations), \
+                    patch.object(gate, "attested_compiler_paths", return_value=gate.attested_compiler_paths(ROOT)), \
+                    patch.object(gate, "qualified_inputs", return_value=gate.QUALIFIED_INPUTS), \
+                    patch.dict(os.environ, GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="2"):
+                gate.record_failure("typecheck", gate.GateFailure("exit", 2))
+                gate.cleanup()
+            self.assertFalse(private.exists())
+            files = {p.name: p.read_bytes() for p in (root / "fleet-frontend-failure").iterdir()}
+            self.assertEqual(self.readback(zipped(files)), files)
+            self.assertNotIn(b"PRIVATE_SENTINEL", files[gate.FAILURE_FILE])
+            self.assertEqual(json.loads(files[gate.FAILURE_FILE])["compiler"], self.compiler_receipt()["compiler"])
+
     def test_file_and_line_are_canonical_source_declarations_only(self):
         self.assertIn(95, self.locations["frontend/e2e/runtime-controls.spec.ts"])
         self.assertNotIn(93, self.locations["frontend/e2e/runtime-controls.spec.ts"])
