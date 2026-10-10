@@ -34,9 +34,11 @@ The current parent codegen bootstrap is the separate build-only commit
 eight exact input blobs and282 canonical exported files. Its15 pure tests,
 source/export qualification, four shell syntax checks and diff check pass.
 [Run38015043570](https://github.com/FerrPOINT/fleet-control/actions/runs/38015043570)
-is in progress at this checkpoint. It must return authenticated generated
-output containing both configuration routes and all four clarification command
-routes; no schema/client is manually combined. Publishing this build-only
+completes SUCCESS. Parent authenticates artifact11656020208, schema1167220e,
+containing both configuration routes and all four clarification command routes.
+Client generation/typecheck/drift and compatibility with mainb750e7b pass;
+all earlier paths/DTOs remain unchanged. No schema/client is manually combined.
+Publishing this build-only
 bootstrap does not make the combined product merge-ready or certify runtime/PM.
 
 Integration dependency: Pascal's diagnostic patch and the new API artifact can

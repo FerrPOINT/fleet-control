@@ -2,16 +2,17 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current tested-source candidate `6881c04`, a normal descendant
-of b249 with runtime corrections, durable clarification custody, generated API
-and the private-approval ownership correction, is **not
-merge-ready or live SDLC accepted**. Historical sections below qualify their own
-heads; they do not accept this assembly.
+Current source candidate `8c93f43`, normally integrated at65b4f33, combines
+configuration PR64 with runtime corrections, durable clarification custody and
+private-approval ownership. Genuine union codegen is verified below. The last
+combined backend run targets6881c04 and fails; the newer assembly is **not
+merge-ready or live SDLC accepted**. Historical evidence qualifies only its own head.
 
 | Current gate | Exact source / authority | State |
 | --- | --- | --- |
 | Combined backend | Source6881c04, controlsa7d7db2, run38011797295 | FAILURE at container_activation_pg, stage62/74; message_order passes |
-| Config release PR64 | Head820a1af, run38008810511, dependency PR47 at11f97aa | Separate five-job PASS; not integrated into688; combined candidate pending |
+| Config release PR64 | Head820a1af, normally merged into candidate8c93f43 | Separate five-job PASS; combined Rust/PG acceptance pending |
+| Union API/client | Source8c93f43, workflow5e57d5b, run38015043570 | Authenticated codegen PASS; typecheck/drift/compatibility PASS, not runtime acceptance |
 | Production Chats presentation | Frontend tree13ccbaba, correction6c022f3 |42 unit cases and six three-engine fixture cases pass; no live PM acceptance |
 | PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
 | Forge full12 | Public-safe controls1dbedf8, maintenance pin commit null | Cannot start acceptance without published qualified Base inputs |
@@ -20,6 +21,14 @@ heads; they do not accept this assembly.
 The run states are publication checkpoints, not live status widgets. Terminal
 results must be authenticated before changing acceptance. Documentation-only
 successors do not change the frozen source of either CI run.
+
+Run38015043570 succeeds on the frozen configuration/runtime union. Parent
+authenticates artifact11656020208/ZIP9e46aadcaf9de57d91d8389b0b460234ef1e0e6f02a72db81eea8af2d3d05ff8;
+the integrated OpenAPI SHA256 is1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953.
+Both new configuration routes and DTOs are present, and all earlier paths/DTOs
+are unchanged. Client generation, typecheck, OpenAPI drift and compatibility
+against mainb750e7b pass; eight compatibility regressions pass. The separate
+all-target/Clippy/Rust/PG/native and live PM gates remain open.
 
 Run38011797295 completes FAILURE at container_activation_pg, exit101. Parent
 authenticates safe artifact11654672637, ZIP SHA256
