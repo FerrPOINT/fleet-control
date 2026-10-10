@@ -1478,6 +1478,73 @@ async fn recovered_terminal_draft_keeps_historical_custody_and_fenced_regular_st
             .await
             .is_err()
         );
+        // A live recovery fence does not waive the newly requested activation's drain.
+        let held = repo
+            .advance_recovered_container(&published, &proof.lease, "stopping")
+            .await;
+        assert!(matches!(held, Err(shared::AppError::Conflict(message))
+            if message == "Runtime capacity or unknown acceptance remains held"));
+        assert_eq!(
+            json!(repo.get_container_launch(a.id).await.unwrap().unwrap()),
+            json!(published)
+        );
+        assert!(origin_live(&db, &published).await);
+        let head = db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT effective_revision,draining FROM agent_config_heads WHERE agent_id=$1",
+                [a.id.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            head.try_get::<Option<i64>>("", "effective_revision")
+                .unwrap(),
+            published.prepared.configuration_revision
+        );
+        assert!(head.try_get::<bool>("", "draining").unwrap());
+        db.close().await.unwrap();
+
+        // Independently exercise regular stop with a draft, but no pending activation.
+        let (repo, db, a, record, proof) = recovered_publication(rollback).await;
+        let published = if rollback {
+            record.rollback.clone()
+        } else {
+            record.candidate.clone()
+        }
+        .unwrap();
+        let actor:Uuid=db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT created_by_user_id FROM agent_config_revisions WHERE agent_id=$1 AND revision=1",[a.id.into()]))
+            .await.unwrap().unwrap().try_get("","created_by_user_id").unwrap();
+        let draft = repo
+            .create_config_revision(
+                a.id,
+                domain::UpdateAgentConfigRequest {
+                    config_json: json!({}),
+                    soul_md: "next draft".into(),
+                    env_json: json!({}),
+                },
+                actor,
+            )
+            .await
+            .unwrap();
+        assert_eq!(draft.revision, 2);
+        assert!(!repo.agent_is_draining(a.id).await.unwrap());
+        assert!(origin_live(&db, &published).await);
+        repo.authorize_recovered_activation(&record, &proof)
+            .await
+            .unwrap();
+        assert!(
+            repo.advance_container_launch(
+                &published,
+                "stopping",
+                published.snapshot.clone(),
+                published.origin.clone()
+            )
+            .await
+            .is_err()
+        );
         repo.advance_recovered_container(&published, &proof.lease, "stopping")
             .await
             .unwrap();
@@ -1513,7 +1580,7 @@ async fn recovered_terminal_draft_keeps_historical_custody_and_fenced_regular_st
                 .unwrap(),
             published.prepared.configuration_revision
         );
-        assert!(head.try_get::<bool>("", "draining").unwrap());
+        assert!(!head.try_get::<bool>("", "draining").unwrap());
         db.close().await.unwrap();
     }
 }
