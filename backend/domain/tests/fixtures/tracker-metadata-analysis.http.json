@@ -1,0 +1,93 @@
+{
+  "after": "0",
+  "contract_version": 1,
+  "events": [
+    {
+      "created_at": "2026-10-03T15:57:28.518630000Z",
+      "event_id": "38a37217-57f3-40f7-a7cf-2cedfa71e6f4",
+      "event_type": "requirements.confirmed",
+      "metadata_sha256": "5e70c4628f89c2a2b950d28decb1cd837df18423dc93387ec8b73283f0f3a5e7",
+      "payload": {
+        "current_requirement_revision": 2,
+        "owner_subject": "owner",
+        "project_id": "cf2cb85c-c32d-427f-85dd-074726b34673",
+        "resource": {
+          "confirmation_id": "35bbc963-bcc8-4083-ae78-f8c421f530e0",
+          "content_hash": "01b93e4d03b9c3da727de2ccb7ddb9f58a51f2caf362c95eeed23ea30e3f736e",
+          "requirement_revision": 2
+        },
+        "root_task_id": "948de28a-6f5c-4eae-8993-67d418a96e25",
+        "stage": "Backlog",
+        "tracker_instance_id": "tracker-integration-Ж🚀\"\\\r\n"
+      },
+      "sequence": "292",
+      "task_id": "948de28a-6f5c-4eae-8993-67d418a96e25"
+    },
+    {
+      "created_at": "2026-10-03T15:57:28.518630000Z",
+      "event_id": "55a5604c-bbff-4d2f-b3d8-7e8dce8bffa1",
+      "event_type": "analysis.intent_created",
+      "metadata_sha256": "ea8e71bd82ac8e726f69d3094d9bdd23604c4e81ce00cd1aee00e1afb28ebae1",
+      "payload": {
+        "current_requirement_revision": 2,
+        "owner_subject": "owner",
+        "project_id": "cf2cb85c-c32d-427f-85dd-074726b34673",
+        "resource": {
+          "attempt": 0,
+          "confirmation_id": "35bbc963-bcc8-4083-ae78-f8c421f530e0",
+          "content_hash": "01b93e4d03b9c3da727de2ccb7ddb9f58a51f2caf362c95eeed23ea30e3f736e",
+          "contract_version": 1,
+          "created_at": "2026-10-03T15:57:28.555657363Z",
+          "cycle": 0,
+          "intent_id": "55a5604c-bbff-4d2f-b3d8-7e8dce8bffa1",
+          "mode": "analysis",
+          "operation_key": "analysis:35bbc963-bcc8-4083-ae78-f8c421f530e0",
+          "project_id": "cf2cb85c-c32d-427f-85dd-074726b34673",
+          "requirement_revision": 2,
+          "role": "Analyst",
+          "root_task_id": "948de28a-6f5c-4eae-8993-67d418a96e25",
+          "scope": "business",
+          "stage": "Analysis",
+          "status": "Ready",
+          "task_id": "948de28a-6f5c-4eae-8993-67d418a96e25",
+          "tracker_instance_id": "tracker-integration-Ж🚀\"\\\r\n",
+          "workflow": "hermes-sdlc:analyst"
+        },
+        "root_task_id": "948de28a-6f5c-4eae-8993-67d418a96e25",
+        "stage": "Analysis",
+        "tracker_instance_id": "tracker-integration-Ж🚀\"\\\r\n"
+      },
+      "sequence": "293",
+      "task_id": "948de28a-6f5c-4eae-8993-67d418a96e25"
+    },
+    {
+      "created_at": "2026-10-03T15:57:28.968362000Z",
+      "event_id": "01a1027c-1656-7ee3-bfa6-429c483da8c4",
+      "event_type": "analysis.assignment_reserved",
+      "metadata_sha256": "5d06aabc65d0daa720998a791578a2e93708c0a24734a2ac0c1596e3edabf654",
+      "payload": {
+        "current_requirement_revision": 2,
+        "owner_subject": "owner",
+        "project_id": "cf2cb85c-c32d-427f-85dd-074726b34673",
+        "resource": {
+          "agent_id": "6754a0ac-51c9-43e1-8af7-d15571496d15",
+          "assignment_hash": "9def2ab31e9f6ede071148a1d0b15491d98b2c12de84de3b01ebbab89dcd785f",
+          "assignment_id": "01a1027c-1656-7ee3-bfa6-429c483da8c4",
+          "execution_id": "01a1027c-1656-7ee3-bfa6-42b483da7c25",
+          "fencing_token": 2,
+          "intent_id": "55a5604c-bbff-4d2f-b3d8-7e8dce8bffa1",
+          "routing_snapshot_id": "6b64096a-eccd-4224-bdfc-9bbeffe95291",
+          "workflow_task_ref": "SDLC-3"
+        },
+        "root_task_id": "948de28a-6f5c-4eae-8993-67d418a96e25",
+        "stage": "Analysis",
+        "tracker_instance_id": "tracker-integration-Ж🚀\"\\\r\n"
+      },
+      "sequence": "295",
+      "task_id": "948de28a-6f5c-4eae-8993-67d418a96e25"
+    }
+  ],
+  "has_more": false,
+  "next_after": "295",
+  "projection": "metadata_v1"
+}
