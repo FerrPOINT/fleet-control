@@ -44,8 +44,11 @@ export function chatActivity(
     ),
     runs: relevantRuns,
     busy:
+      session.pending_delivery !== false ||
       relevantRuns.some((run) =>
-        ['pending', 'running', 'waiting', 'stopping'].includes(run.state),
+        run.state === 'pending'
+          ? !(run.runtime_session_id === null && run.runtime_run_id === null)
+          : ['running', 'waiting', 'stopping'].includes(run.state),
       ) ||
       messages.some(
         (message) =>

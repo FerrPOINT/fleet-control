@@ -105,6 +105,13 @@ agent authorship и различия central/legacy permissions; наличие 
 - `POST /sessions` is idempotent by `idempotency_key`; replay returns the
   original session, while the same key with a different payload returns `409`.
 - `GET /sessions/{session_id}`
+- Session detail includes optional `pending_delivery`, computed from every
+  session message in `pending` or `dispatched` delivery state, independently of
+  the bounded history page. List DTOs may omit this projection. A consumer that
+  gates prompt submission must hold sending when the detail projection is absent.
+- An initial `pending` run with both runtime identity fields explicitly `null`
+  is a preparation slot. A bound pending run or any `running`, `waiting` or
+  `stopping` primary run still holds sending. Pending delivery holds it separately.
 - `GET/POST /sessions/{session_id}/messages`
 - `POST /sessions/{session_id}/messages` is idempotent by request key and avoids
   duplicate runtime dispatch on replay.

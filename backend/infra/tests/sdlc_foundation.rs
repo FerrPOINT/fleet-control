@@ -126,6 +126,12 @@ async fn message_receipts_and_replay_are_independent_of_history_limit() {
             .await
             .unwrap();
         let seed_size = history_size - i32::try_from(message_count(&db, session.id).await).unwrap();
+        assert_eq!(session.pending_delivery, Some(false));
+        let initial_runs = repo.list_session_agent_runs(session.id).await.unwrap();
+        assert_eq!(initial_runs.len(), 1);
+        assert_eq!(initial_runs[0].state, SessionRunState::Pending);
+        assert!(initial_runs[0].runtime_session_id.is_none());
+        assert!(initial_runs[0].runtime_run_id.is_none());
         db.execute(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "INSERT INTO session_messages
@@ -151,6 +157,10 @@ async fn message_receipts_and_replay_are_independent_of_history_limit() {
         assert_eq!(count, i64::from(history_size) + 1);
         let created =
             result.expect("A committed message must return its receipt beyond the history page");
+        assert_eq!(
+            repo.get_session(session.id).await.unwrap().pending_delivery,
+            Some(true)
+        );
         assert_eq!(created.session_id, session.id);
         assert_eq!(created.author_user_id, Some(owner));
         assert_eq!(created.body, "Discuss password=redacted");

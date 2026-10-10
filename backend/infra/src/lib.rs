@@ -1341,7 +1341,24 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("user", row.user_id))?;
-        Ok(session_from_model(row, agent, leader, user))
+        let delivery = self
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT EXISTS(SELECT 1 FROM session_messages WHERE session_id=$1 \
+             AND delivery_state IN ('pending','dispatched')) AS pending_delivery",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::internal("delivery projection returned no row"))?;
+        let mut session = session_from_model(row, agent, leader, user);
+        session.pending_delivery = Some(
+            delivery
+                .try_get("", "pending_delivery")
+                .map_err(AppError::database)?,
+        );
+        Ok(session)
     }
 
     async fn sync_runtime_sessions(
@@ -3547,6 +3564,7 @@ fn session_from_model(
         namespace_id: row.namespace_id,
         external_session_id: row.external_session_id,
         last_message_preview: row.last_message_preview.map(|value| redact_text(&value)),
+        pending_delivery: None,
         created_at: api_ts(row.created_at),
         updated_at: api_ts(row.updated_at),
     }

@@ -43,6 +43,9 @@ deduplication also work outside the history page. History remains limited to 500
 The POST digest matches the client protocol fixture; history and runtime reads
 omit it. The fixture retains unknown runtime acceptance rather than claiming
 that an external runner executed the command.
+Fresh detail reports no pending delivery despite its valid unbound preparation
+run. After a prompt, complete detail reports pending delivery even when that
+prompt falls outside the first 500 history rows.
 
 ```bash
 cargo test --locked -p infra --test sdlc_foundation \
@@ -52,6 +55,9 @@ cargo test --locked -p infra --test sdlc_foundation \
 Chats browser regressions separately cover a valid redacted POST receipt and
 missing/wrong request digests retaining the original command. Their API/SSE
 fixtures do not replace the PostgreSQL boundary regression or live delivery.
+Additional cases cover the first prompt with an unbound preparation slot,
+bound pending run identities, full-session delivery outside visible history and
+an absent activity projection.
 
 ## Heartbeat Incident Regression
 

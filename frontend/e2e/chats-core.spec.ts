@@ -64,6 +64,7 @@ type State = {
   rejection: number | null
   receiptBody: string | null
   receiptHash: 'correct' | 'missing' | 'wrong'
+  pendingDelivery: boolean | null
 }
 type Stream = { url: string; emit: (data: unknown) => void; connected: () => number }
 const test = base.extend<{ stream: Stream }>({
@@ -132,6 +133,7 @@ async function install(page: Page, stream: Stream, overrides: Partial<State> = {
     unknown: false,
     receiptBody: null,
     receiptHash: 'correct',
+    pendingDelivery: false,
     preflightDenied: false,
     creates: 0,
     createdTitle: null,
@@ -187,7 +189,11 @@ async function install(page: Page, stream: Stream, overrides: Partial<State> = {
       return reply(
         state.denied || state.preflightDenied
           ? { error: { message: 'Denied' } }
-          : { ...session, title: state.createdTitle ?? session.title },
+          : {
+              ...session,
+              title: state.createdTitle ?? session.title,
+              pending_delivery: state.pendingDelivery,
+            },
         state.denied || state.preflightDenied ? 403 : 200,
       )
     if (path === `/api/v1/sessions/${sessionId}/messages` && req.method() === 'GET')
@@ -394,6 +400,59 @@ test('owner without write permission is read-only at all sizes', async ({ page, 
     await expect(page.getByRole('button', { name: 'Отправить', exact: true })).toBeDisabled()
     await capture(page, info, 'read-only')
   }
+  expect(state.posts).toEqual([])
+})
+
+test('an unbound initial pending slot permits the first prompt', async ({ page, stream }) => {
+  const state = await install(page, stream, {
+    runs: [
+      {
+        id: 'initial',
+        session_id: sessionId,
+        agent_id: agentId,
+        state: 'pending',
+        runtime_session_id: null,
+        runtime_run_id: null,
+      },
+    ],
+  })
+  await page.goto(`/chats/${sessionId}`)
+  await page.getByLabel('Сообщение', { exact: true }).fill('First prompt')
+  await expect(page.getByRole('button', { name: 'Отправить', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: 'Отправить', exact: true }).click()
+  await expect(page.getByLabel('Сообщение', { exact: true })).toHaveValue('')
+  expect(state.posts).toHaveLength(1)
+})
+
+test('full-session pending delivery holds a prompt outside the visible history', async ({
+  page,
+  stream,
+}) => {
+  const state = await install(page, stream, {
+    pendingDelivery: true,
+    runs: [
+      {
+        id: 'initial',
+        session_id: sessionId,
+        agent_id: agentId,
+        state: 'pending',
+        runtime_session_id: null,
+        runtime_run_id: null,
+      },
+    ],
+  })
+  await page.goto(`/chats/${sessionId}`)
+  await page.getByLabel('Сообщение', { exact: true }).fill('Another prompt')
+  await expect(page.getByRole('button', { name: 'Отправить', exact: true })).toBeDisabled()
+  await expect(page.getByText(/Запуск или доставка ожидают завершения/)).toBeVisible()
+  expect(state.posts).toEqual([])
+})
+
+test('missing full-session delivery projection holds sending', async ({ page, stream }) => {
+  const state = await install(page, stream, { pendingDelivery: null })
+  await page.goto(`/chats/${sessionId}`)
+  await page.getByLabel('Сообщение', { exact: true }).fill('A guarded prompt')
+  await expect(page.getByRole('button', { name: 'Отправить', exact: true })).toBeDisabled()
   expect(state.posts).toEqual([])
 })
 
