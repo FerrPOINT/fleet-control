@@ -36,6 +36,7 @@ pub async fn controls(
     let runs = ctx.repo.list_session_agent_runs(id).await?;
     let active = runs.iter().rev().find(|run| {
         (run.state != domain::SessionRunState::Pending
+            || run.runtime_session_id.is_some()
             || run.runtime_run_id.is_some()
             || run.last_event_at.is_some())
             && matches!(

@@ -189,6 +189,7 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
           task_key: 'FIXTURE-1',
           state: 'active',
           pending_delivery: false,
+          task_bound: false,
           created_at: '2026-10-09T10:00:00Z',
           updated_at: '2026-10-09T10:00:00Z',
         },
@@ -206,6 +207,8 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
         },
       })
     if (path.endsWith('/messages')) return route.fulfill({ json: [] })
+    if (path === '/api/v1/sessions/session1/history' && request.method() === 'GET')
+      return route.fulfill({ json: { items: [], next_before: null } })
     if (path.endsWith('/stream'))
       return route.fulfill({
         contentType: 'text/event-stream',
@@ -375,13 +378,18 @@ test('fixture: uncertain clarification retains its original command across quest
   const deliveryPath = `${journalPath}/${commandId}/delivery`
   await page.route(`**${fixturePath}**`, (route) => {
     const path = new URL(route.request().url()).pathname
-    if (path === fixturePath) return route.fulfill({ contentType: 'text/html', body: html })
+    if (path === fixturePath)
+      return route.fulfill({
+        contentType: 'text/html',
+        body: html.replace('id="root"', 'id="root" data-runtime-controls-owner="true"'),
+      })
     const asset = assets.get(path)
     return asset ? route.fulfill(asset) : route.fulfill({ status: 404 })
   })
   await page.route('**/api/v1/**', (route) => {
     const request = route.request()
     const path = new URL(request.url()).pathname
+    expect(request.headers().authorization).toBe('Bearer fixture-only-owner-token')
     if (request.method() === 'POST') {
       if (path === storePath) {
         const payload = request.postDataJSON() as AnswerInput
@@ -466,6 +474,7 @@ test('fixture: uncertain clarification retains its original command across quest
           title: 'Уточнение требований',
           visibility: 'private',
           task_key: 'FIXTURE-2',
+          task_bound: true,
         },
       })
     if (path.endsWith('/task-context'))
@@ -532,6 +541,12 @@ test('fixture: uncertain clarification retains its original command across quest
     }
     if (path.endsWith('/requirements')) return route.fulfill({ json: { revisions: [] } })
     if (path.endsWith('/history')) return route.fulfill({ json: { items: [], next_before: null } })
+    if (path === '/api/v1/sessions/session1/stream' && request.method() === 'GET')
+      return route.fulfill({
+        contentType: 'text/event-stream',
+        headers: { 'Cache-Control': 'no-store' },
+        body: ': fixture heartbeat\n\n',
+      })
     if (path.endsWith('/runs') || path.endsWith('/approvals')) return route.fulfill({ json: [] })
     throw new Error(`Unexpected clarification read: ${path}`)
   })
@@ -552,6 +567,8 @@ test('fixture: uncertain clarification retains its original command across quest
   await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
   expect(commands).toHaveLength(1)
   const retry = page.getByRole('button', { name: 'Повторить исходный ответ' })
+  await expect.poll(() => journalReads.some((read) => read.status === 503)).toBe(true)
+  await expect(retry).toBeDisabled()
   for (const viewport of [
     { width: 375, height: 812 },
     { width: 1920, height: 1080 },
@@ -571,9 +588,22 @@ test('fixture: uncertain clarification retains its original command across quest
       scale: 'css',
     })
   }
-  await retry.click()
-  await expect.poll(() => commands.length).toBe(2)
-  expect(commands[1]).toEqual(commands[0])
+  // Fresh journal authority is required before replaying the stored command.
+  const originalRequest = structuredClone(commands[0])
+  journalAvailable = true
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.getByRole('tab', { name: /Уточнения/ }).click()
+  await expect
+    .poll(() => journalReads.some((read) => read.status === 200 && read.commands?.length === 1))
+    .toBe(true)
+  const recover = page.getByRole('button', { name: 'Продолжить исходную команду' })
+  await expect(retry).toHaveCount(0)
+  await expect(recover).toBeEnabled()
+  await recover.click()
+  await expect.poll(() => deliveries.length).toBe(2)
+  expect(commands).toEqual([originalRequest])
+  expect(stored[0]?.request).toEqual(commands[0].payload)
   expect(commands[0].payload).toMatchObject({
     expected_question_version: 1,
     comment: 'Исходный ответ владельца',
@@ -582,10 +612,9 @@ test('fixture: uncertain clarification retains its original command across quest
   await expect(page.getByRole('button', { name: /2\. Второй вопрос/ })).toContainText('answered')
   await expect(choice).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
-  await expect(retry).toBeEnabled()
-  await retry.click()
-  await expect.poll(() => commands.length).toBe(3)
-  expect(commands[2]).toEqual(commands[0])
+  await expect(recover).toBeEnabled()
+  await recover.click()
+  expect(commands).toEqual([originalRequest])
   await expect.poll(() => deliveries.length).toBe(3)
   expect(stored).toHaveLength(1)
   const original = structuredClone(stored[0])
@@ -597,7 +626,6 @@ test('fixture: uncertain clarification retains its original command across quest
   expect(deliveries).toEqual(Array(3).fill({ path: deliveryPath, body: null }))
   expect(journalReads.some((read) => read.status === 503)).toBe(true)
 
-  journalAvailable = true
   const readsBeforeReload = journalReads.length
   page.once('dialog', (dialog) => dialog.accept())
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -608,7 +636,6 @@ test('fixture: uncertain clarification retains its original command across quest
     .toBe(true)
   expect(journalReads.at(-1)?.commands).toEqual([original])
   await page.getByRole('button', { name: /2\. Второй вопрос/ }).click()
-  const recover = page.getByRole('button', { name: 'Продолжить исходную команду' })
   const retainedAnswer = page.getByRole('status').filter({ has: recover })
   await expect(retainedAnswer).toHaveCount(1)
   await expect(retainedAnswer).toContainText(original.question_id)
@@ -625,7 +652,7 @@ test('fixture: uncertain clarification retains its original command across quest
   await expect(recover).toBeEnabled()
   await expect(choice).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
-  expect(commands).toHaveLength(3)
+  expect(commands).toEqual([originalRequest])
   expect(stored).toEqual([original])
   expect(deliveries).toEqual(Array(4).fill({ path: deliveryPath, body: null }))
   expect(errors).toEqual([])

@@ -1133,6 +1133,8 @@ pub struct AgentSession {
     pub last_message_preview: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_delivery: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_bound: Option<bool>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
 }

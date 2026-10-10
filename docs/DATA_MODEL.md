@@ -212,6 +212,11 @@ session creation, and rejects changed payload or duplicate task/agent bindings.
 No unbound session is committed, and no prompt, pending run or dispatch is created.
 Runtime health and admission remain separate prerequisites.
 
+The session detail DTO's `task_bound` is an `EXISTS` projection over
+`task_chat_bindings`, not a persisted session column or a migration. Detail
+readback returns a boolean; list/legacy DTOs may omit it or return null.
+Absence means unknown, not false, and cannot authorize a private composer.
+
 `task_chat_bindings` binds session ID, stable Tracker instance, immutable project/task/root
 UUIDs, concrete agent ID and verified central owner subject. Unique instance/task/agent
 prevents duplicate histories. Explicit binding requires an empty private chat, matching
