@@ -611,6 +611,8 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
                 remaining -= len(line)
             continue
         text = line.decode("utf-8", errors="replace").rstrip("\r\n")
+        if text.startswith(("thread '", "test ")):
+            panic_detail = False
         if panic_detail:
             hints.update(category for category, message in TEST_CUSTOM_HINTS.items()
                          if re.search(r'(?<![A-Za-z0-9_])Custom\("' + re.escape(message) + r'"\)', text))

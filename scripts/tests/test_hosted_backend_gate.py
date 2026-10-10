@@ -1029,6 +1029,25 @@ class HostedBackendTests(unittest.TestCase):
             else:
                 self.assertEqual(self.hint_diagnostics(text)["categories"], ["test_failure"])
 
+    def test_panic_hints_do_not_mine_new_headers_or_test_result_boundaries(self):
+        detail = 'Custom("Hermes guard is missing")'
+        owned = "infra/tests/support/pm_credential_creation.rs"
+        for boundary in (
+            f"thread '{detail}' panicked at /qa/src/services-base/private.rs:10:2:",
+            f"thread '{detail}' panicked at {owned}:301:5:",
+            f"thread '{detail}' panicked at malformed PRIVATE_SENTINEL",
+            f"test {detail} ... FAILED",
+            f"test result: FAILED {detail}",
+        ):
+            with self.subTest(boundary=boundary):
+                result = self.hint_diagnostics(boundary + "\nunrelated PRIVATE_SENTINEL")
+                self.assertEqual(result["categories"], ["test_failure"])
+                self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+        result = self.hint_diagnostics(
+            f"thread '{detail}' panicked at {owned}:301:5:\n" + detail)
+        self.assertEqual(result["categories"], ["hermes_guard_missing", "test_failure"])
+        self.assertEqual(len(result["diagnostics"]), 2)
+
     def test_panic_hints_discard_oversized_line_and_its_continuation(self):
         with mock.patch.object(gate, "DIAGNOSTIC_LINE_LIMIT", 128):
             result = self.hint_diagnostics("PRIVATE_SENTINEL" * 20 + 'Custom("Hermes guard is missing")')
