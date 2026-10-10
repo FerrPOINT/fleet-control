@@ -2,7 +2,7 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current product-code assembly `140234b`, a normal descendant
+Current product-code assembly `d5f18d0`, a normal descendant
 of b249 with runtime corrections, durable clarification custody, generated API
 and the private-approval ownership correction, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
@@ -45,14 +45,16 @@ split migrations; Linux90 PASS and Windows88 PASS/two Linux-only skips qualify
 only control logic. Actual run38006625294 is confirmed in progress at4a8f71f,
 testing source140234b. It is not a retry of the unchanged failed source.
 
-Current-client sourcef8b9a58 builds and its two fixture scenarios pass in three
-engines (six cases). Parent inspection of the27 fresh captures finds missing SDK
-styling and unreadable controls. Browser qualification remains open while the
-worker checks the owned SDK junction/build layout; functional PASS alone does not
-qualify visual evidence. Using an actual clean SDK19a directory fixes missing
-Base styles and six browser cases pass again. Parent confirms that a white-text/
-white-background requirements selector remains: a narrow production fix and
-fresh captures are assigned. No production screenshot manifest is replaced.
+Current-client visual follow-up6c022f3 is normally merged asd5f18d0. Its two-file
+delta adds local semantic styling/native color-scheme to the requirements select
+and assertions in the existing confirmation test. Worker lint/format/typecheck,
+focused test/build and six browser cases pass;27 fresh fixture captures cover
+three tabs, three sizes and three engines. Parent independently inspects WebKit
+desktop/mobile: the selected revision is readable. Parent merged-source42/42
+chat-detail tests, typecheck and ESLint pass; frontend tree13ccbaba matches the
+tested worker exactly. Actual SDK19a directory, not a Windows junction, is
+required for the verified Base CSS scan. Native popup/light-theme rendering,
+live PM/backend and production screenshot manifest remain separate acceptance.
 
 Supported-browser fixture checks pass for explicit answers/confirmation and
 unknown-command reload. The new test is integrated, including its corrected

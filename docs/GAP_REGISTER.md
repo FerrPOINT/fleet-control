@@ -2,7 +2,7 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current product-code assembly is140234b
+The current product-code assembly isd5f18d0
 (runtime corrections, journal3b41, human guard, genuine generated API and private-
 approval ownership correction), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
@@ -25,12 +25,12 @@ the project-revocation approval-history case, line2126; scratch/DB cleanup passe
 The next source correction supplies valid control request keys and checks project
 access before task-bound stop/steer conflicts, with no control reservation.
 Its PostgreSQL acceptance remains pending; all gates/counts/pins are preserved.
-Current-client two-scenario/three-engine checks pass, but parent visual inspection
-finds missing SDK styling. The worker owns bounded SDK build-layout diagnosis;
-current-client visual qualification and full backend success remain open.
-The SDK junction diagnosis is now confirmed; an actual clean SDK19a directory
-restores Base styles and all six fixture browser cases pass again. A separate
-native requirements-selector contrast defect remains and has a narrow fix owner.
+Current-client SDK scanning and the requirements-selector contrast defect are
+corrected: actual clean SDK19a directory and local semantic select/native scheme
+styling in6c022f3, normally merged asd5f18d0. Six browser cases pass with27 fresh
+fixture captures; parent verifies WebKit desktop/mobile and42 merged-source
+chat-detail tests, typecheck and ESLint. These close the scoped fixture defects,
+not native popup/light-theme, live PM or production-manifest acceptance.
 Reviewed controls4a8f71f/source140234b are normally published and actual Linux/PG
 run38006625294 is in progress. Independent source review,163 Rust-blob parity
 and90 Linux control tests pass; no actual full backend PASS is claimed.

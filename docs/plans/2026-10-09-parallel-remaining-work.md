@@ -14,8 +14,8 @@ owned checkouts; Tracker and Workflow remain read-only references.
 | ----- | ---------------- | ------------------- |
 | Pascal | Retarget4a8f71f complete; actual CI outcome/readback in progress | Normal merge of140234b; exact six additions,74 stages/9 journal cases/21/24 migrations retained. Linux90 PASS, Windows88 PASS/two Linux-only skips. Observe38006625294 and authenticate only its safe artifact; no raw logs or automatic rerun. |
 | Feynman | Completed independent stop/steer review | No P1/P2 in the actual two-file correction; free-chat early return, guard order, keyed409/403 and empty journal checked. No edits or runtime execution. |
-| Anscombe | Narrow requirements-selector fix and current-client captures | SDK junction cause confirmed and corrected in own build layout. Fix the proved native-select contrast defect only; rebuild, repeat the same six cases/27 captures and inspect WebKit/mobile. No backend/schema edits. |
-| Parent | Published correction and reviewed controls; actual CI/integration | Source140234b and controls4a8f71f published normally; actual38006625294 in progress. Review/integrate the UI successor, verify actual CI outcome and retain native/live dependencies. |
+| Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
+| Parent | Integrated UI asd5f18d0; actual backend outcome pending | Frontend tree matches6c022f3; parent WebKit desktop/mobile inspection,42 chat-detail tests/typecheck/ESLint pass. Source140234b/controls4a8f71f actual38006625294 remains the backend gate; native/live dependencies are separate. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
@@ -159,6 +159,18 @@ restored but the revision select still has white-on-white text. The worker now
 owns a minimal local select-theme correction, existing regression checks and
 fresh screenshots. No redesign, backend change or production-manifest rewrite
 is authorized by this narrow assignment.
+
+That UI assignment completes as6c022f3 (sole parent140234b), only two files and
+five added lines: local semantic native-select classes plus assertions in the
+existing exact-confirmation test. Parent normally merges it asd5f18d0, preserving
+the intervening documentation successor. Frontend tree13ccbaba exactly matches
+the worker's rebuilt/tested tree. Worker full lint/format/typecheck/build, focused
+one-case regression and six browser cases pass;27 fresh fixture PNGs are retained.
+Parent views WebKit1920/375 requirements, confirming readable selected revision,
+and independently runs all42 chat-detail tests, typecheck and focused ESLint PASS.
+No production screenshots, full light-theme/native popup, live PM or backend
+acceptance is inferred. Existing hosted gate still tests exact source140234b;
+the later UI/docs do not alter its Rust, migration or generated API inputs.
 
 These tasks have disjoint write sets. Reviewers do not modify frozen owner
 checkouts. Shared runtime/admission, live PM and native acceptance remain explicit
