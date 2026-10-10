@@ -653,14 +653,19 @@ pub(super) async fn dispatch(
         "assignment_revision":reservation.identity.assignment_revision,"assignment_ref":reservation.identity.assignment_ref,
         "binding_ref":reservation.binding_ref,"hermes_run_ref":run_ref,"mode_key":"draft","cycle_number":0,"attempt_number":1,
         "expected_phase_code":"PM-DRAFT-01","expected_status":"active","session_run_id":reservation.session_run_id});
-    let first_step = workflow
-        .call(
-            "/internal/runtime/step",
-            workflow.runtime,
-            Some(step),
-            Some(&scope),
-        )
-        .await?;
+    let first_step = super::pm_tools::instruction_step(
+        supervisor,
+        &workflow,
+        &reservation,
+        Some(&scope),
+        super::pm_tools::StoredWorkflowStep {
+            caller: json!({"step_operation_key":step["step_operation_key"],"report":null}),
+            body: step,
+            workflow_id: bound.result.workflow_id,
+            mode_id: bound.result.mode_id,
+        },
+    )
+    .await?;
     let instructions = validate_first_step(
         first_step,
         &reservation,

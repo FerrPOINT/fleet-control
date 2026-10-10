@@ -366,6 +366,18 @@ async fn pm_production_dispatch_binds_and_steers_once_and_holds_unknown_post() {
             usize::from(!unknown)
         );
         if !unknown {
+            let proof = repo
+                .get_pm_tool(op.id, &format!("fleet-pm-first-step:{}", op.id))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(proof.kind, "workflow_step");
+            assert!(proof.attempted);
+            assert_eq!(proof.request["body"]["hermes_run_ref"], "run_pm");
+            assert_eq!(
+                proof.result.as_ref().unwrap()["result"]["instructions"],
+                "Verified PM instructions"
+            );
             let at = |call: &str| calls.iter().position(|actual| actual == call).unwrap();
             assert!(at("POST /internal/runtime/v1/pm/assign") < at("POST /v1/runs"));
             assert!(at("GET /v1/runs/run_pm") < at("POST /internal/runtime/bind"));
@@ -379,6 +391,12 @@ async fn pm_production_dispatch_binds_and_steers_once_and_holds_unknown_post() {
                     .is_none()
             );
         } else {
+            assert!(
+                repo.get_pm_tool(op.id, &format!("fleet-pm-first-step:{}", op.id))
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
             let intent = repo.get_pm_dispatch(op.id).await.unwrap().unwrap();
             assert!(intent.submitted && intent.hermes_run_ref.is_none());
             assert!(
@@ -416,6 +434,154 @@ async fn setup() -> (
     };
     repo.prepare_pm_dispatch(intent.clone()).await.unwrap();
     (repo, reservation, intent)
+}
+
+fn instruction_receipt_fixture(
+    reservation: &domain::PmRunReservation,
+    run_ref: &str,
+    key: &str,
+) -> (domain::PmToolCommand, serde_json::Value) {
+    let body = json!({"task":reservation.identity.task,"step_operation_key":key,
+        "assignment_revision":reservation.identity.assignment_revision,"assignment_ref":reservation.identity.assignment_ref,
+        "binding_ref":reservation.binding_ref,"hermes_run_ref":run_ref,"mode_key":"draft","cycle_number":0,"attempt_number":1,
+        "expected_phase_code":"PM-DRAFT-01","expected_status":"active","session_run_id":reservation.session_run_id});
+    (
+        domain::PmToolCommand {
+            session_run_id: reservation.session_run_id,
+            key: key.into(),
+            kind: "workflow_step".into(),
+            request: json!({"caller":{"step_operation_key":key,"report":null},"body":body,"workflow_id":1,"mode_id":2}),
+            attempted: false,
+            result: None,
+        },
+        json!({"ok":true,"exit_code":0,"output":"Fixture instructions","result":{"ok":true,
+        "task_key":reservation.identity.task,"phase_code":"PM-DRAFT-01","status":"active",
+        "instructions":"Fixture instructions","phase_contract":{},"workflow_id":1,"mode_id":2,"mode_key":"draft","cycle_number":0}}),
+    )
+}
+
+#[tokio::test]
+async fn pm_publication_claim_requires_exact_run_instruction_receipt() {
+    let (repo, reservation, _) = setup().await;
+    let id = reservation.session_run_id;
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agents SET workflow_id='1' WHERE id=$1",
+        [reservation.identity.agent_id().unwrap().into()],
+    ))
+    .await
+    .unwrap();
+    assert!(repo.claim_pm_submission(id).await.unwrap());
+    repo.record_pm_submission(id, "run_instruction".into())
+        .await
+        .unwrap();
+    repo.accept_pm_run(id, "run_instruction".into(), "native-session".into())
+        .await
+        .unwrap();
+    for kind in ["revision", "question"] {
+        repo.prepare_pm_tool(domain::PmToolCommand {
+            session_run_id: id,
+            key: kind.into(),
+            kind: kind.into(),
+            request: json!({"original":true}),
+            attempted: false,
+            result: None,
+        })
+        .await
+        .unwrap();
+        assert!(!repo.claim_pm_tool(id, kind).await.unwrap());
+    }
+    for (n, path, value) in [
+        (0, "/body/session_run_id", json!(Uuid::new_v4())),
+        (1, "/body/hermes_run_ref", json!("run_foreign")),
+        (2, "/body/binding_ref", json!("foreign-binding")),
+        (3, "/body/assignment_ref", json!(Uuid::new_v4())),
+        (4, "/body/assignment_revision", json!(999)),
+        (5, "/body/task", json!("FOREIGN-1")),
+        (6, "/workflow_id", json!(99)),
+    ] {
+        let (mut proof, result) =
+            instruction_receipt_fixture(&reservation, "run_instruction", &format!("wrong-{n}"));
+        *proof.request.pointer_mut(path).unwrap() = value;
+        repo.prepare_pm_tool(proof.clone()).await.unwrap();
+        assert!(repo.claim_pm_tool(id, &proof.key).await.unwrap());
+        repo.finish_pm_tool(id, &proof.key, result).await.unwrap();
+        for kind in ["revision", "question"] {
+            assert!(!repo.claim_pm_tool(id, kind).await.unwrap());
+        }
+    }
+    for (n, path, value) in [
+        (0, "/ok", json!(false)),
+        (1, "/exit_code", json!(1)),
+        (2, "/result/task_key", json!("FOREIGN-1")),
+        (3, "/result/instructions", json!("")),
+        (4, "/output", json!("foreign output")),
+        (5, "/result/phase_contract", serde_json::Value::Null),
+    ] {
+        let (proof, mut result) = instruction_receipt_fixture(
+            &reservation,
+            "run_instruction",
+            &format!("wrong-result-{n}"),
+        );
+        *result.pointer_mut(path).unwrap() = value;
+        repo.prepare_pm_tool(proof.clone()).await.unwrap();
+        assert!(repo.claim_pm_tool(id, &proof.key).await.unwrap());
+        repo.finish_pm_tool(id, &proof.key, result).await.unwrap();
+        for kind in ["revision", "question"] {
+            assert!(!repo.claim_pm_tool(id, kind).await.unwrap());
+        }
+    }
+    let (proof, result) =
+        instruction_receipt_fixture(&reservation, "run_instruction", "read-instructions");
+    repo.prepare_pm_tool(proof.clone()).await.unwrap();
+    assert!(repo.claim_pm_tool(id, &proof.key).await.unwrap());
+    for kind in ["revision", "question"] {
+        assert!(!repo.claim_pm_tool(id, kind).await.unwrap());
+    }
+    let restarted = PostgresFleetRepository::new(
+        sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap(),
+    );
+    restarted
+        .finish_pm_tool(id, &proof.key, result.clone())
+        .await
+        .unwrap();
+    for kind in ["revision", "question"] {
+        let (left, right) = tokio::join!(
+            repo.claim_pm_tool(id, kind),
+            restarted.claim_pm_tool(id, kind)
+        );
+        assert_ne!(
+            left.unwrap(),
+            right.unwrap(),
+            "one original publication claim even across repository restart"
+        );
+        assert!(!repo.claim_pm_tool(id, kind).await.unwrap());
+    }
+    let mut changed = proof.clone();
+    changed.request["body"]["expected_status"] = json!("blocked");
+    assert!(repo.prepare_pm_tool(changed).await.is_err());
+    assert!(
+        repo.finish_pm_tool(
+            id,
+            &proof.key,
+            json!({"supervisor_accepted":true,"exit_code":0})
+        )
+        .await
+        .is_err()
+    );
+    assert_eq!(
+        repo.get_pm_tool(id, &proof.key)
+            .await
+            .unwrap()
+            .unwrap()
+            .result,
+        Some(result)
+    );
 }
 
 #[tokio::test]
@@ -579,6 +745,13 @@ async fn pm_claims_complete_with_one_physical_connection_without_second_pool_acq
         .min_connections(1)
         .connect_timeout(Duration::from_secs(1));
     let db = sea_orm::Database::connect(options).await.unwrap();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agents SET workflow_id='1' WHERE id=$1",
+        [reservation.identity.agent_id().unwrap().into()],
+    ))
+    .await
+    .unwrap();
     let repo = PostgresFleetRepository::new(db);
     assert!(
         tokio::time::timeout(Duration::from_secs(2), repo.claim_pm_submission(id))
@@ -624,6 +797,13 @@ async fn pm_claims_complete_with_one_physical_connection_without_second_pool_acq
         result: None,
         attempted: false,
     };
+    let (instructions, result) =
+        instruction_receipt_fixture(&reservation, "run_single_pool", "pool-instructions");
+    repo.prepare_pm_tool(instructions.clone()).await.unwrap();
+    assert!(repo.claim_pm_tool(id, &instructions.key).await.unwrap());
+    repo.finish_pm_tool(id, &instructions.key, result)
+        .await
+        .unwrap();
     repo.prepare_pm_tool(tool.clone()).await.unwrap();
     assert!(
         tokio::time::timeout(Duration::from_secs(2), repo.claim_pm_tool(id, &tool.key))

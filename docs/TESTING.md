@@ -1,5 +1,23 @@
 # Testing
 
+## PM Instruction Receipt Admission
+
+The existing foundation/credentials suites retain their selectors. The new
+ordinary selector `pm_dispatch::pm_publication_claim_requires_exact_run_instruction_receipt`
+checks both publication kinds, wrong/stale identity and malformed responses,
+missing result, restart/concurrent claims and immutable instruction custody.
+`pm_production_dispatch_binds_and_steers_once_and_holds_unknown_post` checks that
+initial dispatch stores real instruction proof; the existing MCP/continuation
+integration case adds zero publication before proof, lost instruction READ and
+restart with frozen body, fresh config authority, and separate continuation
+proof. Report/evaluation replay checks remain, including the original four-call
+sequence counted separately from the three added rejected/lost/successful
+bootstrap READ attempts.
+
+These PG/HTTP regressions require the existing owned disposable database and
+foundation/credentials gates. Source/rustfmt checks are not execution evidence.
+No Hermes pre-model or live PM acceptance is claimed.
+
 ## PM ACK Bounds Additive Upgrade024
 
 New ignored migration selector:
