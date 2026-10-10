@@ -1036,6 +1036,7 @@ function ChatWorkspace({ id }: { id: string }) {
                         !bound ||
                         task.isError ||
                         questions.isError ||
+                        answerCommands.isError ||
                         recoverAnswer.isPending ||
                         answer.isPending
                       }
@@ -1062,7 +1063,8 @@ function ChatWorkspace({ id }: { id: string }) {
                         !context ||
                         !answer.variables ||
                         task.isError ||
-                        questions.isError
+                        questions.isError ||
+                        answerCommands.isError
                       }
                       onClick={() => {
                         // New-answer permission can close before the original key is acknowledged.

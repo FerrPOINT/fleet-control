@@ -338,6 +338,199 @@ describe('production chat', () => {
     expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
     expect(chats.answerClarification).not.toHaveBeenCalled()
   })
+  describe('answer custody permissions and session isolation', () => {
+    const command: ClarificationCommand = {
+      id: 'persisted-original',
+      session_id: 'session1',
+      question_id: 'q1',
+      request: {
+        expected_question_version: 1,
+        requirement_revision: 3,
+        selected_option_ids: ['project'],
+        text: 'Original retained answer',
+        comment: 'Original retained comment',
+        idempotency_key: 'persisted-original-key',
+      },
+      payload_sha256: 'b'.repeat(64),
+      state: 'uncertain',
+      answer: null,
+      rejection_status: null,
+      created_at: '2026-10-10T00:00:00Z',
+      updated_at: '2026-10-10T00:00:00Z',
+    }
+
+    it.each(['session owner', 'Tracker access', 'journal access'])(
+      'blocks cached server-command delivery after %s is revoked',
+      async (authority) => {
+        vi.mocked(chats.listPendingAnswerCommands).mockResolvedValue([command])
+        const { client } = renderPage('clarification')
+        const recover = await screen.findByRole('button', { name: 'Продолжить исходную команду' })
+        await waitFor(() => expect(recover).toBeEnabled())
+        if (authority === 'session owner') {
+          const session = await fleet.getSession('session1')
+          vi.mocked(fleet.getSession).mockResolvedValue({ ...session, user_id: 'other-owner' })
+          await act(() => client.invalidateQueries({ queryKey: ['session', 'session1'] }))
+        } else if (authority === 'Tracker access') {
+          vi.mocked(chats.getTaskContext).mockRejectedValue(new ApiError(403, 'Access revoked'))
+          await act(() => client.invalidateQueries({ queryKey: ['task-context', 'session1'] }))
+        } else {
+          vi.mocked(chats.listPendingAnswerCommands).mockRejectedValue(
+            new ApiError(403, 'Journal access revoked'),
+          )
+          await act(() =>
+            client.invalidateQueries({ queryKey: ['clarification-commands', 'session1'] }),
+          )
+          expect(client.getQueryState(['clarification-commands', 'session1'])?.status).toBe('error')
+        }
+        await waitFor(() => expect(recover).toBeDisabled())
+        await userEvent.click(recover)
+        expect(screen.getByText(command.request.text!)).toBeVisible()
+        expect(
+          client.getQueryData<ClarificationCommand[]>(['clarification-commands', 'session1']),
+        ).toEqual([command])
+        expect(chats.deliverAnswerCommand).not.toHaveBeenCalled()
+        expect(chats.answerClarification).not.toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+      },
+    )
+
+    it('blocks an in-memory original retry after journal access is revoked', async () => {
+      vi.mocked(chats.listPendingAnswerCommands)
+        .mockResolvedValueOnce([])
+        .mockRejectedValue(new ApiError(403, 'Journal access revoked'))
+      vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Answer outcome unknown'))
+      renderPage('clarification')
+      await userEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+      await userEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+      await screen.findByText('Journal access revoked')
+      const retry = screen.getByRole('button', { name: 'Повторить исходный ответ' })
+      expect(retry).toBeDisabled()
+      await userEvent.click(retry)
+      expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+      expect(chats.deliverAnswerCommand).not.toHaveBeenCalled()
+      expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeChecked()
+    })
+
+    it('does not carry a pending delivery or its late result into another session', async () => {
+      let finish!: (result: ClarificationCommand) => void
+      vi.mocked(chats.deliverAnswerCommand).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve
+          }),
+      )
+      vi.mocked(chats.listPendingAnswerCommands).mockImplementation(async (id) =>
+        id === 'session1' ? [command] : [],
+      )
+      const session = await fleet.getSession('session1')
+      vi.mocked(fleet.getSession).mockImplementation(async (id) => ({ ...session, id }))
+      const { router } = renderPage('clarification')
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Продолжить исходную команду' }),
+      )
+      await waitFor(() => expect(chats.deliverAnswerCommand).toHaveBeenCalledTimes(1))
+      await act(() => router.navigate('/chats/session2?tab=clarification'))
+      await waitFor(() =>
+        expect(chats.listPendingAnswerCommands).toHaveBeenCalledWith('session2'),
+      )
+      expect(screen.queryByText(command.request.text!)).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Продолжить исходную команду' }),
+      ).not.toBeInTheDocument()
+      await act(async () => {
+        finish(command)
+      })
+      expect(
+        screen.queryByText('Доставка исходного ответа ещё не подтверждена.'),
+      ).not.toBeInTheDocument()
+      expect(chats.deliverAnswerCommand).toHaveBeenCalledExactlyOnceWith('session1', command.id)
+      expect(chats.answerClarification).not.toHaveBeenCalled()
+      await act(() => router.navigate('/chats/session1?tab=clarification'))
+      await screen.findByText(command.request.text!)
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Продолжить исходную команду' })).toBeEnabled(),
+      )
+      expect(chats.deliverAnswerCommand).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps stored custody distinct from delivery after the question changes', async () => {
+      let stored: ClarificationCommand[] = []
+      vi.mocked(chats.listPendingAnswerCommands).mockImplementation(async () => stored)
+      vi.mocked(chats.answerClarification).mockImplementation(async (_id, _question, payload) => {
+        stored = [{ ...command, state: 'stored', request: payload }]
+        throw new Error('Stored command delivery unknown')
+      })
+      vi.mocked(chats.deliverAnswerCommand).mockImplementation(async () => {
+        stored = [{ ...stored[0]!, state: 'uncertain' }]
+        return stored[0]!
+      })
+      const { client } = renderPage('clarification')
+      await userEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+      fireEvent.change(screen.getByLabelText('Свой вариант или детали'), {
+        target: { value: command.request.text },
+      })
+      fireEvent.change(screen.getByLabelText('Комментарий'), {
+        target: { value: command.request.comment },
+      })
+      await userEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+      await screen.findByRole('heading', { name: 'Сохранённый ответ: ожидает доставки' })
+      const original = structuredClone(vi.mocked(chats.answerClarification).mock.calls[0])
+      const persisted = structuredClone(stored[0]!)
+      expect(screen.getByLabelText('Свой вариант или детали')).toHaveValue(command.request.text)
+      expect(screen.getByLabelText('Комментарий')).toHaveValue(command.request.comment)
+      expect(screen.getByLabelText('Комментарий')).toBeDisabled()
+      const freshQuestions = [
+        { ...question, version: 2, requirement_revision: 4 },
+        { ...question, id: 'q2', text: 'Другой вопрос' },
+      ]
+      vi.mocked(chats.getClarifications).mockResolvedValue({ questions: freshQuestions })
+      await act(async () => {
+        client.setQueryData(['clarifications', 'session1'], {
+          questions: freshQuestions,
+        })
+      })
+      await screen.findByText('Вопрос изменился. Несохранённый ответ сохранён отдельно.')
+      expect(
+        screen.getByRole('button', { name: 'Перенести черновик и проверить новый вопрос' }),
+      ).toBeDisabled()
+      await userEvent.click(screen.getByRole('button', { name: /2\. Другой вопрос/ }))
+      expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+      await userEvent.click(screen.getByRole('button', { name: 'Продолжить исходную команду' }))
+      await screen.findByText('Доставка исходного ответа ещё не подтверждена.')
+      await screen.findByRole('heading', { name: 'Сохранённый ответ: требует сверки' })
+      expect(stored).toEqual([{ ...persisted, state: 'uncertain' }])
+      expect(stored[0]!.request).toEqual(original![2])
+      expect(chats.deliverAnswerCommand).toHaveBeenCalledExactlyOnceWith('session1', command.id)
+      expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+      expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+      expect(
+        screen.queryByText('Исходный ответ подтверждён. Требования ещё не опубликованы.'),
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByText('Ответ сохранён. Требования ещё не опубликованы.'),
+      ).not.toBeInTheDocument()
+      expect(chats.confirmRequirements).not.toHaveBeenCalled()
+      expect(sessionStorage.length).toBe(0)
+    })
+
+    it('does not let a read-only operator confirm the owner revision despite cached permissions', async () => {
+      useAuthStore.setState({
+        userId: 'operator',
+        permissions: ['sessions:read_all', 'agents:manage'],
+      })
+      renderPage('requirements')
+      const consent = await screen.findByRole('checkbox', { name: /Подтверждаю цель/ })
+      const confirm = screen.getByRole('button', { name: 'Подтвердить редакцию 3' })
+      expect(consent).toBeDisabled()
+      expect(confirm).toBeDisabled()
+      await userEvent.click(consent)
+      await userEvent.click(confirm)
+      expect(consent).not.toBeChecked()
+      expect(chats.confirmRequirements).not.toHaveBeenCalled()
+      expect(chats.listPendingAnswerCommands).not.toHaveBeenCalled()
+      expect(chats.deliverAnswerCommand).not.toHaveBeenCalled()
+    })
+  })
   it('requires explicit answer and does not publish after saving it', async () => {
     renderPage('clarification')
     const choice = await screen.findByRole('radio', { name: /Участники проекта/ })
