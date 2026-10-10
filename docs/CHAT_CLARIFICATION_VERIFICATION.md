@@ -35,6 +35,20 @@ its timestamp nor byte identity. This import is fixture evidence, not live accep
 
 The preceding successful packet and discovered defect are preserved below.
 
+Current backend
+[38073896066](https://github.com/FerrPOINT/fleet-control/actions/runs/38073896066),
+attempt1, is FAILURE on product `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`
+and controls `5b3ddd3ae164a5136e068550ec2e8c98e1234668`. Parent original strict
+failure reader verifies artifact11677538834, ZIP SHA256
+`afb68c11d58e659634999f81f276cc313ca09042a6cd20a402275c16d73ecb90`,
+source/control bindings and successful scratch/synthetic database cleanup.
+The gate advances beyond PM human controls, then stops at `pm_recovery_pg`,
+exit101. The closed projection contains empty failed-test/diagnostic lists,
+category unknown and no command exit code. This is not evidence of no test
+failure, a compiler defect or a particular infrastructure cause. All later
+gates remain unqualified. The older failure and fixture repair below keep their
+historical scope. No unchanged rerun or assertion relaxation is used.
+
 Frontend [38070120966](https://github.com/FerrPOINT/fleet-control/actions/runs/38070120966),
 attempt1, is SUCCESS on product `6dd16d0c8ffc40d96519390bfb7c31324a8786f6`
 and controls `cc90ac6128094dee4df0c7f5491909ccc4a57642`.
