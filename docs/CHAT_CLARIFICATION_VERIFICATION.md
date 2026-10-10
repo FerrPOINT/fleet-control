@@ -3,6 +3,52 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Current Hosted Qualification (2026-10-10)
+
+Frontend [38070120966](https://github.com/FerrPOINT/fleet-control/actions/runs/38070120966),
+attempt1, is SUCCESS on product `6dd16d0c8ffc40d96519390bfb7c31324a8786f6`
+and controls `cc90ac6128094dee4df0c7f5491909ccc4a57642`.
+Two independent executions of the original strict reader verify run/head,
+artifact11677007125, ZIP SHA256
+`a44ae3df2f84f31d187c98a82473f8566b7fe7ffd87657f1cf155322e99beedc`,
+closed members, checksums, PNG dimensions and source provenance. All23 gates
+pass:460 unit tests in41 files; Chromium47 passed, Firefox46 passed/1 flaky,
+WebKit47 passed. Each browser skips the same nine explicitly opt-in live cases;
+these are not live-service acceptance. The success receipt does not retain the
+flaky test name. Cleanup step succeeds; no independent remote filesystem
+attestation is claimed.
+
+The artifact contains135 route-catalogue and186 browser-fixture PNGs, plus four
+metadata files. Mobile/desktop dialogue, clarification, private-chat, uncertain
+answer and selected fleet/admin views were visually reviewed. The reviewed
+requirements capture reveals a contradictory success plus unavailable warning
+after a matching confirmation receipt refreshes context to Backlog. Product
+`aca917c4a79d1718beab8f5b82631f1698ebda5c` corrects only that warning and adds
+a regression for disabled controls and exactly one confirmation call. Independent
+source review, syntax/AST and formatting checks pass; its semantic/unit/browser
+qualification and corrected captures are pending. Existing qualified screenshots
+remain evidence for their original source, not proof that this new fix passes.
+No new captures have been imported into the tracked screenshot catalogue yet.
+
+Backend [38070952123](https://github.com/FerrPOINT/fleet-control/actions/runs/38070952123),
+attempt1, is FAILURE on product `5db4ff92d2168c46ce96b56f37acbbf7de92db33`
+and controls `10a513c5c60fb844e753085a2589ffe90861b33c`. Original strict failure
+readback verifies artifact11676718746, ZIP SHA256
+`ebd24a6b3c7eb5c073df433b1207f54881b09ca481017f2fbd03135ee8909416`,
+exit101 at `pm_human_controls`, three failed test names and frames931/1003 in
+`backend/infra/tests/support/pm_human_controls.rs`. The original foundation
+failures are passed; later gates remain unqualified. Source inspection finds
+two tests sharing a downgrade helper that now selects024 rather than023, and a
+legacy setup using migration-count-minus-one that no longer stops at022.
+Corrections still require review and PostgreSQL execution; this diagnosis is
+not a passing regression. Scratch and synthetic database cleanup are verified.
+No raw private logs or runtime credentials are retained in this evidence.
+
+These results qualify only their named fixture/source gates. They do not prove
+deployed PM tools, safe workflow continuation, real owner confirmation or full
+seven-agent SDLC. Historical receipts below remain scoped to their original
+packets.
+
 ## Historical Foundation PR47 Review (2026-10-10)
 
 This packet belongs to foundation `219f94a`, not the reconciled runtime source.
@@ -253,13 +299,13 @@ Expected SQL denials in negative cases are not gate failures. The frozen 201
 backend/SDK inputs were read back unchanged before exporting the generated
 OpenAPI. The tracked spec is byte-identical to that actual Rust export.
 
-| Evidence artifact | SHA256 |
-| --- | --- |
-| Final backend Compose project `sdlc-qa-fleet-task-chats-289b8a15aead` log | `49b63d2cc92cb212ae1c1925b43713e2c860b2b5ab08768ada49990fd6c141c3` |
-| Actual Rust-generated OpenAPI | `4aca254bde785794e7df09bda41de600e12579b9760060aa86dddafa707cc808` |
-| Tracker PR114 source357caa7 OpenAPI | `7a1131a653ad06898170318b25dea9f78760e07f4f58a0d91b081800efbf074e` |
+| Evidence artifact                                                          | SHA256                                                             |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Final backend Compose project `sdlc-qa-fleet-task-chats-289b8a15aead` log  | `49b63d2cc92cb212ae1c1925b43713e2c860b2b5ab08768ada49990fd6c141c3` |
+| Actual Rust-generated OpenAPI                                              | `4aca254bde785794e7df09bda41de600e12579b9760060aa86dddafa707cc808` |
+| Tracker PR114 source357caa7 OpenAPI                                        | `7a1131a653ad06898170318b25dea9f78760e07f4f58a0d91b081800efbf074e` |
 | Final frontend/client/browser/screenshot gate log after fixture correction | `9a5f7af683cfc7ca5b8eb20039e06115dfbb43942edb882c02c9779c4e473bf8` |
-| Accepted regenerated 135-screen fixture route manifest | `b3e4cd52f0584790fc75b9d20af55ef4af75322fc1f4b5c51b916b792a726ac3` |
+| Accepted regenerated 135-screen fixture route manifest                     | `b3e4cd52f0584790fc75b9d20af55ef4af75322fc1f4b5c51b916b792a726ac3` |
 
 The strict seven-DTO comparison passes against exact Tracker Git source
 `357caa7a60a717eb7b0ac72f286b793326992931`, not a mutable local checkout.
@@ -344,13 +390,13 @@ Locked all-target check, strict Clippy, fmt, clean migration CLI up/status/
 empty down/reapply/status and byte-exact Rust OpenAPI regeneration passed.
 CI now explicitly executes the lineage and central-profile opt-in gates.
 
-| Owned evidence | SHA256 |
-| --- | --- |
-| Final backend project `sdlc-qa-fleet-chat-release-615ca6a67d74` log | `5293d3bf18dc0844bbb8914ba7dfab8e26a40fafd33fcf69e9948e8c511f4145` |
-| Pre-fix populated-down regression `d4f2cc6d199c`, expected failure | `96c55b19ed6b778b89b155bdd44f650f32dbe7bbe54dec8d306a3d1e065d9805` |
-| Earlier baseline gate `3a86122ea4f1`, before guard | `e58a519f9e3f2e1ccf7ec094894b5683f760a00cba1143e674a187e30e6fbe40` |
+| Owned evidence                                                           | SHA256                                                             |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Final backend project `sdlc-qa-fleet-chat-release-615ca6a67d74` log      | `5293d3bf18dc0844bbb8914ba7dfab8e26a40fafd33fcf69e9948e8c511f4145` |
+| Pre-fix populated-down regression `d4f2cc6d199c`, expected failure       | `96c55b19ed6b778b89b155bdd44f650f32dbe7bbe54dec8d306a3d1e065d9805` |
+| Earlier baseline gate `3a86122ea4f1`, before guard                       | `e58a519f9e3f2e1ccf7ec094894b5683f760a00cba1143e674a187e30e6fbe40` |
 | Preliminary compile failure `eddcf3faa07e`, corrected borrowed DB helper | `63f5b29ef77a30fc9541976f4fc7aaa43b8a7186ffa5e3306f4b29da6833a9d0` |
-| Final canonical-origin three-browser fixture log | `361ff4734254ff34866206ce71987cbb5f57e92f054213dbdd26929f173ea307` |
+| Final canonical-origin three-browser fixture log                         | `361ff4734254ff34866206ce71987cbb5f57e92f054213dbdd26929f173ea307` |
 
 Logs are retained in the owning local release QA directory; the final run,
 not preliminary successes, attests the guarded migration bytes. Every listed
