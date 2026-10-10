@@ -1359,6 +1359,57 @@ describe('production chat', () => {
       ),
     )
   })
+  it('keeps verified confirmation success after refreshed context closes confirmation permission', async () => {
+    vi.mocked(chats.confirmRequirements).mockImplementation(async () => {
+      vi.mocked(chats.getTaskContext).mockResolvedValue({
+        ...context,
+        tracker: {
+          ...context.tracker!,
+          stage: 'Backlog',
+          permissions: { can_answer: false, can_confirm: false },
+        },
+      })
+      return {
+        id: 'confirmation',
+        task_id: 'task',
+        revision: 3,
+        content_hash: 'hash3',
+        owner_subject: 'subject-owner',
+        created_at: '2026-10-01T12:00:00Z',
+        stage: 'Backlog',
+      }
+    })
+    const { client } = renderPage('requirements')
+    const confirm = await screen.findByRole('button', { name: 'Подтвердить редакцию 3' })
+    await userEvent.click(screen.getByRole('checkbox', { name: /Подтверждаю цель/ }))
+    await userEvent.click(confirm)
+    await waitFor(() =>
+      expect(
+        client.getQueryData<chats.TaskContextResponse>(['task-context', 'session1']),
+      ).toMatchObject({
+        tracker: { stage: 'Backlog', permissions: { can_confirm: false } },
+      }),
+    )
+    expect(
+      await screen.findByText(
+        'Подтверждение сохранено. Следующее назначение проверяется отдельно.',
+      ),
+    ).toBeVisible()
+    expect(
+      screen.queryByText(
+        'Подтверждение недоступно: проверьте актуальную редакцию и prerequisites.',
+      ),
+    ).not.toBeInTheDocument()
+    expect(confirm).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(chats.confirmRequirements).toHaveBeenCalledExactlyOnceWith(
+      'session1',
+      3,
+      'hash3',
+      expect.any(String),
+    )
+  })
   it('resets consent when the displayed requirements revision changes', async () => {
     const { client } = renderPage('requirements')
     fireEvent.click(await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }))
@@ -1425,6 +1476,11 @@ describe('production chat', () => {
     expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
     await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
     expect(await screen.findByRole('button', { name: 'Подтвердить редакцию 3' })).toBeDisabled()
+    expect(
+      screen.getByText('Подтверждение недоступно: проверьте актуальную редакцию и prerequisites.'),
+    ).toBeVisible()
+    expect(screen.queryByText(/Подтверждение сохранено/)).not.toBeInTheDocument()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
   })
   it('does not overwrite a new-version answer with an older retained draft', async () => {
     const { client } = renderPage('clarification')
