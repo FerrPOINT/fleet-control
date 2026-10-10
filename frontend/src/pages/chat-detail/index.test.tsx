@@ -533,6 +533,10 @@ describe('production chat', () => {
   it('confirms exact hash/revision separately', async () => {
     renderPage('requirements')
     const confirm = await screen.findByRole('button', { name: 'Подтвердить редакцию 3' })
+    const revisionSelect = screen.getByRole('combobox', { name: 'Редакция требований' })
+    expect(revisionSelect).toHaveClass('bg-surface', 'text-text-primary', 'border-border')
+    expect(revisionSelect).toHaveClass('scheme-dark', '[[data-theme=light]_&]:scheme-light')
+    expect(revisionSelect).toHaveValue('3')
     expect(confirm).toBeDisabled()
     fireEvent.click(screen.getByRole('checkbox', { name: /Подтверждаю цель/ }))
     fireEvent.click(confirm)
