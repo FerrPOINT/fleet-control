@@ -47,6 +47,13 @@ GENERATED = "frontend/src/api/generated.ts"
 MAX_FILE = 16 * 1024 ** 2
 MAX_ARTIFACT = 192 * 1024 ** 2
 MAX_MEMBERS = 800
+FAILURE_LIMIT = 128 * 1024
+FAILURE_FILE = "failure.json"
+FAILURE_SCOPE = dict(frontend_unit_build_fixture=False, live_pm_acceptance=False,
+                     live_runtime_acceptance=False, all_sdlc_acceptance=False)
+BROWSER_PROJECTS = ("chromium", "firefox", "webkit")
+BROWSER_STATUSES = ("expected", "unexpected", "flaky", "skipped")
+RESULT_STATUSES = ("passed", "failed", "timedOut", "skipped", "interrupted")
 SCOPE = dict(frontend_unit_build_fixture=True, live_pm_acceptance=False,
              live_runtime_acceptance=False, all_sdlc_acceptance=False)
 SAFE_FAILURE_HINTS = {
@@ -281,6 +288,179 @@ def safe_failure_hint(error):
     return SAFE_FAILURE_HINTS.get(str(error), "unclassified")
 
 
+class GateFailure(ValueError):
+    def __init__(self, category, code=None):
+        super().__init__("Frontend command failed; private diagnostics withheld")
+        self.category, self.code = category, code
+
+
+def attested_test_locations(controls):
+    locations = {}
+    for item in git(controls, "ls-tree", "-rz", SOURCE_SHA, "frontend/e2e").split(b"\0"):
+        if not item:
+            continue
+        meta, raw_name = item.split(b"\t", 1)
+        mode, kind, blob = meta.split()
+        name = raw_name.decode()
+        if not re.fullmatch(r"frontend/e2e/[a-z0-9-]+\.spec\.ts", name):
+            continue
+        require(mode in (b"100644", b"100755") and kind == b"blob", "Invalid test source inventory")
+        data = bounded_file(controls, name)
+        require(hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest() == blob.decode(),
+                "Test source differs from canonical Git blob")
+        locations[name] = [n for n, line in enumerate(data.decode().splitlines(), 1)
+                           if re.match(r"\s*test(?:\.(?:only|skip|fixme))?\(\s*['\"`]", line)]
+    require(0 < len(locations) <= 100 and sum(map(len, locations.values())) <= 4096,
+            "Invalid test source declaration inventory")
+    return locations
+
+
+def safe_browser_failure(data, locations):
+    result = dict(report="unavailable", diagnostics=[], browsers={
+        name: {status: 0 for status in BROWSER_STATUSES} for name in BROWSER_PROJECTS})
+    if data is None:
+        return result
+    if len(data) > 4 * 1024 ** 2:
+        return dict(result, report="truncated")
+    # Copy no runtime strings, errors, titles, attachments, snippets or stdio.
+    try:
+        report = json.loads(data)
+        require(isinstance(report, dict) and isinstance(report.get("suites"), list), "Invalid browser report")
+        stack = [(suite, 0) for suite in report["suites"]]
+        seen, nodes, tests = set(), 0, 0
+        while stack:
+            suite, depth = stack.pop()
+            nodes += 1
+            require(nodes <= 4096 and depth <= 16 and isinstance(suite, dict), "Browser report bound")
+            for spec in suite.get("specs", []):
+                nodes += 1
+                require(nodes <= 4096, "Browser spec bound")
+                require(isinstance(spec, dict), "Invalid browser spec")
+                file, line = spec.get("file"), spec.get("line")
+                file = next((name for name in locations if file in
+                             (name, name.removeprefix("frontend/"), name.removeprefix("frontend/e2e/"))), None)
+                require(file is not None and type(line) is int and line in locations[file], "Unattested test location")
+                for test in spec["tests"]:
+                    tests += 1
+                    require(tests <= 4096 and isinstance(test, dict), "Browser test bound")
+                    project, status = test.get("projectName"), test.get("status")
+                    require(project in BROWSER_PROJECTS and status in BROWSER_STATUSES, "Unknown browser status")
+                    attempts = test.get("results", [])
+                    require(isinstance(attempts, list) and len(attempts) <= 3, "Browser retry bound")
+                    statuses = sorted({attempt["status"] for attempt in attempts})
+                    require(all(s in RESULT_STATUSES for s in statuses), "Unknown browser result")
+                    result["browsers"][project][status] += 1
+                    if status == "unexpected":
+                        key = (file, line, project, status, tuple(statuses))
+                        if key not in seen:
+                            seen.add(key)
+                            require(len(seen) <= 128, "Browser diagnostic bound")
+                            result["diagnostics"].append(dict(file=file, line=line, project=project,
+                                                               status=status, results=statuses))
+            stack.extend((child, depth + 1) for child in suite.get("suites", []))
+            require(len(stack) <= 4096, "Browser suite bound")
+        return dict(result, report="valid")
+    except (ValueError, TypeError, KeyError, RecursionError):
+        # Do not retain partially validated counters or locations.
+        return dict(report="rejected", diagnostics=[], browsers={
+            name: {status: 0 for status in BROWSER_STATUSES} for name in BROWSER_PROJECTS})
+
+
+def validate_failure(value, *, workflow_sha, run_id, attempt, locations):
+    controls = Path(__file__).resolve().parents[1]
+    expected = dict(version=1, kind="safe_frontend_failure", status="failure", repository=REPOSITORY,
+        branch=BRANCH, workflow_path=WORKFLOW, workflow_sha=workflow_sha, run_id=run_id, run_attempt=attempt,
+        source_sha=SOURCE_SHA, source_tree=SOURCE_TREE, source_parents=SOURCE_PARENTS,
+        base_sha=BASE_SHA, base_tree=BASE_TREE, schema_sha256=SCHEMA_SHA256,
+        test_inventory_sha256=digest(canonical(locations)),
+        control_sha256={name: digest((controls / name).read_text(encoding="utf-8").encode())
+                        for name in sorted(WRITE_SET)}, **QUALIFIED_INPUTS, **FAILURE_SCOPE)
+    extra = {"gate", "completed_gates", "category", "exit_code", "browser", "cleanup"}
+    require(isinstance(value, dict) and set(value) == set(expected) | extra
+            and all(type(value.get(k)) is type(v) and value.get(k) == v for k, v in expected.items()),
+            "Invalid failure identity/provenance/scope")
+    name, completed = value["gate"], value["completed_gates"]
+    require(name in (*GATES, "prepare", "finish") and isinstance(completed, list)
+            and completed == list(GATES)[:len(completed)]
+            and (name == "prepare" and not completed or name == "finish" and completed == list(GATES)
+                 or name in GATES and completed == list(GATES)[:list(GATES).index(name)]), "Invalid failure gate prefix")
+    require(value["category"] in ("exit", "timeout", "validation", "control_error")
+            and (value["exit_code"] is None or type(value["exit_code"]) is int
+                 and -255 <= value["exit_code"] <= 255 and value["exit_code"] != 0)
+            and (value["category"] == "exit") == (value["exit_code"] is not None), "Invalid failure category/exit")
+    require(value["cleanup"] in (dict(private_absent=False), dict(private_absent=True))
+            and type(value["cleanup"]["private_absent"]) is bool, "Invalid failure cleanup")
+    browser = value["browser"]
+    require(isinstance(browser, dict) and set(browser) == {"report", "diagnostics", "browsers"}
+            and browser["report"] in ("valid", "unavailable", "rejected", "truncated")
+            and isinstance(browser["diagnostics"], list) and len(browser["diagnostics"]) <= 128
+            and isinstance(browser["browsers"], dict) and set(browser["browsers"]) == set(BROWSER_PROJECTS),
+            "Invalid failure browser schema")
+    total = 0
+    for counts in browser["browsers"].values():
+        require(isinstance(counts, dict) and set(counts) == set(BROWSER_STATUSES)
+                and all(type(n) is int and 0 <= n <= 4096 for n in counts.values()), "Invalid browser counters")
+        total += sum(counts.values())
+    require(total <= 4096, "Browser counter bound")
+    seen = set()
+    for row in browser["diagnostics"]:
+        require(isinstance(row, dict) and set(row) == {"file", "line", "project", "status", "results"}
+                and isinstance(row["file"], str) and row["file"] in locations
+                and type(row["line"]) is int and row["line"] in locations[row["file"]]
+                and row["project"] in BROWSER_PROJECTS and row["status"] == "unexpected"
+                and isinstance(row["results"], list) and row["results"] == sorted(set(row["results"]))
+                and all(s in RESULT_STATUSES for s in row["results"])
+                and browser["browsers"][row["project"]]["unexpected"] > 0, "Unattested failure diagnostic")
+        seen.add(canonical(row))
+    require(len(seen) == len(browser["diagnostics"]), "Duplicate failure diagnostic")
+    require(browser["report"] == "valid" or not browser["diagnostics"] and total == 0,
+            "Invalid unavailable browser evidence")
+    require(name == "fixtures" or browser["report"] == "unavailable", "Browser evidence outside fixture gate")
+    require(len(canonical(value)) <= FAILURE_LIMIT, "Failure receipt exceeds bound")
+
+
+def record_failure(name, error):
+    workspace, sha = controls_preflight()
+    private = workspace_temp() / "fleet-frontend-private"
+    preflight_receipt = json.loads(bounded_file(private, "preflight.json"))
+    require(preflight_receipt == dict(workflow_sha=sha, run_id=os.environ["GITHUB_RUN_ID"],
+        attempt=os.environ["GITHUB_RUN_ATTEMPT"], public=True), "Failure preflight identity mismatch")
+    completed = []
+    if name != "prepare":
+        state = json.loads(bounded_file(private, "state.json"))
+        require(state["workflow_sha"] == sha and qualified_inputs(state) == QUALIFIED_INPUTS, "Failure state mismatch")
+        completed = state["gates"]
+    locations = attested_test_locations(workspace / "controls")
+    browser = safe_browser_failure(None, locations)
+    if name == "fixtures" and (private / "browser.json").exists():
+        try:
+            if (private / "browser.json").stat().st_size > 4 * 1024 ** 2:
+                browser["report"] = "truncated"
+            else:
+                browser = safe_browser_failure(bounded_file(private, "browser.json", limit=4 * 1024 ** 2), locations)
+        except (OSError, ValueError):
+            browser["report"] = "rejected"
+    if isinstance(error, GateFailure):
+        category = error.category
+    elif isinstance(error, (TimeoutError, subprocess.TimeoutExpired)):
+        category = "timeout"
+    else:
+        category = "validation" if isinstance(error, ValueError) else "control_error"
+    code = error.code if isinstance(error, GateFailure) else None
+    value = dict(version=1, kind="safe_frontend_failure", status="failure", repository=REPOSITORY,
+        branch=BRANCH, workflow_path=WORKFLOW, workflow_sha=sha, run_id=int(os.environ["GITHUB_RUN_ID"]),
+        run_attempt=int(os.environ["GITHUB_RUN_ATTEMPT"]), source_sha=SOURCE_SHA, source_tree=SOURCE_TREE,
+        source_parents=SOURCE_PARENTS, base_sha=BASE_SHA, base_tree=BASE_TREE, schema_sha256=SCHEMA_SHA256,
+        test_inventory_sha256=digest(canonical(locations)),
+        control_sha256={p: digest(bounded_file(workspace / "controls", p)) for p in sorted(WRITE_SET)},
+        gate=name, completed_gates=completed, category=category, exit_code=code,
+        browser=browser, cleanup=dict(private_absent=False),
+        **QUALIFIED_INPUTS, **FAILURE_SCOPE)
+    validate_failure(value, workflow_sha=sha, run_id=value["run_id"], attempt=value["run_attempt"], locations=locations)
+    with (private / "failure-pending.json").open("xb") as pending:
+        pending.write(canonical(value))
+
+
 def capture_paths(source):
     script = (source / "frontend/scripts/capture-screenshots.mjs").read_text()
     block = script.split("const coreScreens = [", 1)[1].split("\n]", 1)[0]
@@ -438,9 +618,13 @@ def gate(name):
     print("Running frontend gate: " + name, flush=True)
     with log.open("xb") as diagnostics:
         for args in GATES[name]:
-            result = subprocess.run(args, cwd=source / "frontend", env=env,
-                                    stdout=diagnostics, stderr=subprocess.STDOUT, timeout=1200)
-            require(result.returncode == 0, "Frontend gate failed: " + name + "; private diagnostics withheld")
+            try:
+                result = subprocess.run(args, cwd=source / "frontend", env=env,
+                                        stdout=diagnostics, stderr=subprocess.STDOUT, timeout=1200)
+            except subprocess.TimeoutExpired:
+                raise GateFailure("timeout") from None
+            if result.returncode != 0:
+                raise GateFailure("exit", result.returncode)
     if name == "install":
         state["generated_sha256"] = digest(bounded_file(source, GENERATED))
         installed = source / "frontend/node_modules/@sdlc/ui/package.json"
@@ -651,6 +835,34 @@ def validate_readback(run, artifact, payload, *, run_id, attempt, workflow_sha, 
     return files
 
 
+def validate_failure_readback(run, artifact, payload, *, run_id, attempt, workflow_sha, artifact_id, artifact_digest):
+    require(len(payload) <= 2 * FAILURE_LIMIT, "Oversized failure ZIP")
+    require(run["id"] == run_id and run["run_attempt"] == attempt and run["status"] == "completed"
+            and run["conclusion"] == "failure" and run["event"] == "push" and run["head_sha"] == workflow_sha
+            and run["head_branch"] == BRANCH and run["path"] == WORKFLOW
+            and run["repository"]["full_name"] == REPOSITORY, "Unexpected failure workflow run")
+    require(artifact["id"] == artifact_id and artifact["expired"] is False
+            and artifact["workflow_run"]["id"] == run_id and artifact["workflow_run"]["head_sha"] == workflow_sha
+            and artifact["workflow_run"]["head_branch"] == BRANCH
+            and artifact["name"] == f"fleet-frontend-failure-b0ad56c-{run_id}-{attempt}"
+            and artifact["digest"] == "sha256:" + artifact_digest and digest(payload) == artifact_digest,
+            "Failure artifact identity/digest mismatch")
+    with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+        members = archive.infolist()
+        require(len(members) == 2 and {m.filename for m in members} == {FAILURE_FILE, "SHA256SUMS"}
+                and all(not m.is_dir() and m.file_size <= FAILURE_LIMIT and not m.flag_bits & 1
+                        and (m.external_attr >> 16) & 0o170000 in (0, 0o100000) for m in members),
+                "Unsafe failure ZIP members")
+        files = {m.filename: archive.read(m) for m in members}
+    require(files["SHA256SUMS"] == (digest(files[FAILURE_FILE]) + "  " + FAILURE_FILE + "\n").encode(),
+            "Failure checksum mismatch")
+    value = json.loads(files[FAILURE_FILE])
+    validate_failure(value, workflow_sha=workflow_sha, run_id=run_id, attempt=attempt,
+                     locations=attested_test_locations(Path(__file__).resolve().parents[1]))
+    require(files[FAILURE_FILE] == canonical(value), "Noncanonical failure receipt")
+    return files
+
+
 def readback(args):
     require(re.fullmatch(r"[0-9a-f]{40}", args.workflow_sha)
             and re.fullmatch(r"[0-9a-f]{64}", args.artifact_digest)
@@ -659,24 +871,48 @@ def readback(args):
     run = json.loads(bounded_command(["gh", "api", "--method", "GET", endpoint + f"runs/{args.run_id}/attempts/{args.attempt}"]))
     path = endpoint + f"artifacts/{args.artifact_id}"
     artifact = json.loads(bounded_command(["gh", "api", "--method", "GET", path]))
-    require(artifact["id"] == args.artifact_id and 0 < artifact["size_in_bytes"] <= MAX_ARTIFACT, "Artifact ID/size mismatch")
-    payload = bounded_command(["gh", "api", "--method", "GET", path + "/zip"], limit=MAX_ARTIFACT)
-    files = validate_readback(run, artifact, payload, run_id=args.run_id, attempt=args.attempt,
+    failure = args.mode == "readback-failure"
+    limit = 2 * FAILURE_LIMIT if failure else MAX_ARTIFACT
+    require(artifact["id"] == args.artifact_id and 0 < artifact["size_in_bytes"] <= limit, "Artifact ID/size mismatch")
+    payload = bounded_command(["gh", "api", "--method", "GET", path + "/zip"], limit=limit)
+    validator = validate_failure_readback if failure else validate_readback
+    files = validator(run, artifact, payload, run_id=args.run_id, attempt=args.attempt,
         workflow_sha=args.workflow_sha, artifact_id=args.artifact_id, artifact_digest=args.artifact_digest)
     args.output.mkdir(parents=True, exist_ok=False)
     for name, data in files.items():
         target = args.output.joinpath(*safe_path(name).parts)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
-    print(json.dumps(dict(state="verified_frontend_fixture_artifact", output=str(args.output.resolve()), **SCOPE)))
+    print(json.dumps(dict(state="verified_safe_frontend_failure" if failure else "verified_frontend_fixture_artifact",
+        output=str(args.output.resolve()), **(FAILURE_SCOPE if failure else SCOPE))))
 
 
 def cleanup():
-    hosted_identity()
+    workspace, sha = hosted_identity()
     target = workspace_temp() / "fleet-frontend-private"
     require(target.resolve() == target and not target.is_symlink(), "Private cleanup alias forbidden")
-    if target.exists():
-        shutil.rmtree(target)
+    value, locations = None, None
+    try:
+        if (target / "failure-pending.json").exists():
+            locations = attested_test_locations(workspace / "controls")
+            value = json.loads(bounded_file(target, "failure-pending.json", limit=FAILURE_LIMIT))
+            validate_failure(value, workflow_sha=sha, run_id=int(os.environ["GITHUB_RUN_ID"]),
+                             attempt=int(os.environ["GITHUB_RUN_ATTEMPT"]), locations=locations)
+    finally:
+        try:
+            if target.exists():
+                shutil.rmtree(target)
+        finally:
+            if value is not None:
+                value["cleanup"] = dict(private_absent=not target.exists() and not target.is_symlink())
+                validate_failure(value, workflow_sha=sha, run_id=int(os.environ["GITHUB_RUN_ID"]),
+                                 attempt=int(os.environ["GITHUB_RUN_ATTEMPT"]), locations=locations)
+                destination = workspace_temp() / "fleet-frontend-failure"
+                destination.mkdir(exist_ok=False)
+                with (destination / FAILURE_FILE).open("xb") as output:
+                    output.write(canonical(value))
+                with (destination / "SHA256SUMS").open("xb") as output:
+                    output.write((digest(canonical(value)) + "  " + FAILURE_FILE + "\n").encode())
 
 
 def main():
@@ -686,24 +922,33 @@ def main():
         modes.add_parser(name)
     check = modes.add_parser("gate")
     check.add_argument("name", choices=list(GATES))
-    read = modes.add_parser("readback")
-    for name in ("run-id", "attempt", "artifact-id"):
-        read.add_argument("--" + name, type=int, required=True)
-    for name in ("workflow-sha", "artifact-digest"):
-        read.add_argument("--" + name, required=True)
-    read.add_argument("--output", type=Path, required=True)
+    for mode in ("readback", "readback-failure"):
+        read = modes.add_parser(mode)
+        for name in ("run-id", "attempt", "artifact-id"):
+            read.add_argument("--" + name, type=int, required=True)
+        for name in ("workflow-sha", "artifact-digest"):
+            read.add_argument("--" + name, required=True)
+        read.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if args.mode == "gate":
-        gate(args.name)
-    elif args.mode == "readback":
-        readback(args)
-    else:
-        globals()[args.mode]()
+    try:
+        if args.mode == "gate":
+            gate(args.name)
+        elif args.mode in ("readback", "readback-failure"):
+            readback(args)
+        else:
+            globals()[args.mode]()
+    except (ValueError, KeyError, TypeError, OSError, TimeoutError, RecursionError, subprocess.SubprocessError) as error:
+        if args.mode in ("gate", "prepare", "finish"):
+            try:
+                record_failure(args.name if args.mode == "gate" else args.mode, error)
+            except (ValueError, KeyError, TypeError, OSError, TimeoutError, RecursionError, subprocess.SubprocessError):
+                print("Safe failure receipt unavailable; no acceptance claimed.", flush=True)
+        raise
 
 
 if __name__ == "__main__":
     try:
         main()
-    except (ValueError, KeyError, OSError, TimeoutError, subprocess.SubprocessError, zipfile.BadZipFile) as error:
+    except (ValueError, KeyError, TypeError, OSError, TimeoutError, RecursionError, subprocess.SubprocessError, zipfile.BadZipFile) as error:
         raise SystemExit("Frontend control failed [" + safe_failure_hint(error)
                          + "]; no acceptance claimed. Private diagnostics are withheld.") from None
