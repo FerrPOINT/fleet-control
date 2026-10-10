@@ -24,7 +24,10 @@ into working runs or waive clarification/confirmation business gates.
 All seven DTOs were rechecked against clean Tracker source
 `357caa7a60a717eb7b0ac72f286b793326992931` using the authentic Fleet Rust schema
 `e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76` from
-[codegen38044630680](https://github.com/FerrPOINT/fleet-control/actions/runs/38044630680).
+[codegen38048577514](https://github.com/FerrPOINT/fleet-control/actions/runs/38048577514)
+on source `4449a3b1cdd915e265543a24054506f15385393d`. Strict artifact11667814381
+readback verifies the new domain assembly; schema bytes match the earlier f7d
+generation. The TypeScript client was regenerated without a tracked schema diff.
 Comparison and all eight verifier unit cases pass. This proves source wire
 compatibility, not deployed authorization, delivery or execution acceptance.
 
