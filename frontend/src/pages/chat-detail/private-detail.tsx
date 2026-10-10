@@ -740,7 +740,7 @@ function FreeChatWorkspace({
                 </Button>
               ) : null}
               {Boolean(bindingError) && <ReadableError error={bindingError} />}
-              {showRuntimeControls ? (
+              {showRuntimeControls && !command.current ? (
                 <form
                   className="fc-chat-composer"
                   onSubmit={(event) => {
