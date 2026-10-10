@@ -16,7 +16,6 @@ import urllib.request
 import uuid
 
 
-SDK_PIN = "9408802dfa978cba2f67162a49adca6f65851b01"
 ROOT = Path(__file__).resolve().parents[2]
 TEST = Path("backend/infra/tests/pm_credentials_live.rs")
 TASK = "fleet-pm-live-interop"
@@ -28,7 +27,8 @@ def git(repo, *args):
 
 def snapshot(repo, ref, destination, rust_base=False):
     sha = git(repo, "rev-parse", "--verify", f"{ref}^{{commit}}").decode().strip()
-    paths = ["Cargo.toml", "Cargo.lock", "LICENSE", "crates"] if rust_base else []
+    # Auth embeds its theme primitive from frontend source at compile time.
+    paths = ["Cargo.toml", "Cargo.lock", "LICENSE", "crates", "frontend/src"] if rust_base else []
     archive = git(repo, "archive", "--format=tar", sha, *paths)
     destination.mkdir(parents=True)
     # Git snapshots cannot install links or escape the dedicated temporary source root.
@@ -96,11 +96,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", type=Path, required=True)
     parser.add_argument("--tracker", type=Path, required=True)
-    parser.add_argument("--sdk", type=Path, required=True, help="Git checkout containing SDK pin")
+    parser.add_argument("--sdk", type=Path, required=True, help="Git checkout containing each consumer's SDK pin")
     parser.add_argument("--base-ref", default="ddfb436bf2b3253561672c92b2dbc06803cabf90")
     parser.add_argument("--tracker-ref", default="af6ed1ee26f6d26534a0dd1526e3b4d168962160")
-    parser.add_argument("--cargo-cache", required=True, help="existing external Cargo cache volume")
-    parser.add_argument("--rustup-cache", required=True, help="existing external Rustup cache volume")
+    cargo_cache = parser.add_mutually_exclusive_group(required=True)
+    cargo_cache.add_argument("--cargo-cache", help="existing external Cargo cache volume")
+    cargo_cache.add_argument("--cargo-cache-dir", type=Path, help="existing Cargo cache directory to bind")
+    parser.add_argument("--rustup-cache", help="external Rustup volume; omit to use the image's bundled toolchain")
     parser.add_argument("--target-cache", default="fleet-pm-live-target-20261004")
     parser.add_argument("--rust-image", default="rust:1.88.0-bookworm")
     parser.add_argument("--allow-registry", action="store_true",
@@ -117,7 +119,7 @@ def main():
     binaries.mkdir()
     fixture_path = artifacts / "fixture.json"
     compose_path = directory / "compose.json"
-    evidence = {"project": project, "sdk_pin": SDK_PIN, "result": "failed",
+    evidence = {"project": project, "sdk_pins": {}, "sdk_pin_files": {}, "result": "failed",
                 "registry_downloads": args.allow_registry,
                 "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 "scoped_sha256": hashlib.sha256(Path(__file__).with_name("scoped.sh").read_bytes()).hexdigest()}
@@ -144,15 +146,24 @@ def main():
 
     try:
         evidence["base_sha"] = snapshot(args.base, args.base_ref, work / "auth-source", True)
-        evidence["tracker_sha"] = snapshot(args.tracker, args.tracker_ref, work / "task-tracker")
-        evidence["fleet_sha"] = snapshot(ROOT, "HEAD", work / "fleet-control")
-        snapshot(args.sdk, SDK_PIN, work / "services-base", True)
-        for product in [work / "fleet-control", work / "task-tracker"]:
-            if (product / ".base-revision").read_text().strip() != SDK_PIN:
-                raise RuntimeError("consumer SDK pin differs; refusing to repin")
-        shutil.copyfile(ROOT / TEST, work / "fleet-control" / TEST)
-        evidence["test_sha256"] = hashlib.sha256((work / "fleet-control" / TEST).read_bytes()).hexdigest()
+        tracker_source = work / "tracker" / "task-tracker"
+        fleet_source = work / "fleet" / "fleet-control"
+        evidence["tracker_sha"] = snapshot(args.tracker, args.tracker_ref, tracker_source)
+        evidence["fleet_sha"] = snapshot(ROOT, "HEAD", fleet_source)
+        for name, product in [("fleet", fleet_source), ("tracker", tracker_source)]:
+            pin_file = ".namespace-base-revision" if (product / ".namespace-base-revision").is_file() else ".base-revision"
+            pin = (product / pin_file).read_text().strip()
+            if len(pin) != 40 or any(char not in "0123456789abcdef" for char in pin):
+                raise RuntimeError("consumer SDK pin is not an exact commit")
+            sdk_sha = snapshot(args.sdk, pin, product.parent / "services-base", True)
+            if sdk_sha != pin:
+                raise RuntimeError("consumer SDK snapshot differs; refusing to repin")
+            evidence["sdk_pins"][name] = pin
+            evidence["sdk_pin_files"][name] = pin_file
+        shutil.copyfile(ROOT / TEST, fleet_source / TEST)
+        evidence["test_sha256"] = hashlib.sha256((fleet_source / TEST).read_bytes()).hexdigest()
         rust_env = {"RUSTUP_TOOLCHAIN": "1.88.0", "CARGO_BUILD_JOBS": "2",
+                    "CARGO_HOME": "/cargo",
                     "CARGO_INCREMENTAL": "0", "CARGO_PROFILE_DEV_DEBUG": "0",
                     "CARGO_PROFILE_TEST_DEBUG": "0",
                     "LIVE_PM_ALLOW_REGISTRY": "1" if args.allow_registry else "0"}
@@ -167,8 +178,18 @@ def main():
 
         build_mounts = [bind(work, "/work"), bind(binaries, "/binaries", False),
                         bind(Path(__file__).with_name("scoped.sh"), "/qa/scoped.sh"),
-                        "target-cache:/cache", "cargo-cache:/usr/local/cargo",
-                        "rustup-cache:/usr/local/rustup"]
+                        "target-cache:/cache"]
+        cache_volumes = {}
+        if args.cargo_cache_dir is not None:
+            if not args.cargo_cache_dir.is_dir():
+                raise RuntimeError("Cargo cache directory does not exist")
+            build_mounts.append(bind(args.cargo_cache_dir.resolve(), "/cargo", False))
+        else:
+            build_mounts.append("cargo-cache:/cargo")
+            cache_volumes["cargo-cache"] = {"external": True, "name": args.cargo_cache}
+        if args.rustup_cache:
+            build_mounts.append("rustup-cache:/usr/local/rustup")
+            cache_volumes["rustup-cache"] = {"external": True, "name": args.rustup_cache}
         cache_purpose = "persistent-isolated-interop-build-cache"
         target_volume = {"name": args.target_cache,
                          "labels": {"sdlc.task": TASK, "sdlc.purpose": cache_purpose}}
@@ -214,8 +235,7 @@ def main():
                 cpus=2, mem_limit="3g", pids_limit=256),
         }, "networks": {"qa": {}}, "volumes": {
             "target-cache": target_volume,
-            "cargo-cache": {"external": True, "name": args.cargo_cache},
-            "rustup-cache": {"external": True, "name": args.rustup_cache},
+            **cache_volumes,
         }}
         save_compose()
         print(f"LIVE_PM_INTEROP project={project} source={directory}", flush=True)

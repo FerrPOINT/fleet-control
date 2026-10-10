@@ -8,6 +8,12 @@ native admission, execution lease, Workflow acceptance или model dispatch.
 
 ## Запуск
 
+`--cargo-cache-dir` принимает существующий локальный Cargo cache вместо named
+volume. Без `--rustup-cache` используется toolchain выбранного image; runner
+проверяет `rustc 1.88.0` перед сборкой. Caches установленных приложений не нужны.
+Cargo data монтируются в `/cargo`; binaries toolchain остаются в image. Каталог
+cache без `bin/` не перекрывает `rustc` и `cargo` из выбранного Rust image.
+
 Python 3.11+, Git, Docker Compose v2 и локальные images
 `rust:1.88.0-bookworm`, `postgres:17.6-alpine` обязательны.
 Rustup/Cargo caches задаются как существующие external volumes; offline cache
@@ -27,8 +33,11 @@ Default producer refs: Base `ddfb436bf2b3253561672c92b2dbc06803cabf90`,
 Tracker `af6ed1ee26f6d26534a0dd1526e3b4d168962160`.
 `--base-ref`/`--tracker-ref` позволяют явно выбрать другой immutable commit.
 Fleet snapshot — HEAD плюс только новый test file; его SHA256 записывается в evidence.
-SDK строго `9408802dfa978cba2f67162a49adca6f65851b01` для обоих consumers:
-несовпадение `.base-revision` останавливает harness, repin/checkout/reset нет.
+SDK каждого consumer берётся из `.namespace-base-revision`, если этот cohort
+закреплён проектом, иначе из `.base-revision`, как в штатной сборке. Fleet и
+Tracker получают отдельные соседние snapshots `services-base`, поэтому их pins
+могут отличаться. Каждый pin должен быть полным SHA существующего commit;
+repin/checkout/reset нет. Оба SHA записываются в evidence `sdk_pins`.
 Git archive extraction допускает только directories/regular files и не копирует
 private skills/package в QA Rust SDK snapshots.
 
