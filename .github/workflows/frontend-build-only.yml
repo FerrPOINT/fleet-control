@@ -1,0 +1,141 @@
+name: Frontend Build Only
+
+on:
+  push:
+    branches: [build-only/fleet-frontend-b0ad56c-20261010]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fleet-frontend-build-only-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  frontend:
+    if: github.repository == 'FerrPOINT/fleet-control' && github.event_name == 'push' && github.ref == 'refs/heads/build-only/fleet-frontend-b0ad56c-20261010' && github.event.deleted == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      CI: "true"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Check out reviewed controls
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # official v7
+        with:
+          ref: ${{ github.sha }}
+          path: controls
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pure control regression tests
+        working-directory: controls
+        run: python3 -B -m unittest scripts.tests.test_hosted_frontend_gate -v
+      - name: Public repository and exact three-file delta before Base token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B controls/scripts/hosted_frontend_gate.py preflight
+      - name: Check out exact product source including both parents
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # official v7
+        with:
+          ref: b0ad56ca5a90a87b2b2d46c5bfbfc52c9c643d6d
+          path: fleet-control
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out actual pinned Base with existing read token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # official v7
+        with:
+          repository: FerrPOINT/services-base
+          ref: 19a7a381ae6dbea61a643bb96189e483fa64df5c
+          path: services-base
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          persist-credentials: false
+      - name: Set exact pnpm
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # official v6
+        with:
+          version: 10.28.1
+          run_install: false
+      - name: Set exact Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # official v7
+        with:
+          node-version: "22.20.0"
+      - name: Qualify source, dependencies and isolated fixture environment
+        run: python3 -B controls/scripts/hosted_frontend_gate.py prepare
+      - name: Verify pinned Base checkout
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate base
+      - name: Frozen frontend install and ignored postinstall generated client
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate install
+      - name: OpenAPI drift
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate openapi
+      - name: Chat contract
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate chat
+      - name: Chat controller and clarification evidence
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate chat-evidence
+      - name: Frozen shared UI validator install
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate ui-install
+      - name: UI contract
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate ui
+      - name: Markdown links
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate markdown
+      - name: Existing screenshot manifest
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate screens-before
+      - name: Typecheck
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate typecheck
+      - name: Default unit test pipeline
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate unit
+      - name: Lint
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate lint
+      - name: OpenAPI compatibility against freshly fetched main
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate compat
+      - name: Generated contract and lockfile unchanged
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate generated
+      - name: Production frontend build
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate build
+      - name: Packed Base consumer
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate consumer
+      - name: Chromium for effective themes
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate theme-browser
+      - name: Effective themes in built consumer
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate theme
+      - name: Format check
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate format
+      - name: Install Chromium Firefox WebKit
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate browsers
+      - name: Original three-browser fixture tests with additional JSON reporter
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate fixtures
+      - name: Capture fresh fixture screens
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate capture
+      - name: Verify fresh screenshot manifest
+        run: python3 -B controls/scripts/hosted_frontend_gate.py gate screens-after
+      - name: Final source and generated schema parity; public evidence allowlist
+        run: python3 -B controls/scripts/hosted_frontend_gate.py finish
+      - name: Upload qualified provenance and fixture evidence only
+        id: artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # official v7
+        with:
+          name: fleet-frontend-b0ad56c-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/fleet-frontend-public
+          if-no-files-found: error
+          retention-days: 14
+          archive: true
+          overwrite: false
+          include-hidden-files: false
+      - name: Record artifact identity and verification scope
+        env:
+          ARTIFACT_ID: ${{ steps.artifact.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.artifact.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          {
+            printf 'Product source: `%s`\n\n' b0ad56ca5a90a87b2b2d46c5bfbfc52c9c643d6d
+            printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
+            printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+            printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"
+            printf 'Artifact ZIP SHA256: `%s`\n\n' "$ARTIFACT_DIGEST"
+            printf 'Frontend unit/build/fixture evidence only. Live PM/runtime and all-SDLC acceptance remain pending.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove only private disposable gate state and diagnostics
+        if: always()
+        run: python3 -B controls/scripts/hosted_frontend_gate.py cleanup
