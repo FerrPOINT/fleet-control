@@ -65,6 +65,7 @@ import { EmptyState, ErrorState, StatusBadge, formatDate } from '../common'
 import { commandService, dispatchHeld } from './core'
 import { refreshHistory } from './history'
 import { useDispatchRecovery } from './dispatch-recovery'
+import { canonicalAnswerPayload } from './answer-payload'
 import './chat.css'
 
 function requestKey() {
@@ -336,10 +337,11 @@ function ChatWorkspace({ id }: { id: string }) {
       questionTitle: string
       payload: AnswerInput
     }) => {
+      const payload = canonicalAnswerPayload(command.payload)
       const fresh = await getSession(id)
       await answerRecovery.prepare(
-        command.payload,
-        command.payload.idempotency_key,
+        payload,
+        payload.idempotency_key,
         fresh.primary_agent_id,
         commandService(apiBaseUrl, ssoConfig.issuer),
         () =>
@@ -353,7 +355,7 @@ function ChatWorkspace({ id }: { id: string }) {
           (Boolean(context?.permissions.can_answer) ||
             (answerRecovery.held && !answerRecovery.restored)),
       )
-      const result = await answerClarification(id, command.questionId, command.payload)
+      const result = await answerClarification(id, command.questionId, payload)
       if (
         result.question_id !== command.questionId ||
         result.question_version !== command.payload.expected_question_version ||
@@ -410,14 +412,7 @@ function ChatWorkspace({ id }: { id: string }) {
     onSuccess: async (result) => {
       if (result.state === 'delivered' || result.state === 'rejected') {
         await answerRecovery.finishRecovered(
-          {
-            expected_question_version: result.request.expected_question_version,
-            requirement_revision: result.request.requirement_revision,
-            selected_option_ids: result.request.selected_option_ids,
-            text: result.request.text,
-            comment: result.request.comment,
-            idempotency_key: result.request.idempotency_key,
-          },
+          canonicalAnswerPayload(result.request),
           result.request.idempotency_key,
           session.data!.primary_agent_id,
           commandService(apiBaseUrl, ssoConfig.issuer),
