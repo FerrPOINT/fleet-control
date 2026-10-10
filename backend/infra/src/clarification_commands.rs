@@ -223,8 +223,24 @@ pub(super) async fn finish_continuation(
     let tx = repo.db.begin().await.map_err(db_error)?;
     authorize(&tx, actor).await?;
     let saved = receipt(&row(&tx, actor, id).await?)?;
-    // Disabled dispatch / NotRequired cannot settle an existing PM receipt.
-    if matches!(outcome, domain::PmContinuationOutcome::Confirmed)
+    let history_proven = if saved.state == domain::ClarificationDeliveryState::Delivered
+        && saved.continuation_state == domain::ClarificationContinuationState::Pending
+    {
+        tx.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT pm_answer_continuation_proven($1) AS proven",
+            [id.into()],
+        ))
+        .await
+        .map_err(db_error)?
+        .ok_or_else(|| AppError::Database("continuation history proof is unavailable".into()))?
+        .try_get::<bool>("", "proven")
+        .map_err(db_error)?
+    } else {
+        false
+    };
+    // Disabled dispatch / NotRequired alone cannot settle an existing PM receipt.
+    if (matches!(outcome, domain::PmContinuationOutcome::Confirmed) || history_proven)
         && saved.state == domain::ClarificationDeliveryState::Delivered
         && saved.continuation_state == domain::ClarificationContinuationState::Pending
     {

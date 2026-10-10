@@ -60,7 +60,91 @@ impl MigrationTrait for Migration {
                 CHECK(continuation_state IN ('not_required','pending','confirmed'));
             DROP TRIGGER clarification_answer_immutable ON clarification_answer_commands;
             ALTER FUNCTION guard_clarification_answer_command() RENAME TO guard_clarification_answer_command_v20;
-            UPDATE clarification_answer_commands c SET continuation_state='pending'
+            CREATE FUNCTION pm_answer_continuation_proven(command_id uuid) RETURNS boolean LANGUAGE sql STABLE AS $$
+                SELECT EXISTS(SELECT 1 FROM clarification_answer_commands c
+                    JOIN pm_run_bindings b ON b.session_run_id=c.id AND b.session_id=c.session_id
+                    JOIN pm_dispatch_journal j ON j.session_run_id=b.session_run_id
+                    JOIN session_agent_runs r ON r.id=b.session_run_id AND r.session_id=b.session_id AND r.agent_id=b.agent_id
+                    WHERE c.id=command_id AND c.state='delivered'
+                      AND b.reservation->>'session_run_id'=c.id::text
+                      AND b.reservation->>'session_id'=c.session_id::text
+                      AND b.agent_id::text=c.binding->>'agent_id'
+                      AND b.reservation->>'dispatch_operation_key'='fleet-pm-resume:'||c.id::text
+                      AND b.reservation->>'binding_ref'='fleet:pm:'||c.id::text
+                      AND b.reservation->>'checkpoint_ref' IS NOT NULL
+                      AND b.reservation->'identity'->>'agent_ref'=c.binding->>'agent_id'
+                      AND b.reservation->'identity'->>'tracker_instance_ref'=c.binding->>'tracker_instance_id'
+                      AND b.reservation->'identity'->>'tracker_project_ref'=c.binding->>'project_id'
+                      AND b.reservation->'identity'->>'task_ref'=c.binding->>'task_id'
+                      AND b.reservation->'identity'->>'root_ref'=c.binding->>'root_task_id'
+                      AND j.submitted AND j.hermes_run_ref=b.hermes_run_ref AND b.hermes_session_ref IS NOT NULL
+                      AND r.runtime_run_id=b.hermes_run_ref AND r.runtime_session_id=b.runtime_session_id
+                      AND (j.intent->>'request_body')::jsonb->>'session_id'=b.runtime_session_id
+                      AND c.answer->>'question_id'=c.question_id::text AND c.answer->>'author_subject'=c.owner_subject
+                      AND c.answer->>'id' <> '00000000-0000-0000-0000-000000000000'
+                      AND c.answer->'question_version'=c.request_body::jsonb->'expected_question_version'
+                      AND c.answer->'requirement_revision'=c.request_body::jsonb->'requirement_revision'
+                      AND c.answer->'selected_option_ids'=c.request_body::jsonb->'selected_option_ids'
+                      AND c.answer->'text'=c.request_body::jsonb->'text'
+                      AND c.answer->'comment'=c.request_body::jsonb->'comment'
+                      AND EXISTS(SELECT 1 FROM pm_tool_commands q JOIN pm_run_bindings old ON old.session_run_id=q.session_run_id
+                        WHERE q.kind='question' AND q.attempted AND q.result IS NOT NULL
+                          AND q.operation_key=q.request->>'idempotency_key'
+                          AND q.result->'id'=q.request->'question_id'
+                          AND q.result->'request_id'=q.request->'request_id'
+                          AND q.result->'checkpoint_id'=q.request->'checkpoint_id'
+                          AND old.session_id=b.session_id AND old.reservation->'identity'=b.reservation->'identity'
+                          AND (old.reservation->>'fence')::bigint+1=(b.reservation->>'fence')::bigint
+                          AND q.result->>'id'=c.question_id::text
+                          AND q.result->>'state'='answered' AND q.result->'answer'=c.answer
+                          AND q.result->>'task_id'=b.reservation->'identity'->>'task_ref'
+                          AND q.result->>'root_task_id'=b.reservation->'identity'->>'root_ref'
+                          AND q.result->>'assignment_id'=b.reservation->'identity'->>'assignment_ref'
+                          AND q.result->>'execution_id'=b.reservation->'identity'->>'execution_ref'
+                          AND q.result->>'agent_id'=b.reservation->'identity'->>'agent_ref'
+                          AND q.result->'assignment_version'=b.reservation->'identity'->'assignment_revision'
+                          AND q.result->>'checkpoint_id'=b.reservation->>'checkpoint_ref'
+                          AND q.result->'version'=c.request_body::jsonb->'expected_question_version'
+                          AND q.result->'requirement_revision'=c.request_body::jsonb->'requirement_revision')
+                      AND EXISTS(SELECT 1 FROM pm_tool_commands t WHERE t.session_run_id=b.session_run_id
+                        AND t.attempted AND t.result IS NOT NULL
+                        AND ((t.kind IN ('question','revision')
+                          AND t.operation_key=t.request->>'idempotency_key'
+                          AND t.request->'fence'->>'assignment_id'=b.reservation->'identity'->>'assignment_ref'
+                          AND t.request->'fence'->>'execution_id'=b.reservation->'identity'->>'execution_ref'
+                          AND t.request->'fence'->>'agent_id'=b.reservation->'identity'->>'agent_ref'
+                          AND t.request->'fence'->'assignment_version'=b.reservation->'identity'->'assignment_revision'
+                          AND ((t.kind='question' AND t.result->'id'=t.request->'question_id'
+                            AND t.result->'checkpoint_id'=t.request->'checkpoint_id'
+                            AND t.result->>'task_id'=b.reservation->'identity'->>'task_ref'
+                            AND t.result->>'root_task_id'=b.reservation->'identity'->>'root_ref'
+                            AND t.result->'assignment_id'=t.request->'fence'->'assignment_id'
+                            AND t.result->'execution_id'=t.request->'fence'->'execution_id'
+                            AND t.result->'agent_id'=t.request->'fence'->'agent_id'
+                            AND t.result->'assignment_version'=t.request->'fence'->'assignment_version')
+                          OR (t.kind='revision' AND t.result->>'content_hash' ~ '^[0-9a-f]{64}$'
+                            AND (t.result->>'revision')::bigint=COALESCE((t.request->>'expected_requirement_revision')::bigint,0)+1)))
+                        OR (t.kind='workflow_step'
+                          AND t.request->'body'->>'session_run_id'=b.session_run_id::text
+                          AND t.request->'body'->>'binding_ref'=b.reservation->>'binding_ref'
+                          AND t.request->'body'->>'hermes_run_ref'=b.hermes_run_ref
+                          AND t.request->'body'->>'task'=b.reservation->'identity'->>'task'
+                          AND t.request->'body'->>'assignment_ref'=b.reservation->'identity'->>'assignment_ref'
+                          AND t.request->'body'->'assignment_revision'=b.reservation->'identity'->'assignment_revision'
+                          AND t.result IN (jsonb_build_object('supervisor_accepted',true,'exit_code',0),
+                                           jsonb_build_object('supervisor_accepted',false,'exit_code',1))))))
+            $$;
+            DO $$ BEGIN
+                IF EXISTS(SELECT 1 FROM clarification_answer_commands c WHERE c.state='delivered'
+                    AND (EXISTS(SELECT 1 FROM pm_draft_creation_operations p WHERE p.owner_user_id=c.actor_user_id
+                        AND p.operation->>'session_id'=c.session_id::text)
+                        OR EXISTS(SELECT 1 FROM pm_run_bindings WHERE session_id=c.session_id))
+                    AND NOT pm_answer_continuation_proven(c.id)) THEN
+                    RAISE EXCEPTION 'legacy PM answer continuation requires authoritative reconciliation before migration';
+                END IF;
+            END $$;
+            UPDATE clarification_answer_commands c SET continuation_state=
+                CASE WHEN pm_answer_continuation_proven(c.id) THEN 'confirmed' ELSE 'pending' END
                 WHERE c.state <> 'rejected' AND (EXISTS(SELECT 1 FROM pm_draft_creation_operations p
                     WHERE p.owner_user_id=c.actor_user_id AND p.operation->>'session_id'=c.session_id::text)
                     OR EXISTS(SELECT 1 FROM pm_run_bindings WHERE session_id=c.session_id));
@@ -149,6 +233,7 @@ impl MigrationTrait for Migration {
                 FOREIGN KEY(session_run_id) REFERENCES hermes_dispatch_journal(run_id);
             DROP TRIGGER clarification_answer_immutable ON clarification_answer_commands;
             DROP FUNCTION guard_clarification_answer_command();
+            DROP FUNCTION pm_answer_continuation_proven(uuid);
             ALTER FUNCTION guard_clarification_answer_command_v20() RENAME TO guard_clarification_answer_command;
             ALTER TABLE clarification_answer_commands DROP COLUMN continuation_state;
             CREATE TRIGGER clarification_answer_immutable BEFORE INSERT OR UPDATE OR DELETE ON clarification_answer_commands
