@@ -12,19 +12,21 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Diagnose recovered-activation authorization | Actual38011797295 fails at container_activation_pg62/74; parent authenticates receipt/cleanup. Add only read-only test precondition assertions at the two known positive authorize sites, preserving all13 cases/guards/leases. No local PG or public push; production fix needs proof. External refresh complete. |
-| Feynman | Update combined backend CI controls | Configuration integration is frozen at8c93f43 and normally integrated by parent at65b4f33. Own only the six backend build-only control files: preserve prior74 stages, add the six activation-intent cases and configuration/package/workflow scopes, and require the exact package checkout instead of silently skipping that branch. No product edits, push or dispatch until final source/API inputs are qualified. |
+| Pascal | Independent review of frontend controls60eee4d | Read-only review of the three new workflow/helper/test files, exact source and private-token boundary, standard frontend gates and bounded artifact readback. Own report only; no control edits, heavy jobs or publication. |
+| Feynman | Narrow C11 credential release candidate | New owned checkout from the reviewed47/64 dependency baseline. Extract only credential modules/hunks, migration11 and related tests/docs/CI fromafc5bb4. Preserve configuration semantics; no migrations12..20, heavy jobs or publication before review. Backend controlsaa5ac3f remain frozen. |
+| Curie | Production Chats UX regression closure | New owned checkout at34858b3; write only chat-detail components and their focused tests. Verify draft retention, unsaved navigation, stale/conflict input, explicit choices and keyboard/focus behavior; fix reproduced defects or add missing regression coverage. No backend/schema/lock/control edits or live-PM claim. Frontend controls60eee4d remain frozen. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
-| Parent | API generation, integration and publication | Normal merge65b4f33 retains configuration candidate8c93f43 and earlier runtime history. Review Pascal's diagnostic patch; authenticate new Rust-generated API, regenerate the client, then bind and run Feynman's combined controls. Preserve every authority/ledger assertion; no qualified product publication before those gates. |
+| Parent | Critical path, integration and publication | Authenticate the terminal result of active backend38017066472 without restarting it; review frontend controls60eee4d before hosted publication. Integrate worker candidates only after review, preserve source/evidence boundaries, and publish narrow release units after their own gates. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
 integrates the generated API/type alias. Final integrated Rust parity is still
 required; code generation is not runtime acceptance.
 
-Pascal may edit only backend/infra/tests/container_activation.rs in his owned
-checkout: read-only assertions, not production behavior. Feynman owns only the
-six backend build-only controls. Parent owns generated API/client files,
+The prior diagnostic and backend controls are frozen. The new assignments above
+are independent: Pascal does not edit Curie's frozen frontend controls, Feynman
+uses a separate credential-release checkout, and Curie owns only chat UX changes
+in a new checkout. Parent owns generated API/client files,
 integration and this ledger. Historical worker scopes below
 are complete, not concurrent assignments. Deliverables identify exact commits,
 commands, results and bounded blockers rather than repeat completed broad audits.
@@ -40,6 +42,23 @@ Client generation/typecheck/drift and compatibility with mainb750e7b pass;
 all earlier paths/DTOs remain unchanged. No schema/client is manually combined.
 Publishing this build-only
 bootstrap does not make the combined product merge-ready or certify runtime/PM.
+
+Actual backend [run38016562420](https://github.com/FerrPOINT/fleet-control/actions/runs/38016562420)
+completes FAILURE at Clippy on exactef3b474/sourceb0ad56c. Parent authenticates
+safe artifact11656123142/ZIP0ce97501fabd6d423035cfbc73b64e9adcbe41b14eeeb2cab7c7ceb09d5da525,
+two diagnostic source locations122/131 and successful scratch/synthetic DB cleanup.
+Normal sourceafc5bb4 fixes only those panic expression chains. Reviewed normal
+successoraa5ac3f starts [run38017066472](https://github.com/FerrPOINT/fleet-control/actions/runs/38017066472),
+now in progress on exactafc. Source-to-controls delta is exactly
+six additions; all prior ignored identities and migration registries remain.
+Controls pure evidence: Linux110/110; parent Windows108 PASS/two POSIX-only skips.
+These do not accept the product. The two run/source pairs remain distinct;
+neither Clippy result resolves historical recovered-activation PG62.
+
+Current regenerated-client frontend suite passes337 tests/36 files using threads
+and one worker. The default local fork attempt was stopped without a test result
+after repeated worker-start waits; it is not counted as a pass. Curie's standard
+hosted frontend gate must still run. No live PM or physical runtime is inferred.
 
 Integration dependency: Pascal's diagnostic patch and the new API artifact can
 advance independently; parent reviews both before final control qualification.

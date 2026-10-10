@@ -2,8 +2,8 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current source candidate is8c93f43, normally integrated at65b4f33;
-the last combined backend-tested source is6881c04. The union retains runtime
+The current source candidate isafc5bb4, retaining8c93f43 normally integrated at65b4f33;
+the last completed81-stage source isb0ad56c (Clippy failure). The union retains runtime
 corrections, journal3b41, human guard, private-approval ownership and PR64 config.
 Source integration is progress, not release acceptance. Its remaining gates are:
 
@@ -27,7 +27,15 @@ schema1167220e, without manual schema splicing. Client generation/typecheck,
 OpenAPI drift and compatibility against mainb750e7b pass. The union still needs
 actual all-target/Clippy/tests/PG and native qualification; PR64's separate green
 CI does not accept the combined runtime. Diagnostic-only activation probes and
-an updated, exact-input combined backend inventory precede the next gate.
+an updated, exact-input combined backend inventory now targetafc5bb4 in actual
+81-stage run38017066472 (in progress), controlsaa5ac3f. Parent independently
+verifies all380 Git inputs/170 Rust files and unchanged ignored/migration
+identities. Prior38016562420 atb0 completes FAILURE at Clippy; authenticated safe
+artifact11656123142 identifies the two diagnostic expression locations122/131
+and successful scratch/DB cleanup. afc changes only those redacted panic
+expressions; its exact gate remains open. No PG cause is inferred from Clippy.
+Frontend337/36 passes with threads, not the stopped default-fork
+attempt; the standard hosted frontend gate remains pending.
 
 Use the [current gate matrix](CURRENT_STATE.md#current-integration-snapshot-10-october-2026)
 for exact candidates and acceptance boundaries. Earlier failures below are

@@ -2,18 +2,19 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current source candidate `8c93f43`, normally integrated at65b4f33, combines
+Current source candidate `afc5bb4` retains8c93f43, normally integrated at65b4f33, and combines
 configuration PR64 with runtime corrections, durable clarification custody and
 private-approval ownership. Genuine union codegen is verified below. The last
-combined backend run targets6881c04 and fails; the newer assembly is **not
+completed81-stage run targetsb0ad56c and fails Clippy; the new81-stage run
+targetsafc5bb4 and is in progress. The newer assembly is **not
 merge-ready or live SDLC accepted**. Historical evidence qualifies only its own head.
 
 | Current gate | Exact source / authority | State |
 | --- | --- | --- |
-| Combined backend | Source6881c04, controlsa7d7db2, run38011797295 | FAILURE at container_activation_pg, stage62/74; message_order passes |
+| Combined backend | Sourceafc5bb4, controlsaa5ac3f, run38017066472 |81-stage gate in progress; priorb0 fails Clippy, prior688 fails activation62/74 |
 | Config release PR64 | Head820a1af, normally merged into candidate8c93f43 | Separate five-job PASS; combined Rust/PG acceptance pending |
 | Union API/client | Source8c93f43, workflow5e57d5b, run38015043570 | Authenticated codegen PASS; typecheck/drift/compatibility PASS, not runtime acceptance |
-| Production Chats presentation | Frontend tree13ccbaba, correction6c022f3 |42 unit cases and six three-engine fixture cases pass; no live PM acceptance |
+| Production Chats presentation | Frontend tree13ccbaba, regenerated union client |337 unit tests/36 files pass with threads; earlier six three-engine fixtures remain scoped; standard hosted gate pending |
 | PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
 | Forge full12 | Public-safe controls1dbedf8, maintenance pin commit null | Cannot start acceptance without published qualified Base inputs |
 | Physical runtimes | Reviewed Docker/config/recovery source | Exact images and actual native lifecycle remain unaccepted |
@@ -29,6 +30,17 @@ Both new configuration routes and DTOs are present, and all earlier paths/DTOs
 are unchanged. Client generation, typecheck, OpenAPI drift and compatibility
 against mainb750e7b pass; eight compatibility regressions pass. The separate
 all-target/Clippy/Rust/PG/native and live PM gates remain open.
+
+The diagnostic-onlyab222f0 is normally merged inb0ad56c; private fixed predicate
+hints have independent source/pure closure. Actual38016562420 fails at Clippy;
+parent authenticates artifact11656123142, ZIP0ce97501fabd6d423035cfbc73b64e9adcbe41b14eeeb2cab7c7ceb09d5da525.
+It names only the two probe source locations122/131; scratch/synthetic DB cleanup
+passes. Sourceafc5bb4 replaces their ok-expect chains with fixed panic closures,
+preserving assertions and redaction. Reviewed controlsaa5ac3f normally succeed
+ef3 and start38017066472 againstafc, with unchanged81 gates and distinct pins.
+Neither run diagnoses the earlier recovered-activation PG predicate yet.
+Current frontend threads337/36 PASS does not accept the stopped
+default-fork attempt; a separate hosted standard frontend gate is being prepared.
 
 Run38011797295 completes FAILURE at container_activation_pg, exit101. Parent
 authenticates safe artifact11654672637, ZIP SHA256
