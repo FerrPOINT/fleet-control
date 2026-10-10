@@ -1,0 +1,148 @@
+{
+  "evidence": "production-controller-with-fixture-api",
+  "runId": 38072655687,
+  "runAttempt": 1,
+  "controlsSha": "fc0cffe86706ac3ce57dd113648dcb590186abc0",
+  "productSha": "aca917c4a79d1718beab8f5b82631f1698ebda5c",
+  "artifactId": 11677891567,
+  "artifactBytes": 27938207,
+  "artifactSha256": "7d99f084429afdaa5baa383d93af21003ae6b2ffcbf561945b3191d93a372435",
+  "importBaseline": "3fcbe6288dfb52d6b56eed5068ee364532ac84f6",
+  "frontendOpenapiBaseParity": true,
+  "liveAcceptance": false,
+  "browsersVerified": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "importedBrowser": "chromium",
+  "count": 9,
+  "screenshots": [
+    {
+      "file": "pm-chat-dialogue-375.png",
+      "view": "dialogue",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=dialogue",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "e700ecaea784de60b863bf81c9c5c5ac282d1627619f610ce1edc867cc5039de"
+    },
+    {
+      "file": "pm-chat-clarification-375.png",
+      "view": "clarification",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=clarification",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "3c8a2bb3e4defe976890bb22a2058f2276144a8624381081784450a3726ca059"
+    },
+    {
+      "file": "pm-chat-requirements-375.png",
+      "view": "requirements",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=requirements",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "11445910115cae4c951184bc63dffcc68df83b5c2b8fa9024b4db50b9c430341"
+    },
+    {
+      "file": "pm-chat-dialogue-1920.png",
+      "view": "dialogue",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=dialogue",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "ed02c9be4a03ae67878b0464eda507438db6a5bef48a544e66a4ea86f8c99deb"
+    },
+    {
+      "file": "pm-chat-clarification-1920.png",
+      "view": "clarification",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=clarification",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "ee62f08dcf787a748b599d3e54e7c559968422caad929d8fe348e53209c5b278"
+    },
+    {
+      "file": "pm-chat-requirements-1920.png",
+      "view": "requirements",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=requirements",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "9dd08d29149b8d081ff4c407c4c1dd221baea915452d3d43f4164bd20e5b5175"
+    },
+    {
+      "file": "pm-chat-dialogue-2560.png",
+      "view": "dialogue",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=dialogue",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "a286f2cd31aab7e161355275ec8d6bde286863bf49712b999c0fc77a793f1748"
+    },
+    {
+      "file": "pm-chat-clarification-2560.png",
+      "view": "clarification",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=clarification",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "d0c2886f34f4748201310652ba52986a10fa958d9df6e4c4d8c35fc001746064"
+    },
+    {
+      "file": "pm-chat-requirements-2560.png",
+      "view": "requirements",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=requirements",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "2b05ff9666fc621d62a1f5e627f048fc87881431e3571faed4fa884895c1dd44"
+    }
+  ]
+}
