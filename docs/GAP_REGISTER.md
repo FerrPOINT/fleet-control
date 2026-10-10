@@ -2,6 +2,17 @@
 
 ## Current Open Release Gates: 10 October 2026
 
+Latest terminal checkpoint supersedes historical in-progress text below.
+Backend38018281445 fails approval_recovery, with authenticated safe artifact
+11657906403/ZIP62d8e61e25cb71f61e38f5f7a95316c8a8267bc6d18c367289ddd662a80a4fb4.
+Its completion wait fails at runtime_approval_recovery.rs1006; both cleanup checks
+pass, but the underlying recovery cause remains open. Frontend38019603974 fails
+the original three-browser fixture step; no full success receipt is accepted.
+New product58facc6 integratesc48d4fb. Parent53/53 focused tests, TypeScript and
+scoped ESLint pass; full new-source/browser/screens/live gates remain required.
+C11 Linux-controls preparation and independent security review are separate
+worker tasks, not completed credential acceptance.
+
 The current source candidate is1303be6, retaining8c93f43 normally integrated at65b4f33;
 the last completed81-stage source isafc5bb4 (config_files_unit failure). The union retains runtime
 corrections, journal3b41, human guard, private-approval ownership and PR64 config.

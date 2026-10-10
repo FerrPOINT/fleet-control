@@ -2,6 +2,20 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
+Latest terminal checkpoint supersedes historical in-progress text below:
+backend38018281445 (source1303be6, controls9e838718) fails approval_recovery;
+frontend38019603974 (sourceb0ad56c, controlsba60890) fails the original three-browser
+fixture step. Parent authenticates backend artifact11657906403, ZIP SHA256
+62d8e61e25cb71f61e38f5f7a95316c8a8267bc6d18c367289ddd662a80a4fb4,
+with successful scratch/synthetic DB cleanup. The completion wait fails at
+runtime_approval_recovery.rs1006; underlying cause remains unproved.
+
+Current integrated product58facc6 includes Curie's c48d4fb Chats UX correction.
+Parent verifies53/53 focused page tests using the real generated client,
+TypeScript and scoped ESLint. Full new-source/browser/screens and live acceptance
+remain open. Current independent worker scopes are recorded in the
+[parallel work ledger](plans/2026-10-09-parallel-remaining-work.md).
+
 Current source candidate `1303be6` retains8c93f43, normally integrated at65b4f33, and combines
 configuration PR64 with runtime corrections, durable clarification custody and
 private-approval ownership. Genuine union codegen is verified below. The last

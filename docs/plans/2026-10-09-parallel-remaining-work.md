@@ -7,6 +7,40 @@ records work ownership, not completion or permission to deploy.
 
 ### Latest Assignment Checkpoint
 
+The following terminal-result update supersedes historical in-progress statements
+below. Backend38018281445 and frontend38019603974 both complete FAILURE.
+Parent authenticates backend artifact11657906403, ZIP SHA256
+62d8e61e25cb71f61e38f5f7a95316c8a8267bc6d18c367289ddd662a80a4fb4:
+approval_recovery fails at runtime_approval_recovery.rs1006, the completion wait
+in pinned_recovery_bad_or_nonterminal_readbacks_hold_capacity_until_exact_terminal.
+Scratch and synthetic DB cleanup pass; the underlying recovery cause is not yet
+established. Frontend fails its original three-browser fixture step.
+
+Parent source58facc60ea19c158e0dfc1a47a3cb4e5ec8d1c21 normally integrates
+Curie's two-file production patchc48d4fb94b6c1f6e122cd4e576bbdc8db350486b.
+With the real generated API client and Node22, focused chat-detail tests pass
+53/53; full TypeScript and scoped ESLint pass. Full new-source unit/browser/screens
+and live acceptance remain open. The broader worker126-test result is not the
+page-test count.
+
+Current independently dispatched work:
+
+| Owner | Write scope / deliverable | Completion criterion |
+| ----- | ------------------------- | -------------------- |
+| Curie | Own checkout; frontend/e2e/fleet-control.spec.ts | Browser regressions for stale-answer explicit recheck, draft retention, keyboard/focus/URL and uncertain custody. Preserve existing tests and engines; static checks locally, actual browser gate separately. |
+| Feynman | Own C11 hosted-controls checkout | Exact994f29d Linux gate covering its real workspace, ignored PG tests, migration lineages, real Auth and API generation. No migrations12..20, local heavy jobs or publication before review. |
+| Pascal | Own frontend-controls successor; only workflow/helper/helper tests | C11 read-only review complete with no P1/P2, not live acceptance. New task: bounded authenticated failure receipts exposing only fixed gates/codes and source-attested test locations/browser states, never private output. Preserve23 gates and source pins until parent integration. |
+| Parent | Integration, CI diagnosis, docs and publication | Correct concrete CI causes, integrate reviewed commits, qualify exact successors and publish narrow release units. Do not attribute older results to new source. |
+
+The previous assignment table is retained as history, not concurrent work.
+
+Parent separately corrects acceptance-readback scan pacing: nonempty keyset
+pages yield, while the end of a complete scan or queue-read error retains the
+five-second idle delay. The strengthened101-run PostgreSQL test preserves
+invalid-run holds and exact terminal proof. This addresses deterministic
+per-page scheduling latency; it is not yet the proven cause or resolution of
+38018281445. Rust1.88 formatting passes; fresh compiled/PG gates remain required.
+
 These assignments supersede the historical table below. Workers use separate
 owned checkouts; Tracker and Workflow remain read-only references.
 

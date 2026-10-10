@@ -50,6 +50,14 @@ Native installed compatibility remains separate from this source candidate.
 The combined candidate restores pinned active-run GET-only recovery after Fleet
 restart through the recovery slice; fixtures are not installed-runtime acceptance.
 
+The acceptance readback worker finishes the keyset scan before its five-second
+idle poll. Nonempty pages yield cooperatively without adding one idle interval
+per page; an empty page resets the cursor, and an empty page or queue-read failure
+keeps the idle delay. Each original run is still checked through the existing
+identity, credential, ownership, accepted-context and terminal-proof fences.
+This scheduling change grants no POST/redispatch or capacity-release authority.
+Its multi-page regression is not yet PostgreSQL-qualified for the new source.
+
 ## Docker Activation Restart Recovery
 
 The [Base4 opt-in consumer](../RECOVERED_ACTIVATION_CONSUMER.md) requires

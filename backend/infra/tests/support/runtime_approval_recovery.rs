@@ -1306,10 +1306,10 @@ async fn pinned_recovery_original_context_legacy_private_other_and_task_pm_fail_
 
 #[tokio::test]
 #[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
-async fn pinned_recovery_keyset_reaches_valid_terminal_after_twenty_invalid_pinned_runs() {
+async fn pinned_recovery_keyset_scans_all_pages_before_idle_poll() {
     let f = Fixture::new().await;
     let mut pinned = Vec::new();
-    for _ in 0..22 {
+    for _ in 0..101 {
         pinned.push(
             f.seed(Reply::Partial, SessionRunState::Running, false, false)
                 .await,
@@ -1319,7 +1319,10 @@ async fn pinned_recovery_keyset_reaches_valid_terminal_after_twenty_invalid_pinn
     let valid = pinned.pop().unwrap();
     *valid.native.reply.lock().unwrap() = Reply::Completed;
     let _runtime = f.restart();
-    f.wait_completed(&valid).await;
+    // Five earlier full pages must not each consume the five-second idle poll.
+    timeout(Duration::from_secs(20), f.wait_completed(&valid))
+        .await
+        .expect("pinned recovery delayed later pages by the idle poll interval");
     f.assert_persistence(&valid, true).await;
     assert!(
         pinned
