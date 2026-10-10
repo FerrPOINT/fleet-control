@@ -120,17 +120,14 @@ async fn assert_recovered_preconditions(
         "activation_probe_stored_record_exact"
     );
     let url = std::env::var("FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL")
-        .ok()
-        .expect("activation_probe_database_configured");
+        .unwrap_or_else(|_| panic!("activation_probe_database_configured"));
     assert!(
         reqwest::Url::parse(&url).is_ok_and(|url| url.path() == "/fleet_container_activation_test"),
         "activation_probe_owned_database"
     );
     let connection = Database::connect(url).await;
     assert!(connection.is_ok(), "activation_probe_database_connected");
-    let db = connection
-        .ok()
-        .expect("activation_probe_database_connected");
+    let db = connection.unwrap_or_else(|_| panic!("activation_probe_database_connected"));
     // One read-only snapshot diagnoses predicates; authorize still rechecks under locks.
     let snapshot = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres, r#"
 WITH activation AS (
