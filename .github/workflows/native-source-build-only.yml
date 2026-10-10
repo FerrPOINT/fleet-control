@@ -26,7 +26,6 @@ jobs:
       FLEET_QA_BASE_REPO: ${{ github.workspace }}/inputs/base-utility
       FLEET_QA_HERMES_REPO: ${{ github.workspace }}/inputs/hermes
       BASE_MAINTENANCE_REPO: ${{ github.workspace }}/inputs/base-maintenance
-      SDLC_RESOURCE_REGISTRY: ${{ runner.temp }}/native-owned-resource-registry
     steps:
       - name: Checkout reviewed controls
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -95,6 +94,7 @@ jobs:
           assert actual == {name for name, _ in entries}
           print('public_source_and_exact_wrappers_pass')
           PY
+          printf 'SDLC_RESOURCE_REGISTRY=%s\n' "$RUNNER_TEMP/native-owned-resource-registry" >> "$GITHUB_ENV"
       - name: Checkout exact Fleet source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
