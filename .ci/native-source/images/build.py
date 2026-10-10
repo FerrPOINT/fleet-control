@@ -32,7 +32,8 @@ PULL_CATEGORIES = frozenset(("rate_limit", "registry_denied", "manifest_unavaila
 CANDIDATE_KINDS = frozenset(("controller", "hermes"))
 BUILD_LOG_LIMIT = 65536
 BUILD_CATEGORIES = PULL_CATEGORIES | {"rust_compile", "no_space", "dependency_resolution",
-    "docker_cli_refused", "compose_config_refused", "pinned_fetch_refused", "pinned_hash_refused", "apt_refused", "account_refused"}
+    "docker_cli_refused", "compose_config_refused", "pinned_fetch_refused", "pinned_hash_refused", "apt_refused", "account_refused",
+    "uv_build_refused", "uv_download_build_refused", "uv_no_solution", "uv_no_platform_distribution"}
 OPERATIONS = frozenset(("unknown", "parent_resources", "parent_pull", "parent_identity",
     "candidate_source", "candidate_resources", "candidate_daemon", "candidate_tag",
     "controller_input", "candidate_build", "candidate_metadata", "offline_qualification",
@@ -137,8 +138,29 @@ def candidate_build_diagnostic(raw, *, tail=False):
         return dict(category="unknown", log_scope="unavailable")
     if tail:
         raw = raw.partition(b"\n")[2]
+    complete = [line.removesuffix(b"\r") for line in raw.split(b"\n")[:-1]]
+    uv_patterns = {
+        "uv_build_refused": rb"  \xc3\x97 Failed to build `[^`\r\n\x1b]{1,2048}`",
+        "uv_download_build_refused": rb"  \xc3\x97 Failed to download and build `[^`\r\n\x1b]{1,2048}`",
+        "uv_no_solution": rb"  \xc3\x97 No solution found when resolving dependencies(?: for [^\r\n\x1b]{1,2048})?:",
+        "uv_no_platform_distribution": rb"error: Distribution `[^`\r\n\x1b]{1,2048}` can't be installed because it doesn't have a source distribution or wheel for the current platform",
+    }
+    uv_headers, uv_failed = {}, set()
+    # Correlate complete producer frames before stripping their vertex identity.
+    for line in complete:
+        if b"\x1b" in line:
+            continue
+        header = re.fullmatch(rb"#([1-9][0-9]{0,5}) [0-9]{1,8}(?:\.[0-9]{1,6})? (.+)", line)
+        if header:
+            for reason, pattern in uv_patterns.items():
+                if re.fullmatch(pattern, header[2]):
+                    uv_headers.setdefault(header[1], set()).add(reason)
+        terminal = re.fullmatch(rb'#([1-9][0-9]{0,5}) ERROR: process "[^\r\n\x1b]{1,16384}" did not complete successfully: exit code: ([1-9][0-9]{0,2})', line)
+        if terminal and int(terminal[2]) <= 255 and terminal[1] in uv_headers:
+            uv_failed.add(terminal[1])
+    uv_reasons = {reason for vertex in uv_failed for reason in uv_headers[vertex]}
     prefix = rb"^(?:#[0-9]{1,6} )?[0-9]{1,8}(?:\.[0-9]{1,6})? "
-    lines = [re.sub(prefix, b"", line.removesuffix(b"\r")) for line in raw.split(b"\n")[:-1]]
+    lines = [re.sub(prefix, b"", line) for line in complete]
     codes = []
     for line in lines:
         frame = re.fullmatch(rb"error\[(E[0-9]{4})\]:[^\r\n]*", line)
@@ -173,6 +195,9 @@ def candidate_build_diagnostic(raw, *, tail=False):
     for category, pattern in patterns.items():
         if not tail and re.search(pattern, raw.lower()):
             matches.add(category)
+    if uv_reasons == {"uv_no_solution"} and matches == {"dependency_resolution"}:
+        matches.clear()  # The paired UV header is the same resolution symptom.
+    matches.update(uv_reasons)
     if len(matches) == 1:
         result["category"] = next(iter(matches))
     return result

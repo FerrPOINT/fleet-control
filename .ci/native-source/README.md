@@ -95,8 +95,8 @@ prevents success output; terminal VM teardown is not cleanup evidence.
 The authored caller requires parent/independent review before publication. Its
 public preflight verifies the exact source tuple and additions before any private
 Base token use. All35 copied QA/image files match component
-`49decc717fa17726e6e72f6533a9905c709cbd83`; their compact path/SHA256 map digest is
-`e721784ae16eb2d825134ac158c3951f99aba62e3896ea8d266e4b65a194b648`.
+`d8c969d0f902e9d538cf158aa818222cdd715da3`; their compact path/SHA256 map digest is
+`ba09822efa657fd0a10eb254e66200f5aa07aab054661d5ab9adb480ece35fd7`.
 Only this README and the workflow are caller-specific. No cache, Git donor,
 credentials or prepared packet is included. In that one host job, set absolute
 exact Git input directories (no dependency copies):
@@ -240,3 +240,23 @@ transport, step or fallback is introduced. Native execution remains pending.
 Evidence: [actual runner software manifest](https://github.com/actions/runner-images/blob/e3fe113a581eb9a44ca43f479b69f9c93f36df34/images/ubuntu/Ubuntu2404-Readme.md#L75),
 [Compose2.38.2 build flags](https://github.com/docker/compose/blob/9e17a091be5abf792fcb4c4e35a80a7cc51cbe6b/cmd/compose/build.go#L123),
 [Compose2.39.0 release](https://github.com/docker/compose/releases/tag/v2.39.0).
+
+## Paired UV fatal symptoms
+
+Within the same existing64KiB failed-build log window, a complete anchored
+UV0.11.6 fatal header is recognized only with a later complete
+`#N ERROR: process ... exit code: N` for the SAME vertex. Vertex correlation
+occurs before prefix stripping; the nonzero inner exit must be1..255 and is
+used internally only. No command, vertex, inner exit, frame, new DTO or field
+is emitted. Only existing category may gain uv_build_refused,
+uv_download_build_refused, uv_no_solution or uv_no_platform_distribution.
+These are observed UV symptoms, NOT root-cause or authenticity claims.
+
+Partial/ANSI/quoted/source-gutter/mismatched/reversed or malformed pairs do not
+qualify. Identical pairs deduplicate; conflicting reasons stay unknown. A paired
+uv_no_solution supersedes only the equivalent generic dependency_resolution
+label; independent Rust/CLI reasons remain conflicts. Unpaired full-log generic
+resolution behavior is unchanged. Existing first-failure/scope/1KiB projection
+and partial-line handling are preserved, without extra reads/scans/artifacts,
+progress flags, recipe/lock/pin/resource changes. Actual38079988227 remains
+UNKNOWN/TAIL; this extension cannot reconstruct its omitted private cause.

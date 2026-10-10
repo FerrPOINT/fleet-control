@@ -812,6 +812,122 @@ class CandidateBuildDiagnosticTests(unittest.TestCase):
                          dict(kind="controller", exit_code=42, category="unknown", log_scope="unavailable"))
 
 
+class UvFatalDiagnosticTests(unittest.TestCase):
+    HEADERS = {
+        "uv_build_refused": b"  \xc3\x97 Failed to build `SECRET`",
+        "uv_download_build_refused": b"  \xc3\x97 Failed to download and build `SECRET`",
+        "uv_no_solution": b"  \xc3\x97 No solution found when resolving dependencies for split (markers: SECRET):",
+        "uv_no_platform_distribution": b"error: Distribution `SECRET` can't be installed because it doesn't have a source distribution or wheel for the current platform",
+    }
+
+    def header(self, reason="uv_build_refused", vertex=b"17"):
+        return b"#" + vertex + b" 1.234 " + self.HEADERS[reason] + b"\n"
+
+    def footer(self, vertex=b"17", code=b"1", command=b"/bin/sh -c SECRET"):
+        return b'#' + vertex + b' ERROR: process "' + command + b'" did not complete successfully: exit code: ' + code + b'\n'
+
+    def diagnostic(self, raw):
+        return build.candidate_build_diagnostic(b"discard partial SECRET\n" + raw, tail=True)
+
+    def test_source_known_uv_headers_require_later_same_vertex_terminal_in_full_or_tail(self):
+        for reason in self.HEADERS:
+            for tail in (False, True):
+                raw = (b"discard partial\n" if tail else b"") + self.header(reason) + self.footer()
+                self.assertEqual(build.candidate_build_diagnostic(raw, tail=tail),
+                                 dict(category=reason, log_scope="tail" if tail else "full"))
+        self.assertEqual(self.diagnostic(self.header() + self.footer(code=b"255"))["category"], "uv_build_refused")
+
+    def test_missing_mismatched_or_earlier_terminal_does_not_establish_uv_reason(self):
+        for raw in (self.header(), self.footer(), self.header() + self.footer(vertex=b"18"),
+                    self.footer() + self.header(), self.footer(vertex=b"18") + self.header(),
+                    b"#17 1.234 error: arbitrary SECRET\n" + self.footer()):
+            self.assertEqual(self.diagnostic(raw), dict(category="unknown", log_scope="tail"))
+
+    def test_partial_first_or_last_frame_is_not_a_complete_pair(self):
+        for raw in (self.header() + self.footer(), b"partial\n" + self.header() + self.footer().rstrip(b"\n"),
+                    b"partial\n" + self.header().rstrip(b"\n") + self.footer()):
+            self.assertEqual(build.candidate_build_diagnostic(raw, tail=True), dict(category="unknown", log_scope="tail"))
+
+    def test_conflicting_reasons_are_unknown_but_identical_pairs_deduplicate(self):
+        for raw in (self.header() + self.header("uv_download_build_refused") + self.footer(),
+                    self.header() + self.footer() + self.header("uv_no_solution"),
+                    self.header() + self.footer() + self.header("uv_no_solution", b"18") + self.footer(b"18"),
+                    self.header() + self.footer() + b"unknown flag: --provenance\n"):
+            self.assertEqual(self.diagnostic(raw), dict(category="unknown", log_scope="tail"))
+        self.assertEqual(self.diagnostic((self.header() + self.footer()) * 3),
+                         dict(category="uv_build_refused", log_scope="tail"))
+        self.assertEqual(self.diagnostic(self.header() + self.footer() + b"error[E0432]: SECRET\n"),
+                         dict(category="unknown", log_scope="tail", rust_codes=["E0432"]))
+        for tail in (False, True):
+            for other in (b"error[E0432]: SECRET\n", b"unknown flag: --provenance\n"):
+                raw = (b"discard partial\n" if tail else b"") + self.header("uv_no_solution") + self.footer() + other
+                result = build.candidate_build_diagnostic(raw, tail=tail)
+                self.assertEqual(result["category"], "unknown")
+                self.assertEqual(result["log_scope"], "tail" if tail else "full")
+
+    def test_ansi_source_gutters_quoted_embedded_and_unprefixed_frames_are_rejected(self):
+        def wrapped(line, kind):
+            body = line.rstrip(b"\n")
+            return {"ansi": b"\x1b[31m" + body + b"\x1b[0m\n", "gutter": b"  | " + body + b"\n",
+                    "quote": b'"' + body + b'"\n', "embedded": b"echo " + body + b"\n"}[kind]
+        for kind in ("ansi", "gutter", "quote", "embedded"):
+            for raw in (wrapped(self.header(), kind) + self.footer(), self.header() + wrapped(self.footer(), kind)):
+                self.assertEqual(self.diagnostic(raw), dict(category="unknown", log_scope="tail"))
+        for raw in (b"1.234 " + self.HEADERS["uv_build_refused"] + b"\n" + self.footer(),
+                    self.header() + self.footer().replace(b"#17 ERROR:", b"ERROR:"),
+                    self.header().replace(b"SECRET", b"SEC\x1bRET") + self.footer(),
+                    self.header() + self.footer(command=b"SEC\x1bRET")):
+            self.assertEqual(self.diagnostic(raw), dict(category="unknown", log_scope="tail"))
+
+    def test_vertex_exit_and_frame_bounds_reject_malformed_or_unbounded_evidence(self):
+        for vertex in (b"0", b"01", b"-1", b"1000000", b"SECRET"):
+            self.assertEqual(self.diagnostic(self.header(vertex=vertex) + self.footer(vertex)),
+                             dict(category="unknown", log_scope="tail"))
+        for code in (b"0", b"01", b"-1", b"256", b"1000", b"SECRET"):
+            self.assertEqual(self.diagnostic(self.header() + self.footer(code=code)),
+                             dict(category="unknown", log_scope="tail"))
+        for raw in (self.header().replace(b"SECRET", b"x" * 2049) + self.footer(),
+                    self.header() + self.footer(command=b"x" * 16385),
+                    self.header() + self.footer().replace(b"exit code: 1", b"exit code: 1 SECRET")):
+            self.assertEqual(self.diagnostic(raw), dict(category="unknown", log_scope="tail"))
+        self.assertEqual(build.candidate_build_diagnostic(b"x" * (build.BUILD_LOG_LIMIT + 1), tail=True),
+                         dict(category="unknown", log_scope="unavailable"))
+
+    def test_long_run_summary_retains_only_closed_symptom_and_actual_outer_exit(self):
+        # Exact recipe RUN length is8292; opaque summaries must not become output.
+        footer = self.footer(command=b"/bin/sh -c " + b"SECRET" * 1382)
+        raw = b"SECRET" * 20000 + b"\n" + self.header() + footer * 3
+        report, public = CandidateBuildDiagnosticTests().failed_build(raw, kind="hermes", code=37)
+        self.assertEqual(public["candidate_build"], dict(kind="hermes", exit_code=37,
+                         category="uv_build_refused", log_scope="tail"))
+        self.assertNotIn("SECRET", json.dumps(report))
+        self.assertNotIn("SECRET", json.dumps(public))
+        self.assertLessEqual(len(json.dumps(public).encode("ascii")), 1024)
+
+    def test_uv_first_failure_is_not_replaced_by_later_build_or_cleanup(self):
+        report, expected = CandidateBuildDiagnosticTests().failed_build(self.header() + self.footer(), kind="hermes", code=23)
+        error = build.BuildFailure("command_nonzero")
+        error.candidate_build = dict(kind="controller", exit_code=42, category="apt_refused", log_scope="full")
+        build.remember_failure(report, error, "candidate_build")
+        build.remember_failure(report, ValueError("SECRET cleanup"), "parity_resources")
+        self.assertEqual(build.failure_projection(report), expected)
+
+    def test_projection_adds_only_closed_category_values_without_new_fields(self):
+        for reason in self.HEADERS:
+            _, public = CandidateBuildDiagnosticTests().failed_build(self.header(reason) + self.footer(), kind="hermes")
+            self.assertEqual(set(public["candidate_build"]), {"kind", "exit_code", "category", "log_scope"})
+            self.assertEqual(public["candidate_build"]["category"], reason)
+        report = dict(failure_operation="candidate_build", candidate_build=dict(
+            kind="hermes", exit_code=1, category="uv_SECRET", log_scope="tail", fatal_frame="SECRET"))
+        projected = build.failure_projection(report)["candidate_build"]
+        self.assertEqual(projected, dict(kind="hermes", exit_code=1, category="unknown", log_scope="tail"))
+
+    def test_legacy_unpaired_full_resolution_symptom_is_unchanged(self):
+        self.assertEqual(build.candidate_build_diagnostic(self.header("uv_no_solution")),
+                         dict(category="dependency_resolution", log_scope="full"))
+        self.assertEqual(self.diagnostic(self.header("uv_no_solution")), dict(category="unknown", log_scope="tail"))
+
+
 class ContextTests(unittest.TestCase):
     def prepared_fixture(self, parent):
         root = parent / (build.PREFIX + "0" * 12)
