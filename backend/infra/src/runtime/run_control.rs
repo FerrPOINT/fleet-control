@@ -262,7 +262,7 @@ async fn post<T: Serialize + ?Sized>(
     validate_ack(&payload, &prepared.run_id, &prepared.session_id, operation)
 }
 
-fn capability(payload: &Value, operation: Operation) -> Result<(), AppError> {
+pub(super) fn capability(payload: &Value, operation: Operation) -> Result<(), AppError> {
     hermes_wire::task_protocol(payload)?;
     let feature = format!("run_{}", operation.endpoint());
     if payload["features"][&feature] != true
@@ -277,7 +277,7 @@ fn capability(payload: &Value, operation: Operation) -> Result<(), AppError> {
     Ok(())
 }
 
-fn validate_ack(
+pub(super) fn validate_ack(
     payload: &Value,
     run_id: &str,
     session_id: &str,

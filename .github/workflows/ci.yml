@@ -234,7 +234,8 @@ jobs:
           grep -Fx 'test runtime::container_activation::tests::successor_plan_keeps_original_anchor_and_rolls_back_to_current_effective ... ok' "$RUNNER_TEMP/container-activation-intent.log"
           grep -Fx 'test runtime::container_activation::tests::successor_command_uses_exact_current_child_stop_not_root_stop ... ok' "$RUNNER_TEMP/container-activation-intent.log"
           cargo test --locked -p infra --test container_activation -- --ignored --test-threads=1 | tee "$RUNNER_TEMP/container-activation-pg.log"
-          grep -F 'test result: ok. 13 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-pg.log"
+          grep -F 'test result: ok. 14 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-pg.log"
+          grep -Fx 'test recovered_authority_alias_repair_preserves_trigger_oid_and_exact_custody ... ok' "$RUNNER_TEMP/container-activation-pg.log"
           for selector in recovered_committed_child_next_activation_and_failure_rollback_keep_original_anchor recovered_rolled_back_child_next_activation_and_failure_rollback_keep_original_anchor recovered_next_claim_rejects_foreign_lineage_unknown_lease_and_duplicate_plan recovered_next_claim_expiry_and_new_epoch_require_latest_original_authority; do
             grep -Fx "test $selector ... ok" "$RUNNER_TEMP/container-activation-pg.log"
           done

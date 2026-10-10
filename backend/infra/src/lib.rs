@@ -14,6 +14,7 @@ mod hermes_dispatch_journal;
 pub mod pm_credentials;
 mod pm_draft;
 mod pm_execution;
+mod pm_tool_config;
 pub mod runtime;
 mod runtime_acceptance;
 mod runtime_controls;
@@ -873,6 +874,102 @@ impl FleetRepository for PostgresFleetRepository {
     }
     async fn get_pm_run(&self, id: Uuid) -> Result<domain::PmRunRecord, AppError> {
         pm_execution::get(self, id).await
+    }
+    async fn get_pm_tool(
+        &self,
+        run: Uuid,
+        key: &str,
+    ) -> Result<Option<domain::PmToolCommand>, AppError> {
+        pm_execution::get_tool(self, run, key).await
+    }
+
+    async fn has_pm_run_custody(&self, session: Uuid) -> Result<bool, AppError> {
+        self.db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT EXISTS(SELECT 1 FROM pm_run_bindings WHERE session_id=$1) AS custody",
+                [session.into()],
+            ))
+            .await
+            .map_err(pm_execution::dispatch_error_db)?
+            .ok_or_else(|| AppError::internal("missing PM custody lookup"))?
+            .try_get("", "custody")
+            .map_err(pm_execution::dispatch_error_db)
+    }
+
+    async fn read_pm_operation_for_session(
+        &self,
+        session: Uuid,
+        owner: Uuid,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        let row = self.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT id FROM pm_draft_creation_operations WHERE owner_user_id=$1 AND operation->>'session_id'=$2 LIMIT 1",
+            [owner.into(), session.to_string().into()])).await.map_err(pm_execution::dispatch_error_db)?
+            .ok_or_else(|| AppError::not_found("PM operation", session))?;
+        self.read_pm_creation(
+            row.try_get("", "id")
+                .map_err(pm_execution::dispatch_error_db)?,
+            owner,
+        )
+        .await
+    }
+    async fn prepare_pm_tool(
+        &self,
+        command: domain::PmToolCommand,
+    ) -> Result<domain::PmToolCommand, AppError> {
+        pm_execution::prepare_tool(self, command)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn claim_pm_tool(&self, run: Uuid, key: &str) -> Result<bool, AppError> {
+        pm_execution::claim_tool(self, run, key)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn finish_pm_tool(&self, run: Uuid, key: &str, result: Value) -> Result<(), AppError> {
+        pm_execution::finish_tool(self, run, key, result)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn prepare_pm_dispatch(
+        &self,
+        intent: domain::PmDispatchIntent,
+    ) -> Result<domain::PmDispatchIntent, AppError> {
+        pm_execution::prepare_dispatch(self, intent)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn claim_pm_submission(&self, id: Uuid) -> Result<bool, AppError> {
+        pm_execution::claim_submission(self, id)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn get_pm_dispatch(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<domain::PmDispatchIntent>, AppError> {
+        pm_execution::get_dispatch(self, id)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn record_pm_submission(&self, id: Uuid, run_ref: String) -> Result<(), AppError> {
+        pm_execution::record_submission(self, id, run_ref)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn claim_pm_guidance(
+        &self,
+        id: Uuid,
+        body: String,
+    ) -> Result<domain::PmGuidancePermit, AppError> {
+        pm_execution::claim_guidance(self, id, body)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn finish_pm_guidance(&self, id: Uuid) -> Result<(), AppError> {
+        pm_execution::finish_guidance(self, id)
+            .await
+            .map_err(pm_execution::dispatch_error)
     }
     async fn accept_pm_run(
         &self,
@@ -3201,6 +3298,25 @@ impl FleetRepository for PostgresFleetRepository {
         runtime_acceptance::terminal(self, command).await
     }
 
+    async fn commit_pm_terminal(
+        &self,
+        command: app::HermesTerminalCommit,
+        status: domain::PmRuntimeStatus,
+    ) -> Result<(SessionAgentRun, Option<SessionMessage>, bool), AppError> {
+        pm_execution::terminal(self, command, status).await
+    }
+
+    async fn pm_stream_context(&self, run: Uuid) -> Result<(domain::PmRunRecord, bool), AppError> {
+        pm_execution::stream_context(&self.db, run).await
+    }
+
+    async fn list_recoverable_pm_streams(
+        &self,
+        after: Option<Uuid>,
+    ) -> Result<Vec<Uuid>, AppError> {
+        pm_execution::stream_queue(self, after).await
+    }
+
     async fn insert_session_message_mirror(
         &self,
         session_id: Uuid,
@@ -5352,6 +5468,11 @@ pub(crate) async fn configuration_files(
         ));
     }
     let mut content = revision.snapshot.config.config_json.clone();
+    pm_tool_config::configure(&mut content, agent, config)?;
+    if config.pm.dispatch.enabled && agent.sdlc_role == Some(SdlcRole::ProjectManager) {
+        pm_tool_config::reject_server_secrets(&content.to_string(), config)?;
+        pm_tool_config::reject_server_secrets(&revision.snapshot.config.soul_md, config)?;
+    }
     if content
         .get("terminal")
         .is_some_and(|value| !value.is_object())
@@ -5398,6 +5519,9 @@ pub(crate) async fn configuration_files(
                 return Err(AppError::validation(format!(
                     "masked value for {key} cannot replace a secret reference"
                 )));
+            }
+            if config.pm.dispatch.enabled && agent.sdlc_role == Some(SdlcRole::ProjectManager) {
+                pm_tool_config::reject_server_secrets(&value, config)?;
             }
             env.push_str(&format!(
                 "{key}={}\n",

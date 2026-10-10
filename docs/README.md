@@ -29,9 +29,11 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [TZ.md](TZ.md)
 - [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md)
 - [CURRENT_STATE.md](CURRENT_STATE.md)
+- [Historical state evidence](CURRENT_STATE_HISTORY_2026-10-10.md)
 - [ROADMAP.md](ROADMAP.md)
 - [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
 - [GAP_REGISTER.md](GAP_REGISTER.md)
+- [Historical gap investigations](GAP_REGISTER_HISTORY_2026-10-10.md)
 - [PRE_DEVELOPMENT_GATE.md](PRE_DEVELOPMENT_GATE.md)
 
 ## Architecture And Domain

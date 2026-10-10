@@ -354,18 +354,19 @@ class SourceContracts(unittest.TestCase):
                       previous_helper)
 
     def test_main_union_exact_source_inventory_and_additive_test_counts(self):
-        self.assertEqual(gate.SOURCE_SHA, "32b9f063f9b5099ff61bca24ecdfeb9952889034")
-        self.assertEqual(gate.SOURCE_TREE, "f2e319df5875bbd05d08f503c8727376498969cb")
-        self.assertEqual(gate.SOURCE_PARENTS, ["d71b14f5f61bc58200a085d97aac0b80a891c324"])
-        gate.qualify_source(ROOT)
-        inventory = git_blob_inventory(gate.SOURCE_SHA)
+        frozen = "32b9f063f9b5099ff61bca24ecdfeb9952889034"
+        self.assertEqual(gate.git(ROOT, "show", "-s", "--format=%T %P", frozen).decode().strip(),
+                         "f2e319df5875bbd05d08f503c8727376498969cb d71b14f5f61bc58200a085d97aac0b80a891c324")
+        inventory = git_blob_inventory(frozen)
         self.assertEqual(len(inventory), 872)
-        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
-        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
+        self.assertEqual(gate.digest(gate.canonical(inventory)),
+                         "f5a2256ec0dc268f1b90ac7f2a955a57ff1c411512edaa8387fdb08d454b777d")
+        with self.assertRaisesRegex(ValueError, "Source bytes differ from exact committed tree"):
+            gate.tracked_inventory(ROOT, frozen)
         union = "9e0bb491282ba8c13bc11b66b6d83cc59045a04d"
         self.assertEqual(gate.git(ROOT, "show", "-s", "--format=%T %P", union).decode().strip(),
                          "2d24440b5c1e464623f17297c9f4ceab8d3eaa39 7c7f9dd448cb103a47a74db6f4f84c73f3b68957 c39ff84d82277004bf8170fbac2f3b122ea6bcad")
-        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", union, gate.SOURCE_SHA,
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", union, frozen,
                                   "--", "frontend", "openapi"), b"")
         baseline = git_blob_inventory("59d00fe3269d67ab09819f19c6b2b5703a6e2268")
         tests = lambda items: {p: h for p, h in items.items()
@@ -392,8 +393,35 @@ class SourceContracts(unittest.TestCase):
         # Only those four files differ from the hosted 355/36 baseline: 355 - 60 - 15 + 102.
         self.assertEqual(gate.QUALIFIED_UNIT_COUNTS,
                          dict(files_passed=38, tests_passed=355 - 60 - 15 + 102, files_skipped=0, tests_skipped=0))
-        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", union, gate.SOURCE_SHA,
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", union, frozen,
                                   "--", "frontend/playwright.config.ts"), b"")
+
+    def test_pm_stream_union_exact_source_inventory_and_original_frontend(self):
+        self.assertEqual(gate.SOURCE_SHA, "83091f055e3b34fcfe6a6d59b1703c117261c027")
+        self.assertEqual(gate.SOURCE_TREE, "12f57611eae3d7b9bf73e3ebca41afd60cd36a1a")
+        self.assertEqual(gate.SOURCE_PARENTS, ["af0a9d14360bc91875e54602c3340d5fcd8dbd59",
+                                             "8e6c25b9f77ed5f43d52661d8fdd6b2019a93804"])
+        gate.qualify_source(ROOT)
+        inventory = git_blob_inventory(gate.SOURCE_SHA)
+        self.assertEqual(len(inventory), 885)
+        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
+        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
+        frozen = "32b9f063f9b5099ff61bca24ecdfeb9952889034"
+        path = "frontend/e2e/chats-directory.spec.ts"
+        self.assertEqual(gate.git(ROOT, "diff", "--name-only", frozen, gate.SOURCE_SHA,
+                                  "--", "frontend", "openapi").decode().splitlines(), [path])
+        old = gate.git(ROOT, "show", frozen + ":" + path).decode()
+        current = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + path).decode()
+        self.assertEqual(gate.digest(current.encode()), "e20b01fb9cd482bcdf26c5c601e3da188dafe12117e5d01673b810c87a623c55")
+        marker = "  await page.goto('/chats')"
+        self.assertEqual(old[old.index(marker):], current[current.index(marker):])
+        self.assertIn("await installSsoMocks(page, () => owner)", current)
+        self.assertNotIn("async function mockLogin", current)
+        for setting in ("'access-control-allow-origin': '*'", "'access-control-allow-methods': 'GET, POST, OPTIONS'",
+                        "'access-control-allow-headers': 'Authorization, Content-Type, Last-Event-ID'",
+                        "route.request().method() === 'OPTIONS'", "const reply = (json: unknown)"):
+            self.assertIn(setting, current)
+        self.assertRegex(current, r"contentType: 'text/event-stream',\s+headers,")
 
 
 class CompletionContracts(unittest.TestCase):
@@ -603,8 +631,10 @@ class WorkflowContracts(unittest.TestCase):
     def test_fail_fast_preserves_all_fixture_sources_and_selection(self):
         parent = "a909757575582dacc4e7b1c21eb7cef115aef3a8"
         paths = ("frontend/e2e", "frontend/playwright.config.ts")
-        self.assertEqual(gate.git(ROOT, "ls-tree", "-rz", gate.SOURCE_SHA, *paths),
-                         gate.git(ROOT, "ls-tree", "-rz", parent, *paths))
+        directory = b"frontend/e2e/chats-directory.spec.ts"
+        retained = lambda sha: [entry for entry in gate.git(ROOT, "ls-tree", "-rz", sha, *paths).split(b"\0")
+                                if entry and entry.split(b"\t", 1)[1] != directory]
+        self.assertEqual(retained(gate.SOURCE_SHA), retained(parent))
         self.assertEqual(gate.GATES["fixtures"][0][:-1],
                          ["pnpm", "exec", "playwright", "test", "--reporter=list,json"])
         self.assertEqual(gate.GATES["fixtures"][0][-1], "--max-failures=1")

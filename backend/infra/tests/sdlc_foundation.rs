@@ -16,8 +16,12 @@ use uuid::Uuid;
 
 #[path = "support/clarification_custody.rs"]
 mod clarification_custody;
+#[path = "support/pm_dispatch.rs"]
+mod pm_dispatch;
 #[path = "support/pm_draft_creation.rs"]
 mod pm_draft_creation;
+#[path = "support/pm_events.rs"]
+mod pm_events;
 
 #[path = "support/pm_credential_creation.rs"]
 mod pm_credential_creation;

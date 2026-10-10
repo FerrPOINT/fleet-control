@@ -1,7 +1,7 @@
-import { expect, test, type Page } from '@playwright/test'
-import { generateKeyPairSync, sign } from 'node:crypto'
+import { expect, test } from '@playwright/test'
 import type { ChatsDirectoryPage } from '../src/api/chats-directory'
 import type { AgentDirectoryItem, AgentSession } from '../src/api/types'
+import { installSsoMocks } from './chats-core-sso'
 
 const owner = '00000000-0000-4000-8000-000000000001'
 const dev = '00000000-0000-4000-8000-000000000101'
@@ -56,108 +56,59 @@ function session(id: string, agentId: string, title: string): AgentSession {
   }
 }
 
-// Exercise the existing OIDC entry point instead of persisting an access token.
-async function mockLogin(page: Page) {
-  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
-  let issuer = ''
-  let nonce = ''
-  await page.route('**/oidc/authorize**', async (route) => {
-    const url = new URL(route.request().url())
-    issuer = url.origin
-    nonce = url.searchParams.get('nonce') ?? ''
-    const callback = new URL(url.searchParams.get('redirect_uri')!)
-    callback.searchParams.set('code', 'directory-code')
-    callback.searchParams.set('state', url.searchParams.get('state')!)
-    await route.fulfill({
-      contentType: 'text/html',
-      body: `<script>location.replace(${JSON.stringify(callback.toString())})</script>`,
-    })
-  })
-  await page.route('**/oidc/token', async (route) => {
-    const header = Buffer.from(
-      JSON.stringify({ alg: 'ES256', typ: 'JWT', kid: 'directory' }),
-    ).toString('base64url')
-    const payload = Buffer.from(
-      JSON.stringify({
-        iss: issuer,
-        aud: 'fleet-control',
-        sub: owner,
-        email: 'owner@example.test',
-        nonce,
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 3600,
-      }),
-    ).toString('base64url')
-    const content = `${header}.${payload}`
-    const signature = sign('sha256', Buffer.from(content), {
-      key: privateKey,
-      dsaEncoding: 'ieee-p1363',
-    }).toString('base64url')
-    await route.fulfill({
-      json: {
-        access_token: 'directory-access',
-        id_token: `${content}.${signature}`,
-        expires_in: 3600,
-      },
-    })
-  })
-  await page.route('**/oidc/jwks', (route) =>
-    route.fulfill({
-      json: {
-        keys: [
-          { ...publicKey.export({ format: 'jwk' }), kid: 'directory', alg: 'ES256', use: 'sig' },
-        ],
-      },
-    }),
-  )
-}
-
 test('directory uses server counts, concrete cursors and scoped returnTo across viewports', async ({
   page,
 }, testInfo) => {
-  await mockLogin(page)
+  await installSsoMocks(page, () => owner)
   const requests: URL[] = []
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.route('**/api/v1/**', async (route) => {
+    const headers = {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET, POST, OPTIONS',
+      'access-control-allow-headers': 'Authorization, Content-Type, Last-Event-ID',
+    }
+    const reply = (json: unknown) => route.fulfill({ json, headers })
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const url = new URL(route.request().url())
     if (url.pathname === '/api/v1/users/me')
-      return route.fulfill({
-        json: {
-          id: owner,
-          email: 'owner@example.test',
-          username: 'owner',
-          display_name: 'Directory owner',
-        },
+      return reply({
+        id: owner,
+        email: 'owner@example.test',
+        username: 'owner',
+        display_name: 'Directory owner',
       })
     if (url.pathname === '/api/v1/users/me/permissions')
-      return route.fulfill({
-        json: {
-          user_id: owner,
-          role: 'user',
-          is_system_admin: false,
-          permissions: ['sessions:read_own', 'sessions:write_own', 'agents:read_directory'],
-        },
+      return reply({
+        user_id: owner,
+        role: 'user',
+        is_system_admin: false,
+        permissions: ['sessions:read_own', 'sessions:write_own', 'agents:read_directory'],
       })
     if (url.pathname === '/api/v1/agent-directory')
-      return route.fulfill({
-        json: [agent(dev, 1, 'Directory developer'), agent(qa, 2, 'Directory reviewer')],
-      })
+      return reply([agent(dev, 1, 'Directory developer'), agent(qa, 2, 'Directory reviewer')])
     if (url.pathname === `/api/v1/sessions/${last}`)
-      return route.fulfill({ json: session(last, dev, 'Second page chat') })
-    if (url.pathname.endsWith('/task-context'))
-      return route.fulfill({ json: { binding: null, tracker: null } })
+      return reply(session(last, dev, 'Second page chat'))
+    if (url.pathname.endsWith('/task-context')) return reply({ binding: null, tracker: null })
     if (url.pathname.endsWith('/chat-controls'))
-      return route.fulfill({
-        json: { active_run_id: null, can_send: true, can_steer: false, can_stop: false },
+      return reply({
+        active_run_id: null,
+        can_send: true,
+        can_steer: false,
+        can_stop: false,
+        blocked_reason: null,
       })
-    if (url.pathname.endsWith('/runs')) return route.fulfill({ json: [] })
-    if (url.pathname.endsWith('/approvals')) return route.fulfill({ json: [] })
-    if (url.pathname.endsWith('/history'))
-      return route.fulfill({ json: { items: [], next_before: null } })
+    if (url.pathname.endsWith('/runs')) return reply([])
+    if (url.pathname.endsWith('/approvals')) return reply([])
+    if (url.pathname.endsWith('/history')) return reply({ items: [], next_before: null })
     if (url.pathname.endsWith('/stream'))
-      return route.fulfill({ contentType: 'text/event-stream', body: ': directory test\n\n' })
-    if (url.pathname !== '/api/v1/chats/directory') return route.fulfill({ json: {} })
+      return route.fulfill({
+        contentType: 'text/event-stream',
+        headers,
+        body: ': directory test\n\n',
+      })
+    if (url.pathname !== '/api/v1/chats/directory') return reply({})
     requests.push(url)
     const selected = url.searchParams.get('agent_id') ?? dev
     const searching = Boolean(url.searchParams.get('q'))
@@ -177,7 +128,7 @@ test('directory uses server counts, concrete cursors and scoped returnTo across 
       ],
       next_before: next ? null : first,
     }
-    return route.fulfill({ json: data })
+    return reply(data)
   })
   await page.goto('/chats')
   await expect(page.getByRole('link', { name: /First page chat/ })).toBeVisible()
