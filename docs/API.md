@@ -340,9 +340,26 @@ agent authorship и различия central/legacy permissions; наличие 
 - `POST /sessions` is idempotent by `idempotency_key`; replay returns the
   original session, while the same key with a different payload returns `409`.
 - `GET /sessions/{session_id}`
+- Session detail includes optional `pending_delivery`, computed from every
+  session message in `pending` or `dispatched` delivery state, independently of
+  the bounded history page. List DTOs may omit this projection. A consumer that
+  gates prompt submission must hold sending when the detail projection is absent.
+- An initial `pending` run with both runtime identity fields explicitly `null`
+  is a preparation slot. A bound pending run or any `running`, `waiting` or
+  `stopping` primary run still holds sending. Pending delivery holds it separately.
 - `GET/POST /sessions/{session_id}/messages`
 - `POST /sessions/{session_id}/messages` is idempotent by request key and avoids
   duplicate runtime dispatch on replay.
+- A successful message POST acknowledges its specific persisted row, including
+  when it is beyond the first 500 messages returned by history. The authorized
+  POST receipt includes optional `request_payload_hash`, taken from the stored
+  idempotency payload hash. History, runtime dispatch and assistant mirrors do
+  not expose that digest. Requests without an idempotency key may omit it.
+- The digest is SHA-256 of the parsed request serialized as compact JSON with
+  sorted keys: `author_agent_id`, `body`, `idempotency_key`, `message_kind` and
+  `runtime_message_id`; missing optional fields serialize as `null`. Public body
+  redaction does not change this digest. A client requiring positive command
+  confirmation must retain the original key if the digest is missing or differs.
 - `GET /sessions/{session_id}/stream`
 - `GET /sessions/{session_id}/participants`
 - `PUT /sessions/{session_id}/leader`

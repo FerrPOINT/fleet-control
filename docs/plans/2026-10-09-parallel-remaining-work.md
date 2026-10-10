@@ -12,10 +12,10 @@ Tracker and Workflow stay read-only; root Base foreign changes are untouched.
 
 | Owner | Current isolated write scope / deliverable | Handoff criterion |
 | --- | --- | --- |
-| Curie | Read-only review of full81 artifact successor9e7fb08 | Validate exact extraction/directory upload, all116 inherited selectors and unchanged81 gates/counts/budgets; no source mutation or publication |
-| Pascal | Read-only review of Forge consumer4d97c54 | Check source/pin/proof/public-safe history, all12 stages and cleanup; Base safety successor43d0205 stays frozen |
-| Feynman | New Forge consumer binding child from4d97c54 | Qualify reviewed published Base43d0205/PR183 and explicit disposable-CI caller policy; no private Base source in Forge; no native run or publication |
-| Planck | New Fleet PM orchestration using unchanged Hermes API | Implement actual Fleet dispatch via existing contracts/API, not an extra Hermes authorization hook; retain ordinary ownership, workflow state and durable idempotency; no container-activation/frontend/producer edits |
+| Curie | Exact inherited Chats browser fixtures | Union source and19 preservation checks handed off;102 component cases pass; real browser execution remains required |
+| Pascal | Isolated activation authority-INSERT repair from7c7f9dd | Use authenticated runtime hint to find the actual cause; minimal regression and unchanged authority guards; no heavy/native execution |
+| Feynman | Independent read-only Forge diagnostic review | Backend union and Forge1310958 source reviews have no confirmed P1/P2 findings; two PM P2 findings sent to Planck; full12/native acceptance remains unproven |
+| Planck | Fleet PM tools and continuation, normal successor offc29a9d | Configure supported Hermes tools and implement answer delivery/checkpoint/rebind/new run; no extra Hermes authorization hook, duplicate unknown dispatch or frontend edits |
 | Parent | Fleet integration, exact-source controls, CI, documentation and publication | Review worker diffs; qualify source/control closure; normal history/push; authenticate terminal receipts before any acceptance claim |
 
 Latest actual results supersede the historical in-progress wording below.
@@ -29,9 +29,17 @@ integrates the reproduced capture-fixture fix, native4 test hook and journal-err
 guards/seven new component cases; current-source full frontend acceptance is pending.
 Base717 stays rejected; reviewed safety43d0205 is published as DraftPR183 with
 parent92 pure passes. Private CI is blocked before jobs start by account billing.
-Frontend controls4972214 on exact60f35db are published; run38030851556 is active.
-Parent and independent review69 pure checks pass; actual inventory is837 blobs,
-not the earlier anticipated836. No file was removed to force an incorrect count.
+Frontend controls4972214/run38030851556 fail at unit. A bounded local60-case
+reproduction identifies and fixes a keyboard activation wait in59d00fe; all60
+then pass. Successor controls ea0d633/run38032377582 pass the hosted default
+unit stage, but fail OpenAPI compatibility against newer main. Normal main
+integration is in progress; browser/screens/live acceptance remains required.
+Full81 diagnostic controls084d9f0 on source7c7f9dd are published;
+run38033313593 fails the same eight cases with authenticated fixed hint
+`activation_authorize_authority_insert`. Both cleanup checks pass; the label
+narrows the SQL operation but does not prove the root cause or accept runtime.
+Forge controlsb9375dc/run38032103574 fail bootstrap before admission seal or
+first-job tests. Authenticated cleanup passes; root cause remains unproved.
 
 Owner decision: Hermes is not to be modified, and the proposed extra pre-model
 authorization/barrier is removed from requirements. Planck implements the missing

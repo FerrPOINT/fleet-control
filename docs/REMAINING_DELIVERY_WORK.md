@@ -2,7 +2,8 @@
 
 ## Scope And Evidence Boundary
 
-Source checkpoint: `59d00fe` (normal successor of `60f35db`), 10 October 2026.
+Published source checkpoint: `7c7f9dd`, 10 October 2026. Normal integration with
+main `c39ff84` is in progress in an isolated checkout, not yet an accepted release.
 This is a delivery map for the current Chats/PM clarification slice, not an
 operational diary, deployment permission or a new test execution. Leaders,
 delegation UI and the complete autonomous SDLC are outside this slice.
@@ -12,6 +13,25 @@ exists for its own inputs; remaining means implementation or acceptance is still
 required. A narrow PR can become merge-ready independently of the complete PM
 vertical, but must preserve disabled/held paths and disclose its dependencies.
 Neither that merge nor a healthy process enables PM admission.
+
+## Active Parallel Deliverables
+
+| Owner | Independent write scope | Required output |
+| --- | --- | --- |
+| Curie | Fleet inherited Chats browser fixtures | Source handoff and19 preservation checks complete; the merged four-file component suite passes102/102; browser execution remains required |
+| Feynman | Read-only independent review; reports outside product | Forge diagnostic review has no confirmed P1/P2 findings; PM source findings are passed to its implementer |
+| Pascal | Isolated Fleet recovered-activation INSERT fix | Diagnose authenticated `activation_authorize_authority_insert` and fix the actual cause with a narrow regression; do not weaken authority predicates |
+| Planck | Fleet PM tools/continuation in a separate branch | Configure supported Hermes tools, deliver saved answers and implement checkpoint/rebind/new-run continuation without a second unknown dispatch or Hermes modifications |
+| Parent | Main integration, final verification, docs and publication | Normal-history merge, generated API/client parity, exact-source checks, current screenshots and task-owned PRs; no unrelated working-tree changes |
+
+Latest hosted frontend run38032377582 passes its default unit stage but fails
+OpenAPI compatibility against newer main; union API verification remains required.
+Backend run38033313593 fails with the exact authority-INSERT hint, not accepted.
+Forge run38032103574 fails
+bootstrap before any first-job tests; authenticated cleanup passes, root cause is
+not yet known. Frozen PM source `fc29a9d` is an opt-in initial dispatch candidate,
+not a completed tools/answer/resume flow. See [CURRENT_STATE](CURRENT_STATE.md)
+for the exact evidence boundaries. No custom Hermes pre-model gate is in scope.
 
 The following are recorded checkpoints, not live status widgets. Parent updated
 terminal readbacks after the initial source5cc1fbb documentation review. Newest

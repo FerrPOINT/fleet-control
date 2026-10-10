@@ -1,0 +1,5 @@
+
+> fleet-control-frontend@0.2.0 markdown:check C:\git\azhukov\sdlc\.local\chats-main-20261007\fleet-control\frontend
+> node scripts/check-markdown-links.mjs
+
+Checked 90 Markdown files.
