@@ -462,7 +462,7 @@ describe('production chat', () => {
     await screen.findByText('Lost first answer')
     const original = vi.mocked(chats.answerClarification).mock.calls.at(0)?.[2]
     expect(original).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить исходный ответ' }))
     await screen.findByText('Later version conflict')
     expect(vi.mocked(chats.answerClarification).mock.calls.at(1)?.[2]).toEqual(original)
     expect(sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1:answer')).not.toBeNull()
