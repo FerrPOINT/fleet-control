@@ -330,7 +330,7 @@ mod tests {
                 .unwrap()
                 .push(json!("task-tracker:admin"));
             let mut invalid = vec![wrong_subject, extra];
-            for index in 0..scopes.len() {
+            for (index, scope) in scopes.iter().enumerate() {
                 let mut missing = valid.clone();
                 missing["scopes"].as_array_mut().unwrap().remove(index);
                 invalid.push(missing);
@@ -338,7 +338,7 @@ mod tests {
                 duplicate["scopes"]
                     .as_array_mut()
                     .unwrap()
-                    .push(json!(scopes[index]));
+                    .push(json!(scope));
                 invalid.push(duplicate);
             }
             for value in invalid {
