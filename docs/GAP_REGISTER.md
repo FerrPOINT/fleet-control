@@ -15,6 +15,16 @@ same-connection/OID test still need its actual result. Historical38008974895's
 message_order failure is not a failure receipt for the successor. Neither pure
 diagnostic checks nor the absence of a new failure establishes backend success.
 
+**Configuration integration:** source688 does not contain PR64's standalone
+workflow/package configuration unit at820a1af. Its separate green CI is not
+evidence that the combined runtime has those guards. A normal, owned semantic
+merge is in progress; whole-file replacement would discard one side's behavior.
+Docker activation must preserve fresh Workflow binding verification before new
+effects while keeping durable recovery custody/rollback. The combined Rust API
+needs authentic regeneration and its own Rust/PG gates before publication as a
+qualified product candidate. No generated JSON conflict is resolved by splicing
+schemas or by calling an older artifact current.
+
 Use the [current gate matrix](CURRENT_STATE.md#current-integration-snapshot-10-october-2026)
 for exact candidates and acceptance boundaries. Earlier failures below are
 retained provenance, not pending instructions to rerun their superseded heads.

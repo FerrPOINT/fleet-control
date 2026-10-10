@@ -11,7 +11,7 @@ heads; they do not accept this assembly.
 | Current gate | Exact source / authority | State |
 | --- | --- | --- |
 | Combined backend | Source6881c04, controlsa7d7db2, run38011797295 | Linux/PG gate in progress; no full backend acceptance |
-| Config release PR64 | Head820a1af, run38008810511, dependency PR47 at11f97aa | All five CI jobs PASS; Draft, dependency/live gates open |
+| Config release PR64 | Head820a1af, run38008810511, dependency PR47 at11f97aa | Separate five-job PASS; not integrated into688; combined candidate pending |
 | Production Chats presentation | Frontend tree13ccbaba, correction6c022f3 |42 unit cases and six three-engine fixture cases pass; no live PM acceptance |
 | PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
 | Forge full12 | Public-safe controls1dbedf8, maintenance pin commit null | Cannot start acceptance without published qualified Base inputs |

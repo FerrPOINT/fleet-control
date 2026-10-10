@@ -13,7 +13,7 @@ owned checkouts; Tracker and Workflow remain read-only references.
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
 | Pascal | Backend gate and external prerequisites | Watch actual38011797295 at controls a7d7db2/source6881c04 to terminal; authenticate the safe receipt and cleanup, without cancel/rerun or raw logs. Independently refresh published PM/Workflow and Forge/Base prerequisites, read-only; report actionable differences only. |
-| Feynman | Independent review and release-unit split | Migration lookup review and diagnostic framing P2 counterreview complete. Prepare exact disjoint path sets and dependency order for small release PRs from source6881c04, with missing evidence explicit. No public writes, product edits or broad assembly PR. |
+| Feynman | Combine configuration and runtime guards | Release split complete:10 single-migration units plus5 without migrations. Own candidate normally merges PR64 at820 into688, preserving both guards, recovery custody and tests. No public push, repin, new migration or manual generated schema; authentic codegen/combined gates remain required. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
 | Parent | Integration, corrections and publication | Source6881c04 is published; corrected controls a7d7db2 start actual38011797295. Integrate reviewed task-owned changes and maintain docs, preserving every authority/ledger assertion. No deployment or full backend acceptance before evidence. |
 
@@ -22,11 +22,19 @@ contains authenticated schema874230b2. Parent independently reads it back and
 integrates the generated API/type alias. Final integrated Rust parity is still
 required; code generation is not runtime acceptance.
 
-The current worker streams are read-only against product source and use owned
-local reports/checkouts. Parent alone writes the combined product source and
-this release ledger. Historical worker implementation scopes below are complete,
-not concurrent assignments. Deliverables identify exact commits, commands,
-results and bounded blockers rather than repeat completed broad audits.
+Pascal remains read-only against product source. Feynman's new implementation
+candidate is confined to his owned checkout; parent alone integrates it into
+the publication branch and writes this ledger. Historical worker scopes below
+are complete, not concurrent assignments. Deliverables identify exact commits,
+commands, results and bounded blockers rather than repeat completed broad audits.
+
+The split review finds source688 lacks nine PR64 files, including workflow,
+package and API modules. No current configuration acceptance is inferred from
+PR64's separate CI. Normal integration has actual shared Rust/docs conflicts;
+the generated schema requires a fresh Rust receipt, not a manual union. Missing
+local Git ancestry09b35f1 is found in the existing canonical codegen object store
+and restored by a targeted normal local fetch; no history rewrite or foreign
+working-tree change is used to make the merge proceed.
 
 Current gate: [38011797295](https://github.com/FerrPOINT/fleet-control/actions/runs/38011797295),
 verified in progress at publication. Controls preserve all74 stages,9 journal
