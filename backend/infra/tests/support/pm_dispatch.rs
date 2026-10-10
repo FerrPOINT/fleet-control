@@ -674,13 +674,23 @@ async fn pm_drain_and_owner_revocation_block_the_unconsumed_submission() {
         .await
         .unwrap();
     let agent = reservation.identity.agent_id().unwrap();
-    db.execute(Statement::from_sql_and_values(
-        DatabaseBackend::Postgres,
-        "INSERT INTO agent_config_heads(agent_id,desired_revision,draining) VALUES($1,1,true)",
-        [agent.into()],
-    ))
-    .await
-    .unwrap();
+    let owner = repo
+        .get_session(reservation.session_id)
+        .await
+        .unwrap()
+        .user_id;
+    repo.create_config_revision(agent, configuration(), owner)
+        .await
+        .unwrap();
+    let drained = db
+        .execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE agent_config_heads SET draining=true WHERE agent_id=$1",
+            [agent.into()],
+        ))
+        .await
+        .unwrap();
+    assert_eq!(drained.rows_affected(), 1);
     assert!(!repo.claim_pm_submission(id).await.unwrap());
     assert!(!repo.get_pm_dispatch(id).await.unwrap().unwrap().submitted);
     db.execute(Statement::from_sql_and_values(
@@ -825,19 +835,11 @@ async fn pm_downgrade_refuses_unknown_known_and_guidance_custody_without_changin
     let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
         .await
         .unwrap();
-    // Exercise 022's refusal itself, not a later migration's down path.
-    let versions = migration::Migrator::get_migration_models(&db)
-        .await
-        .unwrap();
-    let successors = versions
-        .iter()
-        .filter(|migration| migration.version.as_str() > "m20261010_000022_pm_dispatch")
-        .count();
-    if successors > 0 {
-        migration::Migrator::down(&db, Some(u32::try_from(successors).unwrap()))
-            .await
-            .unwrap();
-    }
+    // Invoke 022's own refusal; 024 must retain the repaired ACK constraint for known custody.
+    let dispatch_migration = migration::Migrator::migrations()
+        .into_iter()
+        .find(|item| item.name() == "m20261010_000022_pm_dispatch")
+        .expect("PM dispatch migration must remain registered");
     let before = migration::Migrator::get_migration_models(&db)
         .await
         .unwrap()
@@ -852,7 +854,7 @@ async fn pm_downgrade_refuses_unknown_known_and_guidance_custody_without_changin
     assert!(
         before
             .iter()
-            .all(|(version, _)| version.as_str() <= "m20261010_000022_pm_dispatch")
+            .any(|(version, _)| version == "m20261010_000024_pm_ack_bounds")
     );
     assert!(repo.claim_pm_submission(id).await.unwrap());
     for phase in ["unknown", "known", "guidance"] {
@@ -873,7 +875,8 @@ async fn pm_downgrade_refuses_unknown_known_and_guidance_custody_without_changin
             ));
         }
         let original = repo.get_pm_dispatch(id).await.unwrap().unwrap();
-        let error = migration::Migrator::down(&db, Some(1))
+        let error = dispatch_migration
+            .down(&migration::SchemaManager::new(&db))
             .await
             .unwrap_err()
             .to_string();
