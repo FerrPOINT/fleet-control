@@ -26,6 +26,11 @@ combined tree.
   completion path, remove its plan, mint custody or grant another native permit.
   Pre-plan read-only transient retry remains bounded per attempt; recorded native
   phases stay held with their original durable recovery evidence.
+  The binding-specific classifier retries only fresh Unavailable, not authoritative
+  Conflict/Forbidden/Validation or unexpected errors; those enter existing HOLD
+  diagnostics. Existing custody/observe retry classification is unchanged. The
+  Workflow client's original non-200 HTTP classification remains Unavailable,
+  including401/403; this classifier does not reinterpret that owner contract.
 - SDK19a, Base package4b9 and executable utility9b remain three distinct pins.
   No migration, lockfile, producer protocol or accepted runtime image is changed.
 
@@ -46,7 +51,12 @@ all rollback phases selecting current effective rather than root/desired, and
 foreign agent/revision rejection, and genuine loopback owner503 readback with no
 file/package/native effects or private diagnostics. They are mandatory by name
 and increase `runtime::container_activation::tests::` from14 to18. Rust/PG
-execution is pending.
+execution is pending. A narrow successor adds two classifier/retry regressions:
+permanent binding failures return Held on their first attempt; Unavailable can
+retry only before a recorded activation. The mandatory intent count is now20;
+all six new Rust tests remain unexecuted locally. The loopback regression also
+returns a valid owner200 with changed catalog hash after its two503 responses:
+that authoritative Conflict takes one attempt and exits Held without IO.
 All prior runtime/config tests and migration guards remain, including the original
 accepted-runtime approval fixture. The Python lineage selector is synchronized
 with688's existing exact-latest ledger subtraction; no migration SQL changes.

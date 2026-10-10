@@ -224,7 +224,10 @@ jobs:
           cargo test --locked -p app --lib container_activation::tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/container-activation-state.log"
           grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-state.log"
           cargo test --locked -p infra --lib runtime::container_activation::tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/container-activation-intent.log"
-          grep -F 'test result: ok. 18 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-intent.log"
+          grep -F 'test result: ok. 20 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-intent.log"
+          for test in binding_permanent_failures_hold_on_first_attempt_without_native_permit binding_unavailable_retries_only_before_recorded_activation; do
+            grep -Fx "test runtime::container_activation::tests::$test ... ok" "$RUNNER_TEMP/container-activation-intent.log"
+          done
           for test in workflow_preflight_selects_immutable_target_for_fresh_and_resumed_forward_phases workflow_rollback_preflight_selects_current_effective_not_desired_or_root_revision workflow_preflight_never_rebinds_foreign_activation_or_changed_revision workflow_owner_http_failure_is_read_only_and_never_enters_package_or_native_io; do
             grep -Fx "test runtime::container_activation::tests::$test ... ok" "$RUNNER_TEMP/container-activation-intent.log"
           done

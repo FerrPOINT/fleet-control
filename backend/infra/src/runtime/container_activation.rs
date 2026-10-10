@@ -105,6 +105,13 @@ fn preplan_failure(error: AppError) -> ActivationFailure {
     }
 }
 
+fn binding_preflight_failure(error: AppError, recorded: bool) -> ActivationFailure {
+    match error {
+        AppError::Unavailable(_) if !recorded => ActivationFailure::RetryReadOnly(error),
+        _ => ActivationFailure::Held(error),
+    }
+}
+
 async fn retry_preplan<F, Fut>(
     agent: Uuid,
     delay: Duration,
@@ -1491,13 +1498,7 @@ impl LocalRuntimeSupervisor {
             activation_binding_target(revision, saved.as_ref())?,
         )
         .await
-        .map_err(|error| {
-            if saved.is_none() {
-                preplan_failure(error)
-            } else {
-                error.into()
-            }
-        })?;
+        .map_err(|error| binding_preflight_failure(error, saved.is_some()))?;
         let config = self
             .config
             .fleet
@@ -1881,6 +1882,63 @@ impl LocalRuntimeSupervisor {
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn binding_permanent_failures_hold_on_first_attempt_without_native_permit() {
+        for recorded in [false, true] {
+            for error in [
+                AppError::conflict("Workflow namespace binding changed"),
+                AppError::Forbidden,
+                AppError::validation("pinned package invalid"),
+                AppError::Unauthorized,
+                AppError::internal("unexpected readback failure"),
+            ] {
+                let mut error = Some(error);
+                let mut attempts = 0;
+                let result = retry_preplan(Uuid::new_v4(), Duration::ZERO, || {
+                    attempts += 1;
+                    std::future::ready(Err(binding_preflight_failure(
+                        error.take().expect("permanent failure was retried"),
+                        recorded,
+                    )))
+                })
+                .await;
+                assert!(matches!(result, Err(ActivationFailure::Held(_))));
+                assert_eq!(attempts, 1);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn binding_unavailable_retries_only_before_recorded_activation() {
+        let mut attempts = 0;
+        retry_preplan(Uuid::new_v4(), Duration::ZERO, || {
+            attempts += 1;
+            std::future::ready(if attempts == 1 {
+                Err(binding_preflight_failure(
+                    AppError::Unavailable("Workflow readback unavailable".into()),
+                    false,
+                ))
+            } else {
+                Ok(())
+            })
+        })
+        .await
+        .unwrap();
+        assert_eq!(attempts, 2);
+        let mut attempts = 0;
+        let result = retry_preplan(Uuid::new_v4(), Duration::ZERO, || {
+            attempts += 1;
+            assert_eq!(attempts, 1, "recorded binding failure was retried");
+            std::future::ready(Err(binding_preflight_failure(
+                AppError::Unavailable("Workflow readback unavailable".into()),
+                true,
+            )))
+        })
+        .await;
+        assert!(matches!(result, Err(ActivationFailure::Held(_))));
+        assert_eq!(attempts, 1);
+    }
+
     fn binding_revision(record: &Activation) -> domain::AgentConfigRevision {
         domain::AgentConfigRevision {
             agent_id: record.claim.agent_id,
@@ -2006,11 +2064,19 @@ mod tests {
                 let counter = counter.clone();
                 async move {
                     assert_eq!(headers["authorization"], "Bearer workflow-fixture-pat");
-                    counter.fetch_add(1, Ordering::SeqCst);
-                    (
-                        axum::http::StatusCode::SERVICE_UNAVAILABLE,
-                        "private upstream diagnostic",
-                    )
+                    if counter.fetch_add(1, Ordering::SeqCst) < 2 {
+                        (
+                            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                            "private upstream diagnostic".to_owned(),
+                        )
+                    } else {
+                        let mut changed = crate::base_package::binding_fixture();
+                        changed.catalog_sha256 = "b".repeat(64);
+                        (
+                            axum::http::StatusCode::OK,
+                            json!({"ok":true,"binding":changed}).to_string(),
+                        )
+                    }
                 }
             }),
         );
@@ -2051,9 +2117,14 @@ mod tests {
                 .verify_config_activation_binding(&agent, &revision)
                 .await;
             assert!(matches!(&result, Err(AppError::Unavailable(_))));
-            let detail = result.unwrap_err().to_string();
+            let error = result.unwrap_err();
+            let detail = error.to_string();
             assert!(!detail.contains("private upstream diagnostic"));
             assert!(!detail.contains("workflow-fixture-pat"));
+            assert!(matches!(
+                binding_preflight_failure(error, false),
+                ActivationFailure::RetryReadOnly(_)
+            ));
             assert!(
                 !root.exists(),
                 "readback failure must not create package or plan files"
@@ -2064,6 +2135,28 @@ mod tests {
             2,
             "one fresh read per attempt, no hidden retry"
         );
+        let mut attempts = 0;
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            retry_preplan(agent.id, Duration::ZERO, || {
+                attempts += 1;
+                async {
+                    supervisor
+                        .verify_config_activation_binding(&agent, &revision)
+                        .await
+                        .map_err(|error| binding_preflight_failure(error, false))
+                }
+            }),
+        )
+        .await;
+        let result = result.expect("authoritative owner refusal did not exit retry loop");
+        assert!(matches!(
+            result,
+            Err(ActivationFailure::Held(AppError::Conflict(_)))
+        ));
+        assert_eq!(attempts, 1, "changed owner binding must not retry");
+        assert_eq!(hits.load(Ordering::SeqCst), 3);
+        assert!(!root.exists(), "authoritative refusal remains read-only");
         let mut unbound = revision;
         unbound
             .snapshot
@@ -2078,7 +2171,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             hits.load(Ordering::SeqCst),
-            2,
+            3,
             "legacy unbound path remains compatible"
         );
         server.abort();
