@@ -24,7 +24,7 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/config-union-backend-20261010"
-SOURCE_SHA = "32b9f063f9b5099ff61bca24ecdfeb9952889034"
+SOURCE_SHA = "facb25b9eae66db0c8b762ab68a5963422edf58f"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 UTILITY_SHA = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
@@ -32,8 +32,8 @@ UTILITY_INVENTORY_SHA = "8e727d1d2ba02941dc176f26945d25593068fc593cb619928538129
 PACKAGE_SHA = "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58"
 PACKAGE_TREE = "96d9a7453744fd09f9ee3ba3b2c20f6b3d389b85"
 PACKAGE_INVENTORY_SHA = "1bdf56b21b0b97ec4a5a6303b04ecdda1b6609164aa018acc830187ca124f827"
-# Authentic Rust codegen run 38036399848, bound byte-for-byte to source 32b9.
-OPENAPI_SHA = "ac545326e9b4ffca4378aee0aaaf9c2dd8c75faf02deb868cda0c87d7764b85a"
+# Authentic Rust codegen 38040550767/source830; unchanged production inputs, exact committed output.
+OPENAPI_SHA = "ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c"
 SWAGGER_SHA = "481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc"
 WORKFLOW = ".github/workflows/backend-build-only.yml"
 HELPER = "scripts/hosted_backend_gate.py"
@@ -43,7 +43,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "73b9019c1cbc918c0770d9e8afb6c19d73651936bd4577331c60e286b1ad4df5"
+SOURCE_INVENTORY_SHA = "38a6cd201b8d68d5f3aea88e4fa1aae355e2edf24912b89b33011216c2cdffda"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
@@ -459,17 +459,19 @@ def reviewed_inventory(controls):
             and len(value["groups"]["runtime_terminal"]) == 14, "Ignored coverage weakened")
     require(len({(item["package"], item["target_kind"], item["target"], item["name"])
                  for item in value["ignored"]}) == 169, "Duplicate ignored identities")
-    require(len(value["groups"]["foundation"]) == 59 and len(value["workspace_default_declarations"]) == 348,
+    require(len(value["groups"]["foundation"]) == 73 and len(value["workspace_default_declarations"]) == 381,
             "Default/foundation declaration coverage drift")
+    require(len(value["pm_workspace_required"]) == 33 and len(set(value["pm_workspace_required"])) == 33,
+            "PM workspace selector coverage drift")
     require({name: len(value["groups"][name]) for name in ("credentials_unit", "credentials_pg", "real_auth")}
-            == dict(credentials_unit=8, credentials_pg=15, real_auth=2), "Credential coverage drift")
+            == dict(credentials_unit=8, credentials_pg=16, real_auth=2), "Credential coverage drift")
     require(len(value["groups"]["container_activation_pg"]) == 14
             and len(value["groups"]["container_activation_intent"]) == 20, "Activation coverage drift")
     require({name: len(value["groups"][name]) for name in (
         "config_api", "base_package_unit", "config_files_unit", "package_effective_unit",
         "config_shared_unit", "base_package_pg", "config_revision_pg")}
         == dict(config_api=8, base_package_unit=11, config_files_unit=4, package_effective_unit=2,
-                config_shared_unit=10, base_package_pg=8, config_revision_pg=3), "Configuration coverage drift")
+                config_shared_unit=11, base_package_pg=8, config_revision_pg=3), "Configuration coverage drift")
     require(value.get("package_input") == dict(commit=PACKAGE_SHA, tree=PACKAGE_TREE,
             inventory_sha256=PACKAGE_INVENTORY_SHA), "Package input drift")
     require({key: len(names) for key, names in value["python_contracts"].items()} == dict(
@@ -477,8 +479,8 @@ def reviewed_inventory(controls):
         sealed_loader_and_hash_contracts=16), "Python contract coverage drift")
     require(digest(canonical(value["compiled_source_sha256"])) == SOURCE_INVENTORY_SHA
             and digest(canonical(value["utility_source_sha256"])) == UTILITY_INVENTORY_SHA, "Input fingerprint drift")
-    require(len(value["migration_registries"]["canonical"]) == 22
-            and len(value["migration_registries"]["split"]) == 25, "Migration registry drift")
+    require(len(value["migration_registries"]["canonical"]) == 23
+            and len(value["migration_registries"]["split"]) == 26, "Migration registry drift")
     require({name: len(value["groups"][name]) for name in (
         "clarification_domain", "clarification_api", "clarification_pg", "clarification_migration")}
         == dict(clarification_domain=2, clarification_api=2, clarification_pg=4, clarification_migration=1),
@@ -541,16 +543,19 @@ def verify_python_log(stage, text, reviewed):
 
 def expected_migration_receipt(reviewed):
     full = sorted(reviewed["migration_registries"]["canonical"])
-    before_alias = [name for name in full if name != "m20261010_000021_activation_authority_alias"]
+    before_pm = [name for name in full if name != "m20261010_000022_pm_dispatch"]
+    before_alias = [name for name in before_pm if name != "m20261010_000021_activation_authority_alias"]
     previous = [name for name in before_alias if name != "m20261010_000020_clarification_commands"]
     recovery_prefix = [name for name in previous if name != "m20261009_000019_recovered_activation"]
-    require(len(full) == 22 and len(before_alias) == 21 and len(previous) == 20 and len(recovery_prefix) == 19,
-            "Clarification/recovered activation boundary drift")
-    require(full[-1] == "m20261010_000021_activation_authority_alias"
+    require(len(full) == 23 and len(before_pm) == 22 and len(before_alias) == 21
+            and len(previous) == 20 and len(recovery_prefix) == 19, "PM/clarification/recovered activation boundary drift")
+    require(full[-1] == "m20261010_000022_pm_dispatch"
+            and before_pm[-1] == "m20261010_000021_activation_authority_alias"
             and before_alias[-1] == "m20261010_000020_clarification_commands"
             and previous[-1] == "m20261009_000019_recovered_activation", "Unexpected migration down boundary")
-    return dict(up=full, down_alias=before_alias, down_one=previous, down_recovered=recovery_prefix,
-                recovered_reapply=previous, reapply=before_alias, alias_reapply=full, down_all=[], final_up=full)
+    return dict(up=full, down_pm=before_pm, down_alias=before_alias, down_one=previous, down_recovered=recovery_prefix,
+                recovered_reapply=previous, reapply=before_alias, alias_reapply=before_pm,
+                pm_reapply=full, down_all=[], final_up=full)
 
 
 def verify_migration_snapshots(root, reviewed):
@@ -563,9 +568,9 @@ def verify_migration_snapshots(root, reviewed):
         require(all(len(row) == 2 and re.fullmatch(r"(?:0|[1-9][0-9]*)", row[1]) for row in rows)
                 and [row[0] for row in rows] == names, "Migration applied-at ledger shape drift")
         ledgers[key] = dict(rows)
-    for before, after in (("up", "down_alias"), ("down_alias", "down_one"), ("down_one", "down_recovered"),
+    for before, after in (("up", "down_pm"), ("down_pm", "down_alias"), ("down_alias", "down_one"), ("down_one", "down_recovered"),
                           ("down_recovered", "recovered_reapply"), ("recovered_reapply", "reapply"),
-                          ("reapply", "alias_reapply")):
+                          ("reapply", "alias_reapply"), ("alias_reapply", "pm_reapply")):
         common = set(ledgers[before]) & set(ledgers[after])
         require(all(ledgers[before][name] == ledgers[after][name] for name in common),
                 "Surviving migration applied-at history changed")
@@ -851,6 +856,8 @@ def verify_runtime_inventory(ordinary, ignored, reviewed):
     expected = Counter(item["name"] for item in reviewed["ignored"])
     require(listed_names(ignored) == expected and sum(expected.values()) == 169, "Compiler ignored inventory drift")
     require(bool(listed_names(ordinary) - expected), "Zero workspace default selection")
+    require(all(listed_names(ordinary)[name] == 1 and name not in expected
+                for name in reviewed["pm_workspace_required"]), "PM compiler selectors missing/duplicate/ignored")
     return dict(ignored=169, ignored_names_sha256=digest(canonical(sorted(expected.elements()))),
                 listed_default_count=sum((listed_names(ordinary) - expected).values()))
 

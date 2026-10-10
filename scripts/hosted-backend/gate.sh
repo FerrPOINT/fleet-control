@@ -142,7 +142,7 @@ passed
 stage=lineage10
 cargo test --locked -p migration --lib lineage_tests -- --include-ignored --test-threads=1 2>&1 | tee ${QA_OUTPUT}/lineage10.log
 while IFS= read -r name; do grep -Fx "test $name ... ok" ${QA_OUTPUT}/lineage10.log; done < ${QA_EXPECTED}/lineage10.txt
-grep -F 'test result: ok. 10 passed; 0 failed; 0 ignored;' ${QA_OUTPUT}/lineage10.log
+grep -F 'test result: ok. 11 passed; 0 failed; 0 ignored;' ${QA_OUTPUT}/lineage10.log
 passed
 for entry in central_profile message_order chats_directory runtime_approval_events credentials_migration; do
   stage=$entry
@@ -253,6 +253,8 @@ stage=migration_smoke
   cargo run --locked -p migration -- status
   migration_snapshot up
   cargo run --locked -p migration -- down -n 1
+  migration_snapshot down_pm
+  cargo run --locked -p migration -- down -n 1
   migration_snapshot down_alias
   cargo run --locked -p migration -- down -n 1
   migration_snapshot down_one
@@ -265,7 +267,9 @@ stage=migration_smoke
   migration_snapshot reapply
   cargo run --locked -p migration -- up -n 1
   migration_snapshot alias_reapply
-  cargo run --locked -p migration -- down -n 22
+  cargo run --locked -p migration -- up -n 1
+  migration_snapshot pm_reapply
+  cargo run --locked -p migration -- down -n 23
   cargo run --locked -p migration -- status
   migration_snapshot down_all
   cargo run --locked -p migration -- up
