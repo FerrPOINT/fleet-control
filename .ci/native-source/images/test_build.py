@@ -372,7 +372,7 @@ class DiagnosticTests(unittest.TestCase):
                 self.assertIn(args[3], ("container", "network", "volume"))
                 return b"SECRET leftover" if case == "cleanup" else b""
 
-            def logged(args, path, timeout=1800):
+            def logged(args, path, timeout=1800, *, parent_kind=None):
                 observations.append("pull" if "pull" in args else "build" if "build" in args else "cleanup")
                 if case == "pull" and "pull" in args or case == "build" and "build" in args:
                     raise build.BuildFailure("command_nonzero")
@@ -487,6 +487,150 @@ class DiagnosticTests(unittest.TestCase):
             write_json(root / "terminal-report.json", report)
             with patch.object(build, "verify", return_value={"policy": policy.policy("local")}), self.assertRaises(ValueError):
                 build.candidate_receipt(root)
+
+
+class ParentPullDiagnosticTests(unittest.TestCase):
+    def test_parent_enum_is_exact_source_pin_keys_and_callsite_binds_kind(self):
+        import ast
+        self.assertEqual(build.PARENT_KINDS, set(build.INPUTS["parents"]))
+        tree = ast.parse((HERE / "build.py").read_text())
+        execute = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "execute")
+        calls = [node for node in ast.walk(execute) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name) and node.func.id == "logged"
+                 and any(key.arg == "parent_kind" for key in node.keywords)]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(ast.dump(calls[0].keywords[0].value), ast.dump(ast.Name(id="kind", ctx=ast.Load())))
+        self.assertIn("'pull', '--platform', 'linux/amd64', ref", ast.unparse(calls[0]))
+
+    def test_explicit_public_pull_symptoms_have_only_closed_categories(self):
+        samples = {
+            "rate_limit": b"Error response from daemon: toomanyrequests: You have reached your unauthenticated pull rate limit.",
+            "registry_denied": b"Error response from daemon: unauthorized: authentication required",
+            "manifest_unavailable": b"Error response from daemon: manifest unknown: manifest unknown",
+            "dns": b"lookup registry.example on 192.0.2.1:53: no such host",
+            "tls": b"x509: certificate signed by unknown authority",
+            "timeout": b"net/http: TLS handshake timeout",
+        }
+        for expected, raw in samples.items():
+            with self.subTest(expected=expected):
+                self.assertEqual(build.parent_pull_category(raw), expected)
+
+    def test_ambiguous_denial_and_conflicting_symptoms_remain_unknown(self):
+        for raw in (
+            b"pull access denied for example, repository does not exist or may require 'docker login': denied: requested access to the resource is denied",
+            b"repository does not exist or may require credentials: unauthorized: authentication required",
+            b"toomanyrequests: registry rate limit\nunauthorized: authentication required",
+            b"lookup registry.example: no such host\nx509: certificate signed by unknown authority",
+            b"manifest unknown\ncontext deadline exceeded",
+        ):
+            self.assertEqual(build.parent_pull_category(raw), "unknown")
+
+    def test_anonymous_challenge_and_unknown_text_are_not_denial_proof(self):
+        for raw in (b"HTTP/1.1 401 Unauthorized\nWWW-Authenticate: Bearer SECRET",
+                    b"403 Forbidden", b"404 Not Found", b"denied", b"timeout", b"SECRET", b"\xff\x00", b"",
+                    "unauthorized: authentication required", None):
+            self.assertEqual(build.parent_pull_category(raw), "unknown")
+
+    def test_any_truncation_is_unknown_even_with_clear_prefix(self):
+        raw = b"toomanyrequests:".ljust(build.PULL_LOG_LIMIT, b" ")
+        self.assertEqual(build.parent_pull_category(raw), "rate_limit")
+        self.assertEqual(build.parent_pull_category(raw + b"x"), "unknown")
+
+    def failed_pull(self, raw, code=17, kind="rust"):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "owned-public-parent-pull.log"
+            def run(args, **kwargs):
+                self.assertEqual(args, ["docker", "pull", "--platform", "linux/amd64", build.INPUTS["parents"][kind]])
+                self.assertEqual(kwargs["stderr"], build.subprocess.STDOUT)
+                self.assertEqual(kwargs["timeout"], 1800)
+                kwargs["stdout"].write(raw)
+                kwargs["stdout"].flush()
+                return types.SimpleNamespace(returncode=code)
+            with patch.object(build.subprocess, "run", side_effect=run), self.assertRaises(build.BuildFailure) as raised:
+                build.logged(["docker", "pull", "--platform", "linux/amd64", build.INPUTS["parents"][kind]], path, parent_kind=kind)
+            report = {}
+            build.remember_failure(report, raised.exception, "parent_pull")
+            return report, build.failure_projection(report)
+
+    def test_exact_source_kind_actual_exit_and_secret_free_projection(self):
+        for kind in build.PARENT_KINDS:
+            report, value = self.failed_pull(b"manifest unknown\nhttps://SECRET TOKEN=SECRET args/env SECRET", kind=kind)
+            self.assertEqual(value["parent_pull"], dict(kind=kind, exit_code=17, category="manifest_unavailable"))
+            self.assertEqual(value["failure_reason"], "command_nonzero")
+            self.assertNotIn("SECRET", json.dumps(report))
+            self.assertNotIn("SECRET", json.dumps(value))
+            self.assertLessEqual(len(json.dumps(value).encode()), 1024)
+
+    def test_owned_log_read_is_bounded_and_truncation_not_classified(self):
+        with patch.object(build, "parent_pull_category", wraps=build.parent_pull_category) as classify:
+            _, value = self.failed_pull(b"manifest unknown".ljust(build.PULL_LOG_LIMIT + 100, b" "))
+        self.assertEqual(len(classify.call_args.args[0]), build.PULL_LOG_LIMIT + 1)
+        self.assertEqual(value["parent_pull"], dict(kind="rust", exit_code=17, category="unknown"))
+
+    def test_success_and_nonparent_failure_never_read_log(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for code, kind in ((0, "rust"), (0, None), (1, None)):
+                path = Path(folder) / (str(code) + str(kind))
+                with patch.object(build.subprocess, "run", return_value=types.SimpleNamespace(returncode=code)), \
+                     patch.object(build, "parent_pull_category", side_effect=AssertionError("No private log read")):
+                    if code:
+                        with self.assertRaises(build.BuildFailure) as raised:
+                            build.logged(["SECRET"], path)
+                        self.assertFalse(hasattr(raised.exception, "parent_pull"))
+                    else:
+                        build.logged(["SECRET"], path, parent_kind=kind)
+
+    def test_real_process_timeout_retains_no_fabricated_exit_code(self):
+        with tempfile.TemporaryDirectory() as folder:
+            error = build.subprocess.TimeoutExpired(["SECRET"], 1800, output=b"SECRET")
+            with patch.object(build.subprocess, "run", side_effect=error), self.assertRaises(build.subprocess.TimeoutExpired):
+                build.logged(["SECRET"], Path(folder) / "owned-pull.log", parent_kind="uv")
+            report = {}
+            build.remember_failure(report, error, "parent_pull")
+            value = build.failure_projection(report)
+            self.assertEqual(value["parent_pull"], dict(kind="uv", exit_code=None, category="timeout"))
+            self.assertEqual(value["failure_reason"], "process_timeout")
+            self.assertNotIn("SECRET", json.dumps(value))
+
+    def test_unknown_parent_kind_refused_before_any_process_or_file_io(self):
+        for kind in ("SECRET", True, ["rust"]):
+            with patch.object(Path, "open") as opened, patch.object(build.subprocess, "run") as run, self.assertRaises(ValueError):
+                build.logged(["SECRET"], Path("unused"), parent_kind=kind)
+            opened.assert_not_called()
+            run.assert_not_called()
+
+    def test_invalid_projection_metadata_cannot_leak_or_grow(self):
+        class Private:
+            def __str__(self):
+                raise AssertionError("No private formatting")
+        for value in ("SECRET" * 100000, Private(), True, ["SECRET"], {"SECRET": 1}, 0, -2147483649, 4294967296):
+            result = build.failure_projection(dict(failure_operation="parent_pull",
+                parent_pull=dict(kind=value, exit_code=value, category=value, raw="SECRET")))
+            self.assertEqual(result["parent_pull"], dict(kind="unknown", exit_code=None, category="unknown"))
+            self.assertLessEqual(len(json.dumps(result).encode()), 1024)
+            self.assertNotIn("SECRET", json.dumps(result))
+
+    def test_first_failure_retains_original_parent_and_actual_signal(self):
+        report, expected = self.failed_pull(b"unknown", code=-9, kind="docker")
+        second, _ = self.failed_pull(b"manifest unknown", code=1, kind="debian")
+        error = build.BuildFailure("command_nonzero")
+        error.parent_pull = second["parent_pull"]
+        build.remember_failure(report, error, "parent_pull")
+        build.remember_failure(report, ValueError("SECRET cleanup"), "parity_resources")
+        self.assertEqual(build.failure_projection(report), expected)
+        self.assertEqual(expected["parent_pull"], dict(kind="docker", exit_code=-9, category="unknown"))
+
+    def test_log_read_error_does_not_mask_actual_process_failure(self):
+        class Unreadable(io.BytesIO):
+            def seek(self, *args):
+                raise OSError("SECRET")
+        with patch.object(Path, "open", return_value=Unreadable()), \
+             patch.object(build.subprocess, "run", return_value=types.SimpleNamespace(returncode=23)), \
+             self.assertRaises(build.BuildFailure) as raised:
+            build.logged(["SECRET"], Path("unused"), parent_kind="postgres")
+        report = {}
+        build.remember_failure(report, raised.exception, "parent_pull")
+        self.assertEqual(build.failure_projection(report)["parent_pull"], dict(kind="postgres", exit_code=23, category="unknown"))
 
 
 class ContextTests(unittest.TestCase):

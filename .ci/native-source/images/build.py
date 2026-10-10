@@ -26,6 +26,9 @@ INPUTS = json.loads((HERE / "inputs.json").read_bytes())
 HELPERS = ("build.py", "recipes.py", "qualify.py", "fetch.py", "snapshot.sh", "controller.Dockerfile", "inputs.json")
 PREFIX = "sdlc-build-fleet-native-"
 PARITY_KEYS = ("sources", "parents", "daemon", "permanent", "resources")
+PARENT_KINDS = frozenset(("rust", "postgres", "uv", "docker", "debian"))
+PULL_LOG_LIMIT = 65536
+PULL_CATEGORIES = frozenset(("rate_limit", "registry_denied", "manifest_unavailable", "dns", "tls", "timeout", "unknown"))
 OPERATIONS = frozenset(("unknown", "parent_resources", "parent_pull", "parent_identity",
     "candidate_source", "candidate_resources", "candidate_daemon", "candidate_tag",
     "controller_input", "candidate_build", "candidate_metadata", "offline_qualification",
@@ -56,6 +59,10 @@ def remember_failure(report, error, operation):
         report["failure_operation"] = operation
         report["failure_reason"] = (error.reason if type(error) is BuildFailure else
                                     "process_timeout" if type(error) is subprocess.TimeoutExpired else "unspecified")
+        if operation == "parent_pull" and type(error) in (BuildFailure, subprocess.TimeoutExpired):
+            value = getattr(error, "parent_pull", None)
+            if type(value) is dict:
+                report["parent_pull"] = value
 
 
 def failure_projection(report):
@@ -69,6 +76,13 @@ def failure_projection(report):
     parity = report.get("parity")
     result["parity"] = {key: parity.get(key) if type(parity) is dict and type(parity.get(key)) is bool else None
                         for key in PARITY_KEYS}
+    pull = report.get("parent_pull")
+    if result["failure_operation"] == "parent_pull" and type(pull) is dict:
+        kind, code, category = (pull.get(key) for key in ("kind", "exit_code", "category"))
+        result["parent_pull"] = dict(
+            kind=kind if type(kind) is str and kind in PARENT_KINDS else "unknown",
+            exit_code=code if type(code) is int and -2147483648 <= code <= 4294967295 and code != 0 else None,
+            category=category if type(category) is str and category in PULL_CATEGORIES else "unknown")
     if len(json.dumps(result).encode("ascii")) > 1024:
         raise ValueError("Closed failure projection exceeds bound")
     return result
@@ -81,11 +95,46 @@ def checked(args, timeout=120):
     return result.stdout
 
 
-def logged(args, path, timeout=1800):
-    with path.open("xb") as output:
-        result = subprocess.run(args, stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
-    if result.returncode:
-        raise BuildFailure("command_nonzero")
+def parent_pull_category(raw):
+    """Closed symptoms, not a registry root cause; incomplete/ambiguous evidence stays unknown."""
+    if type(raw) is not bytes or len(raw) > PULL_LOG_LIMIT:
+        return "unknown"
+    raw = raw.lower()
+    if b"repository does not exist or may require" in raw or b"pull access denied for" in raw:
+        return "unknown"
+    patterns = {
+        "rate_limit": rb"toomanyrequests:|429 too many requests|you have reached your (?:unauthenticated )?pull rate limit",
+        "registry_denied": rb"unauthorized: authentication required|denied: requested access to the resource is denied|denied: access forbidden",
+        "manifest_unavailable": rb"manifest unknown|manifest not found|manifest for [^\r\n]{1,512} not found",
+        "dns": rb"lookup [^\r\n]{1,512}: (?:no such host|server misbehaving)",
+        "tls": rb"x509: certificate signed by unknown authority|x509: certificate has expired or is not yet valid|tls: failed to verify certificate|remote error: tls: handshake failure",
+        "timeout": rb"context deadline exceeded|i/o timeout|tls handshake timeout|client\.timeout exceeded",
+    }
+    matches = [kind for kind, pattern in patterns.items() if re.search(pattern, raw)]
+    return matches[0] if len(matches) == 1 else "unknown"
+
+
+def logged(args, path, timeout=1800, *, parent_kind=None):
+    if parent_kind is not None and (type(parent_kind) is not str or parent_kind not in PARENT_KINDS):
+        raise ValueError("Closed source parent kind required")
+    with path.open("x+b" if parent_kind is not None else "xb") as output:
+        try:
+            result = subprocess.run(args, stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
+        except subprocess.TimeoutExpired as error:
+            if parent_kind is not None:
+                error.parent_pull = dict(kind=parent_kind, exit_code=None, category="timeout")
+            raise
+        if result.returncode:
+            error = BuildFailure("command_nonzero")
+            if parent_kind is not None:
+                category = "unknown"
+                try:
+                    output.seek(0)
+                    category = parent_pull_category(output.read(PULL_LOG_LIMIT + 1))
+                except OSError:
+                    pass
+                error.parent_pull = dict(kind=parent_kind, exit_code=result.returncode, category=category)
+            raise error
 
 
 def image(docker, ref):
@@ -369,7 +418,7 @@ def execute(root, ack, context, builder):
             policy.capacity(policy.resources(root), profile)
             policy.capacity(policy.resources(daemon_root), profile)
             operation = "parent_pull"
-            logged(docker + ["pull", "--platform", "linux/amd64", ref], root / "evidence" / (kind + "-pull.log"))
+            logged(docker + ["pull", "--platform", "linux/amd64", ref], root / "evidence" / (kind + "-pull.log"), parent_kind=kind)
             operation = "parent_identity"
             parents[kind] = image(docker, ref)
             parent_identity(ref, parents[kind])

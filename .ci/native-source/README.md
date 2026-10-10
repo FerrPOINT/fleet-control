@@ -8,7 +8,9 @@ objects remain unchanged; they are not receipts for this successor.
 the unchanged offline qualifier, then the existing two-agent native driver and
 separate protocol4 cut supplement on the **same Linux daemon**. The caller is
 [native-source-build-only.yml](../../.github/workflows/native-source-build-only.yml),
-one Ubuntu24.04 job on the dedicated build-only push branch, not yet published.
+one Ubuntu24.04 job on the dedicated build-only push branch. This diagnostic
+successor is not yet published or executed; prior attempts did not reach native
+acceptance.
 No registry
 transport, service, scheduler, Hermes patch or production source edit is added.
 
@@ -93,8 +95,8 @@ prevents success output; terminal VM teardown is not cleanup evidence.
 The authored caller requires parent/independent review before publication. Its
 public preflight verifies the exact source tuple and additions before any private
 Base token use. All35 copied QA/image files match component
-`b53ada6b1bff84ada909ca8ae5d06dcdbfb6abb1`; their compact path/SHA256 map digest is
-`9c920ec3fc723584f02703bf64f7ec05137b8763210f0a15286f52b3490f1e98`.
+`0567f9a0b722d9ea58d5df997db035413244a970`; their compact path/SHA256 map digest is
+`b44db400eaf9ddf51e51a4bcf68adc8b7dfec562bad6018fa23638e520e5a202`.
 Only this README and the workflow are caller-specific. No cache, Git donor,
 credentials or prepared packet is included. In that one host job, set absolute
 exact Git input directories (no dependency copies):
@@ -171,10 +173,20 @@ Existing cold-builder failure console output now additionally projects a closed
 failure class, source-attested operation category, typed reason where proved,
 and the five parity booleans (null means unobserved/invalid). This diagnostic
 extension is capped at1KiB; unknown exceptions/reasons are OtherError/unspecified,
-never guessed from a message. No private output/args/env or log contents are read
-into it. Success console shape and all receipt validators are unchanged; no new
-step, artifact or reader. Prior617 run38074207531 failed the cold step with its
-reason unretained; this source change does not retroactively diagnose that run.
+never guessed from an exception message. Only a failed owned public-parent pull
+adds `parent_pull`: exact source-enum kind, actual numeric process return code
+(negative means a signal; null on timeout/unavailable), and a fixed symptom
+category. At most64KiB+1 is read from the same exclusively created pull-log
+handle; truncation, read failure, unknown or conflicting symptoms, and ambiguous
+repository-missing/login denial stay `unknown`. A plain401/Bearer challenge is
+not denial proof. Categories are rate_limit/registry_denied/manifest_unavailable/
+dns/tls/timeout/unknown; they do not establish registry visibility or root cause.
+No log text, URL, args, env, token or exception text enters the projection.
+Successful pulls, candidate build and other private logs are never read.
+Success console shape and all receipt validators are unchanged; no new step,
+artifact or reader. Prior617 run38074207531 had no cause retained; d4dd
+run38075925575 proved only parent_pull/BuildFailure/command_nonzero, not a
+specific parent or registry cause. Neither past report is retroactively changed.
 
 The direct qualified source would be5db only. Later UI-only aca/152 commits and
 the subsequent infra test-only fixture repair require explicit source parity
