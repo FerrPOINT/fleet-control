@@ -7,12 +7,24 @@ legacy leaders are preserved, not part of the current delivery scope.
 ## Chat Clarification Boundary
 
 `/chats/:sessionId` renders real Fleet history and authenticated durable runtime stream.
+An authenticated boundary selects the private or task-bound controller only from
+the detail API's explicit `task_bound` projection. Missing/denied projection
+never falls back to a writable private chat. Both controllers consume cursor
+history; the private controller rechecks the absence of a binding before writes.
+The active control journal and exact-key readback serve production controls;
+there is no alternate runtime-control engine or second control store. Save and
+clear require exact retained metadata readback; storage failure holds further
+dispatch. Legacy unresolved metadata remains held. An in-memory original prompt
+retains its original retry even when runtime controls become available; it cannot
+become a new prompt or steer.
 Its clarification/requirements tabs use an owner-authorized, fixed-origin Tracker gateway.
 Tracker alone changes questions, answers, revisions and Backlog confirmation. Fleet never
 interprets assistant prose as a question and never stores a second requirements authority.
-Bound chats cannot run ordinary prompts or steer around the unimplemented assignment gate.
-Workflow PM continuation contract is implemented independently; Fleet orchestration,
-trusted runtime readback provider and outbox/inbox projection remain integration blockers.
+Bound chats cannot bypass assignment/ownership gates through ordinary messages.
+Dedicated PM dispatch, tools, continuation, runtime readback and stream projection
+exist in source; authorized PM steer/stop use the current assignment and run.
+Combined-source qualification and the live multi-service vertical remain open.
+Generic seven-role execution still depends on missing producer lifecycles.
 See [plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md) and
 [contract](contracts/CHAT_CLARIFICATION_CONTRACT.md).
 
@@ -21,9 +33,11 @@ with saved user credentials. Tracker owns Draft/original input/initial reservati
 Fleet stores immutable receipts and creates the exact private PM chat atomically.
 Network calls are outside DB transactions. Each retry reads authoritative Tracker
 operations and current owner CAS; stale history cannot authorize a new binding.
-Creation ends at awaiting admission, creates no runtime run and does not schedule
-business transitions. Real Workflow/native-bundle/workspace admission and initial
-Hermes delivery remain required before the approved vertical scenario is complete.
+Creation can attempt the opt-in dedicated PM dispatch only after the immutable
+links and prerequisites are verified. Responses distinguish awaiting admission,
+unknown runtime acceptance and a confirmed native ACK; none schedules or proves
+a completed business transition. Live admission/delivery and the complete owner
+clarification/confirmation scenario remain unaccepted.
 
 The filesystem provisioner also supplies a fresh read-only effective configuration
 check through its application port. Planning expected configuration no longer

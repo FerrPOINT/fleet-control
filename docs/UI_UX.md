@@ -48,7 +48,15 @@ close control, and supports adding multiple users from the users list. An empty
 selection means all users for admin/operator users; normal users remain scoped
 to themselves by the backend.
 
-Leader UX rules:
+Current Chats use an authenticated detail boundary and explicit server
+`task_bound`, not the task display key, to choose the private/task controller.
+Both use paginated history without discarding the reader's position. An unknown
+original prompt keeps its original retry even if runtime controls appear;
+changing the message or sending a new steer remains blocked. Missing projection
+or access never opens a writable fallback. Current combined-source browser and
+visual acceptance remain pending; historical captures are not newer evidence.
+
+Leader UX rules (legacy/future scope, not controls in current Chats):
 
 - `/leaders` is the main team-coordination entry point.
 - `/executors` is the main delivery-agent entry point.

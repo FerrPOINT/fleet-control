@@ -370,6 +370,10 @@ agent authorship и различия central/legacy permissions; наличие 
 - `POST /sessions` is idempotent by `idempotency_key`; replay returns the
   original session, while the same key with a different payload returns `409`.
 - `GET /sessions/{session_id}`
+- Session detail includes optional `task_bound`, computed from the immutable
+  Fleet task binding. It does not depend on legacy `task_key` or a display name.
+  Private and task controllers require an explicit Boolean projection; missing
+  projection keeps the controller closed. List DTOs may omit it.
 - Session detail includes optional `pending_delivery`, computed from every
   session message in `pending` or `dispatched` delivery state, independently of
   the bounded history page. List DTOs may omit this projection. A consumer that

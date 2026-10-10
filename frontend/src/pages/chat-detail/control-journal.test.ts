@@ -71,4 +71,33 @@ describe('runtime command metadata journal', () => {
     expect(() => saveControlHandle('owner', 'session', steer)).toThrow('Quota')
     expect(readControlJournal('owner', 'session')).toEqual({})
   })
+  it('holds an initial save when the browser silently discards the write', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {})
+    expect(() => saveControlHandle('owner', 'session', steer)).toThrow(/not retained/)
+    expect(sessionStorage.getItem(key)).toBeNull()
+  })
+  it('holds a clear when the browser silently retains the unresolved metadata', () => {
+    saveControlHandle('owner', 'session', steer)
+    saveControlHandle('owner', 'session', stop)
+    const original = sessionStorage.getItem(key)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {})
+    expect(() => clearControlHandle('owner', 'session', steer)).toThrow(/not retained/)
+    expect(sessionStorage.getItem(key)).toBe(original)
+    expect(readControlJournal('owner', 'session')).toEqual({ steer, stop })
+  })
+  it.each([
+    { operation: 'save', readback: '{}' },
+    { operation: 'save', readback: `${JSON.stringify({ steer, stop })}\n` },
+    { operation: 'clear', readback: '{}' },
+    { operation: 'clear', readback: `${JSON.stringify({ stop })}\n` },
+  ])('holds $operation on wrong or byte-mutated readback: $readback', ({ operation, readback }) => {
+    saveControlHandle('owner', 'session', steer)
+    saveControlHandle('owner', 'session', stop)
+    const original = sessionStorage.getItem(key)
+    vi.spyOn(Storage.prototype, 'getItem')
+      .mockReturnValueOnce(original)
+      .mockReturnValueOnce(readback)
+    const write = operation === 'save' ? saveControlHandle : clearControlHandle
+    expect(() => write('owner', 'session', steer)).toThrow(/not retained/)
+  })
 })

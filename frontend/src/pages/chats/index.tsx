@@ -1,11 +1,11 @@
-import { apiBaseUrl } from '@/api/client'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Bot, MessageSquare, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label } from '@sdlc/ui/ui'
-import { getSession, createSession, listAgentDirectory } from '@/api/fleet'
+import { createSession, getSession, listAgentDirectory } from '@/api/fleet'
+import { apiBaseUrl } from '@/api/client'
 import { getChatsDirectory } from '@/api/chats-directory'
 import type { AgentDirectoryItem, AgentSession } from '@/api/types'
 import { useSessionUserFilter, SessionUserFilter } from '@/shared/session-user-filter'
@@ -332,15 +332,15 @@ export function ChatsPage() {
 }
 
 function CreatePrivateChat({
+  returnTo,
   agent,
   open,
   onOpenChange,
-  returnTo,
 }: {
+  returnTo: string
   agent: AgentDirectoryItem
   open: boolean
   onOpenChange: (value: boolean) => void
-  returnTo: string
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -395,11 +395,16 @@ function CreatePrivateChat({
           setHeld(true)
         }
         const command = original.current
-        if (command.marker.actor !== scope.userId) throw new Error('Authentication changed')
+        if (
+          command.marker.actor !== scope.userId ||
+          command.marker.agent !== agent.id ||
+          command.marker.service !== commandService(apiBaseUrl, ssoConfig.issuer)
+        )
+          throw new Error('Authentication or command target changed')
         let created: AgentSession
         try {
           created = await createSession({
-            primary_agent_id: agent.id,
+            primary_agent_id: command.marker.agent,
             title: command.title,
             leader_agent_id: null,
             idempotency_key: command.marker.key,
@@ -425,7 +430,7 @@ function CreatePrivateChat({
           !isCurrentAuth(scope) ||
           !live.current ||
           confirmed.user_id !== scope.userId ||
-          confirmed.primary_agent_id !== agent.id ||
+          confirmed.primary_agent_id !== command.marker.agent ||
           confirmed.title !== command.title
         )
           throw new Error('Unconfirmed creation')
