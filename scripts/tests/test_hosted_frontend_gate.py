@@ -579,12 +579,13 @@ class SourceContracts(unittest.TestCase):
                          "4db07a426b6f7d38e518bd2adc0e28b6067bbdbe")
 
     def test_current_unit_counts_expand_all_source_declarations(self):
-        self.assertEqual(gate.SOURCE_SHA, "f9c5fa5c8014e51818bb9e67ced84edd40e7e892")
-        self.assertEqual(gate.SOURCE_TREE, "60e2fc0701a983b0b31294d0ea8b1330e795ed22")
-        self.assertEqual(gate.SOURCE_PARENTS, ["ce4153f453e730dad1e315131d65ca030243264c"])
+        self.assertEqual(gate.SOURCE_SHA, "60d030ff9e73e59cec6e9ef0f804ce9c8f47b42a")
+        self.assertEqual(gate.SOURCE_TREE, "e44dece7415901725cdf3aaa47edfa1c9cd6a898")
+        self.assertEqual(gate.SOURCE_PARENTS, ["423e992cd70ccf95018ea6e080ff3fe742ea19d5",
+                                              "708bc5f8d7da0cfd4db20919e0272f338da45e6b"])
         gate.qualify_source(ROOT)
         inventory = git_blob_inventory(gate.SOURCE_SHA)
-        self.assertEqual(len(inventory), 903)
+        self.assertEqual(len(inventory), 905)
         self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
         self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
         # Authentic Rust codegen38058114502/1, workflowe8fd29e4d45c749ac601d743a09400867f9635e6.
@@ -609,11 +610,16 @@ class SourceContracts(unittest.TestCase):
             self.assertEqual(gate.git(ROOT, "rev-parse", gate.SOURCE_SHA + ":" + path).decode().strip(), blob)
         index = "frontend/src/pages/chat-detail/index.test.tsx"
         self.assertEqual(gate.git(ROOT, "diff", "--exit-code",
-                                  "9d7775cd1b871a0de5579a5047268b244ba8e395", gate.SOURCE_PARENTS[0],
+                                  "9d7775cd1b871a0de5579a5047268b244ba8e395", "ce4153f453e730dad1e315131d65ca030243264c",
                                   "--", index), b"")
-        self.assertEqual(gate.git(ROOT, "diff", "--name-only", gate.SOURCE_PARENTS[0], gate.SOURCE_SHA),
-                         (index + "\n").encode())
-        self.assertEqual(inventory[index], "4dc0d8da86896dbf814845250b8b62c0bac4c539d0856423aa32a757bdad98a4")
+        changed = gate.git(ROOT, "diff", "--name-only", "f9c5fa5c8014e51818bb9e67ced84edd40e7e892",
+                           gate.SOURCE_SHA, "--", "frontend").decode().splitlines()
+        self.assertEqual({path: inventory[path] for path in changed}, {
+            "frontend/src/pages/chat-detail/binding.test.tsx": "53c60ade429f164c2d8a34079fe538c78abd3e60d4d0e5b538ceb11efe726f62",
+            index: "ac5b0775eb33d9b64f00987a2cff5943269fac93d6c98b02dac67fc542a14bec",
+            "frontend/src/pages/chat-detail/task-detail.tsx": "099c19f24ccf9618270befc4dc163109a7bf528a0f5961fae741633c163f8dab",
+            "frontend/src/pages/chats/index.test.tsx": "a22b909fc5df7547868210ada833b03afecbc850a34d78d53972c4e112c099fe",
+        })
         for removed in ("frontend/src/pages/chat-detail/run-controls.test.tsx",
                         "frontend/src/shared/chat-control-recovery.test.ts"):
             self.assertNotIn(removed, inventory)
