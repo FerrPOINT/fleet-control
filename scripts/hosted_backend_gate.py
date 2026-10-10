@@ -51,6 +51,15 @@ CATEGORY_PATTERNS = {
     "linker": ("linking with", "linker command failed",),
     "resource": ("no space left on device", "cannot allocate memory", "out of memory", "signal: 9, sigkill"),
 }
+TEST_CUSTOM_HINTS = {
+    "hermes_guard_missing": "Hermes guard is missing",
+    "hermes_origin_guard_differs": "Hermes origin guard differs from accepted history",
+    "snapshot_constraint_changed": "Original snapshot constraint changed",
+    "snapshot_version_guard_changed": "Original snapshot version guard changed",
+    "recovery_state_guard_changed": "Recovery state guard changed",
+    "recovery_guard_missing": "Missing recovery guard",
+}
+TEST_NULL_HINTS = {"null_definition_decode": "definition", "null_body_decode": "body"}
 FORBIDDEN = {".local", "target", "node_modules", ".venv", ".git", "backups", ".env"}
 GATES = ("preflight", "fmt", "check", "clippy", "auth_binary", "runtime_inventory", "real_auth",
          "api2", "credentials_unit", "credentials_pg", "foundation",
@@ -583,8 +592,9 @@ def failure_test_names(reviewed, stage):
 
 
 def safe_test_diagnostics(stream, names, allowed, fleet_backend):
-    # Only reviewed test identities and Fleet source locations may leave private logs.
-    diagnostics, seen, failed, truncated = [], set(), set(), False
+    # Panic detail yields only fixed hints, never raw messages, SQL or values.
+    diagnostics, seen, failed, hints, truncated = [], set(), set(), set(), False
+    panic_detail = False
     remaining = DIAGNOSTIC_INPUT_LIMIT
     while remaining > 0:
         line = stream.readline(min(DIAGNOSTIC_LINE_LIMIT + 1, remaining + 1))
@@ -593,8 +603,22 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
         remaining -= len(line)
         if len(line) > DIAGNOSTIC_LINE_LIMIT or remaining < 0:
             truncated = True
+            panic_detail = False
+            while not line.endswith(b"\n") and remaining > 0:
+                line = stream.readline(min(DIAGNOSTIC_LINE_LIMIT + 1, remaining + 1))
+                if not line:
+                    break
+                remaining -= len(line)
             continue
         text = line.decode("utf-8", errors="replace").rstrip("\r\n")
+        if panic_detail:
+            hints.update(category for category, message in TEST_CUSTOM_HINTS.items()
+                         if re.search(r'(?<![A-Za-z0-9_])Custom\("' + re.escape(message) + r'"\)', text))
+            for category, field in TEST_NULL_HINTS.items():
+                if ('ColumnDecode { index: "\\"' + field + '\\"", source: UnexpectedNullError }' in text
+                        or 'Type("A null value was encountered while decoding \\"' + field + '\\"")' in text):
+                    hints.add(category)
+        panic_detail = False
         result = re.fullmatch(r"test ([^\r\n ]+) \.\.\. FAILED", text)
         if result and result[1] in names:
             if len(failed) < DIAGNOSTIC_LIMIT:
@@ -608,6 +632,7 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
         line_number, column = int(panic[2]), int(panic[3])
         if file is None or not (1 <= line_number <= 1000000 and 1 <= column <= 10000):
             continue
+        panic_detail = True
         key = (file, line_number, column)
         if key in seen:
             continue
@@ -619,7 +644,7 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
     if remaining <= 0:
         truncated = True
     return dict(diagnostics=diagnostics, failed_tests=sorted(failed),
-                categories=["test_failure" if diagnostics or failed else "unknown"], truncated=truncated)
+                categories=sorted(hints | {"test_failure" if diagnostics or failed else "unknown"}), truncated=truncated)
 
 
 def test_failure_logs(root, stage, reviewed):
@@ -662,8 +687,11 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
     require(all(value[key] is None or type(value[key]) is int and 0 <= value[key] <= 255
                 for key in ("gate_exit_code", "command_exit_code")), "Invalid exit code")
     require(type(value["truncated"]) is bool and isinstance(value["categories"], list)
-            and all(isinstance(item, str) and item in ({"test_failure", "unknown"} if test_failure else {*CATEGORY_PATTERNS, "unknown"}) for item in value["categories"])
+            and all(isinstance(item, str) and item in ({"test_failure", "unknown", *TEST_CUSTOM_HINTS, *TEST_NULL_HINTS}
+                                                       if test_failure else {*CATEGORY_PATTERNS, "unknown"}) for item in value["categories"])
             and value["categories"] == sorted(set(value["categories"])), "Invalid fixed failure categories")
+    if test_failure and set(value["categories"]) & (TEST_CUSTOM_HINTS.keys() | TEST_NULL_HINTS.keys()):
+        require("test_failure" in value["categories"] and bool(value["diagnostics"]), "Unanchored test failure hint")
     records = value["diagnostics"]
     allowed = reviewed["rust_source_sha256"]
     require(isinstance(records, list) and len(records) <= DIAGNOSTIC_LIMIT, "Diagnostic count bound")

@@ -980,6 +980,103 @@ class HostedBackendTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 self.validate_failure(dict(value, **change))
 
+    def hint_diagnostics(self, detail, path="infra/tests/support/pm_credential_creation.rs"):
+        name = REVIEWED["groups"]["credentials_pg"][0]
+        data = (f"test {name} ... FAILED\nthread 'PRIVATE_SENTINEL' panicked at {path}:300:5:\n" + detail + "\n").encode()
+        return gate.safe_test_diagnostics(io.BytesIO(data), {name}, REVIEWED["rust_source_sha256"], Path("/qa/src/fleet-control/backend"))
+
+    def test_owned_custom_panic_hints_are_fixed_and_match_pinned_migration_source(self):
+        source = "\n".join(self.source_blob(path).decode() for path in (
+            "backend/migration/src/m20261009_000015_container_controller.rs",
+            "backend/migration/src/m20261009_000016_mapped_controller_recovery.rs",
+            "backend/migration/src/m20261009_000019_recovered_activation.rs"))
+        for category, message in gate.TEST_CUSTOM_HINTS.items():
+            with self.subTest(category=category):
+                self.assertIn('"' + message + '"', source)
+                result = self.hint_diagnostics('called Result::unwrap() on Err value: Custom("' + message + '") PRIVATE_SENTINEL /private/token')
+                self.assertEqual(result["categories"], sorted([category, "test_failure"]))
+                self.assertNotIn(message, gate.canonical(result).decode())
+                self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+                self.validate_failure(dict(self.failure_test_value(), **result))
+
+    def test_null_decode_hints_require_exact_definition_or_body_field_and_null_error(self):
+        for category, field in gate.TEST_NULL_HINTS.items():
+            for detail in (
+                'Query(SqlxError(ColumnDecode { index: "\\"' + field + '\\"", source: UnexpectedNullError }))',
+                'Type("A null value was encountered while decoding \\"' + field + '\\"")',
+            ):
+                with self.subTest(category=category, detail=detail):
+                    result = self.hint_diagnostics(detail + " PRIVATE_SENTINEL")
+                    self.assertEqual(result["categories"], sorted([category, "test_failure"]))
+                    self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+        for detail in (
+            'ColumnDecode { index: "\\"PRIVATE_SENTINEL\\"", source: UnexpectedNullError }',
+            'ColumnDecode { index: "\\"definition\\"", source: PRIVATE_SENTINEL }',
+            'Type("A null value was encountered while decoding \\"private\\"")',
+            "definition body UnexpectedNullError PRIVATE_SENTINEL",
+        ):
+            self.assertEqual(self.hint_diagnostics(detail)["categories"], ["test_failure"])
+
+    def test_panic_hints_require_immediate_allowlisted_location_not_arbitrary_private_text(self):
+        detail = 'Custom("Hermes guard is missing")'
+        for path in ("../services-base/private.rs", "/qa/src/services-base/private.rs"):
+            self.assertEqual(self.hint_diagnostics(detail, path)["categories"], ["test_failure"])
+        for text in (detail, "blank\n" + detail, 'Custom("Hermes guard is missing PRIVATE_SENTINEL")',
+                     'PrivateCustom("Hermes guard is missing")', "Hermes guard is missing"):
+            if text == detail:
+                result = gate.safe_test_diagnostics(io.BytesIO(text.encode()), set(), {}, Path("/qa/backend"))
+                self.assertEqual(result["categories"], ["unknown"])
+            else:
+                self.assertEqual(self.hint_diagnostics(text)["categories"], ["test_failure"])
+
+    def test_panic_hints_discard_oversized_line_and_its_continuation(self):
+        with mock.patch.object(gate, "DIAGNOSTIC_LINE_LIMIT", 128):
+            result = self.hint_diagnostics("PRIVATE_SENTINEL" * 20 + 'Custom("Hermes guard is missing")')
+        self.assertTrue(result["truncated"])
+        self.assertEqual(result["categories"], ["test_failure"])
+        self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_panic_hints_respect_total_input_and_diagnostic_count_bounds(self):
+        name = REVIEWED["groups"]["credentials_pg"][0]
+        prefix = f"test {name} ... FAILED\nthread 't' panicked at infra/tests/support/pm_credential_creation.rs:300:5:\n"
+        with mock.patch.object(gate, "DIAGNOSTIC_INPUT_LIMIT", len(prefix.encode())):
+            result = self.hint_diagnostics('Custom("Hermes guard is missing")')
+        self.assertTrue(result["truncated"])
+        self.assertNotIn("hermes_guard_missing", result["categories"])
+        data = "".join(f"thread 't' panicked at infra/tests/support/pm_credential_creation.rs:{i + 1}:5:\n"
+                       'Custom("Hermes guard is missing") PRIVATE_SENTINEL\n' for i in range(gate.DIAGNOSTIC_LIMIT + 1))
+        result = gate.safe_test_diagnostics(io.BytesIO(data.encode()), set(), REVIEWED["rust_source_sha256"], Path("/qa/src/fleet-control/backend"))
+        self.assertEqual(len(result["diagnostics"]), gate.DIAGNOSTIC_LIMIT)
+        self.assertTrue(result["truncated"])
+        self.assertEqual(result["categories"], ["hermes_guard_missing", "test_failure"])
+        self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_panic_hint_schema_rejects_unknown_values_unanchored_or_compiler_categories(self):
+        value = self.failure_test_value()
+        for categories in (["PRIVATE_SENTINEL"], ["null_definition_decode=PRIVATE_SENTINEL", "test_failure"],
+                           ["hermes_guard_missing", "hermes_guard_missing", "test_failure"],
+                           ["test_failure", "hermes_guard_missing"], ["hermes_guard_missing"],
+                           [True], [{"PRIVATE_SENTINEL": "body"}], ["network", "test_failure"]):
+            with self.subTest(categories=categories), self.assertRaises(ValueError):
+                self.validate_failure(dict(value, categories=categories))
+        with self.assertRaises(ValueError):
+            self.validate_failure(dict(value, categories=["hermes_guard_missing", "test_failure"], diagnostics=[]))
+        with self.assertRaises(ValueError):
+            self.validate_failure(dict(self.failure_value(), categories=["hermes_guard_missing"]))
+
+    def test_panic_hint_authenticated_readback_accepts_old_schema_and_fixed_hints_only(self):
+        for categories in (["test_failure"], ["unknown"], ["hermes_guard_missing", "null_body_decode", "test_failure"]):
+            value = dict(self.failure_test_value(), categories=categories)
+            run, artifact, payload, args = self.failure_artifact(value=value)
+            result = json.loads(gate.validate_failure_readback(run, artifact, payload, **args)[gate.FAILURE_FILE])
+            self.assertEqual(result["categories"], categories)
+            for flag in ("backend_quality_gate", "all_quality_gate", "sdlc_acceptance"):
+                self.assertFalse(result[flag])
+        value = dict(self.failure_test_value(), categories=["PRIVATE_SENTINEL"])
+        run, artifact, payload, args = self.failure_artifact(value=value)
+        with self.assertRaises(ValueError):
+            gate.validate_failure_readback(run, artifact, payload, **args)
+
     def test_test_failure_readback_is_authenticated_failure_not_acceptance(self):
         run, artifact, payload, args = self.failure_artifact(value=self.failure_test_value())
         files = gate.validate_failure_readback(run, artifact, payload, **args)
