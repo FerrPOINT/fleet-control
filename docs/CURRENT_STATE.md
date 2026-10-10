@@ -23,8 +23,14 @@ no compiler-list mismatch has been established. Normal diagnostics successor
 the complete three-file diff and repeats112 Windows pure tests (108 pass,
 four explicit Linux-only skips); worker Linux112/112 is separate evidence.
 [Run38024208930](https://github.com/FerrPOINT/fleet-control/actions/runs/38024208930)
-is confirmed active on424, not credential or real-Auth acceptance. New687/435
-credential/expiry regressions remain separate, uncompiled source changes.
+completes FAILURE. Authenticated artifact11659222328, ZIP SHA256
+43eae76405caeff37e6f4926e52816916d659489b68d09b1149377ff661c7d04,
+proves complete lists:241 default versus242 expected, all17 ignored match, no
+extras, only `new_ids_are_plain_uuids` missing. Both cleanup checks pass. Source
+inspection finds its orphan test file; narrow successor3d1a108 declares the test
+module without lowering counts. It also retains687/435 credential regressions
+and the exact-two-case real-Auth CI correction. Those source fixes are integrated
+here but have not compiled/run; strict successor controls remain separate.
 
 Frontend run38022762729/source5cc1fbb/controlsdb82829 fails preparation before
 tests. Parent authenticates failure artifact11658544399, ZIP SHA256
@@ -51,13 +57,21 @@ published through controls6f648430. Independent qualification retains380 compile
 Git inputs/170 Rust files,167 ignored identities and all81 stages; it adds exactly
 one default declaration (338 total). Final110 Linux pure control tests pass.
 [Run38023648801](https://github.com/FerrPOINT/fleet-control/actions/runs/38023648801)
-is confirmed active on that exact source, not product acceptance. It is not
-retargeted by later documentation or worker changes.
+completes FAILURE in the same eight recovered-activation cases. Parent
+authenticates artifact11659287588, ZIP SHA256
+26ed13a6a71cf4a66323494be1fa2ca8b195fc103f1f800576b15c0502f4aad4;
+both cleanup checks pass. The corrected configuration probe no longer appears:
+failure locations259/286 are the subsequent `authorize_recovered_activation`
+calls. This is progress in diagnosis, not proof that recovery/activation works.
+The next cause is still under investigation; no guard or assertion is waived.
 
 Current parallel ownership: Curie owns browser-failure diagnosis and a scoped
 Chats fix; Feynman prepares strict C11 controls for the separate687/435 test
 successor; Pascal independently reviews real-Auth expiry/restart semantics.
-Parent owns runtime/full-backend acceptance, integration and publication.
+Parent owns runtime/full-backend acceptance, integration and publication. Pascal
+finds no P1/P2 in the exact435 expiry/restart delta; actual Auth execution remains
+pending. Parent YAML parity plus eight synthetic Bash receipt vectors require
+both real-Auth case names/two passes; these are CI-control checks, not Auth tests.
 Tracker/Workflow and root Base foreign changes remain untouched.
 
 Fresh native image-build capacity observation still refuses execution: physical

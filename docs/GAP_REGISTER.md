@@ -14,8 +14,11 @@ Closed authenticated terminal telemetry, not raw logs, establishes the stage;
 no failure artifact or actual credential/Auth result exists. Diagnose the strict
 source/compiler inventory without waiving unknown tests. Compilation/linking in
 that stage may also fail; no list mismatch has been proved. Reviewed diagnostics
-successor4244772 retains frozen994,28 stages and242/17 counts; actual new
-run38024208930 is active. Worker successors6870ea0/4358dea add five PG/one unit
+successor4244772 retains frozen994,28 stages and242/17 counts. Its authenticated
+run38024208930 failure artifact11659222328 proves241/242 defaults, all17 ignored,
+only `new_ids_are_plain_uuids` absent, and both cleanup checks pass. The existing
+test file lacked its parent module declaration; source3d1a108 connects it instead
+of dropping the test/count. Worker successors6870ea0/4358dea add five PG/one unit
 credential cases and one real-Auth expiry/restart case, with formatting/static
 evidence only. Their strict successor controls are being prepared separately;
 neither source is qualified by the frozen994 runs.
@@ -32,9 +35,13 @@ PM/native/Forge gaps remain open. See the current
 [delivery matrix](REMAINING_DELIVERY_WORK.md) for dependencies and stop/go.
 
 Follow-up publication: source56daff9/controls6f648430 starts full81-stage
-run38023648801, confirmed active. All167 ignored tests and prior337 default
+run38023648801. It completes FAILURE in eight container_activation_pg cases;
+authenticated artifact11659287588 identifies later authorize calls259/286, not
+the corrected configuration probe. Both cleanup checks pass. All167 ignored tests and prior337 default
 identities remain; new canonical-hash golden raises defaults to338. Independent
 380-input verification and110 Linux pure tests pass, not actual activation PG.
+The authorization cause remains open. Integrated credential/expiry/module/CI
+source corrections require new qualification, not inheritance of old receipts.
 The default348 hosted unit result is now actual evidence, not a replacement for
 the failed browser gate or missing fresh screenshots/live flow. Host-only native
 capacity recheck still fails the unchanged6/6GiB physical/commit guards; disk

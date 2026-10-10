@@ -182,8 +182,8 @@ This is disposable source/binary compatibility, not installed-runtime acceptance
 The mandatory `real-base-auth` CI job uses a GitHub-managed Rust container and
 isolated PostgreSQL service with no published host port. It exports committed
 Fleet/SDK/Auth sources, builds Auth01388df separately from SDK19a7, records source
-and binary hashes, and requires the otherwise-ignored consumer case with exactly
-one PASS and zero ignores. It is not a local Compose project or installed-runtime
+and binary hashes, and requires both otherwise-ignored consumer cases with exactly
+two PASS and zero ignores, including natural expiry/restart. It is not a local Compose project or installed-runtime
 acceptance. This CI job depends on Base126 publishing the pinned Auth commit;
 the workflow itself has not run yet.
 
