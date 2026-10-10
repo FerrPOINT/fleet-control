@@ -1,0 +1,24 @@
+{
+  "task": "SDLC-1",
+  "execution_ref": "01a0faf0-6c0c-70d3-8676-2f3030059f83",
+  "tracker_instance_ref": "tracker-draft-test",
+  "tracker_project_ref": "5569c2ff-f9dd-4549-b184-516b4d987682",
+  "task_ref": "01a0faf0-6b2a-7ec0-98e6-6d0227df8dc9",
+  "root_ref": "01a0faf0-6b2a-7ec0-98e6-6d0227df8dc9",
+  "agent_ref": "ec2f09f0-ee9b-46fb-a2ae-764d41965ebc",
+  "assignment_operation_key": "pm-draft:01a0faf0-6c0c-70d3-8676-2f2b1925874c",
+  "assignment_ref": "01a0faf0-6c0c-70d3-8676-2f2b1925874c",
+  "assignment_revision": 1,
+  "owner_version": 1,
+  "input_snapshot_ref": "01a0faf0-6b2c-7e01-9fb3-9879b6c2a55e",
+  "input_sha256": "8f09dacd2e9dcd6335b867319edeb40a412b1affb0906fa4f560f4b12ef6cdcf",
+  "runtime_compatibility": {
+    "catalogVersion": 2,
+    "catalogRevision": "163a4ace7e06a4770958122ae4c56a426db758ef",
+    "catalogSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "skillsRevision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "skillsManifestSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "capabilityRevision": "hermes-sdlc-runtime/v2",
+    "capabilitySha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  }
+}

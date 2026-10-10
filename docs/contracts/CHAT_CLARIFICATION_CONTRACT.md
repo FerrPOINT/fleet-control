@@ -114,6 +114,19 @@ Creation is a resumable Draft/binding/dispatch saga. PM starts only after links 
 Owner-only creation is wired to PM dispatch when `pm.dispatch.enabled` is true
 and dispatch checks pass. Creation responses distinguish `awaiting_admission`,
 `awaiting_runtime_acceptance` and `runtime_accepted`; none proves business completion.
+The initial assignment adapter targets Workflow PR90 source
+`163a4ace7e06a4770958122ae4c56a426db758ef`, using
+`POST /internal/runtime/v1/pm/assign` and its closed `PMDraftAssignment`:
+the ten execution identity fields plus original `owner_version`, `input_snapshot_ref`,
+`input_sha256` and the probed `runtime_compatibility`. Role/mode are Workflow-owned;
+later-stage work/queue/workspace/decomposition refs remain null. Assignment and bind
+readback verify the exact Draft projection (`stage_key=draft`, `pm_draft_input`,
+`lease_generation=1`); that generation is metadata, not proof of a live lease.
+Assignment capabilities require exactly `assign`, `bind`, `resume`, `rebind`,
+`readback`; the runtime credential retains `checkpoint`, `readback`. Old persisted
+dispatch intents are not rewritten or resent with the new assignment payload.
+This source alignment and its synthetic fixtures are not executable qualification
+against deployed Workflow/Tracker/Hermes. No idle-owner prompt contract is added.
 Fleet persists the request before calling Tracker,
 derives stable per-operation command keys, and always reads authoritative Draft
 and reservation operations before retrying writes. The original title/description

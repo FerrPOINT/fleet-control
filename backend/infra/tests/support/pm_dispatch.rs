@@ -79,26 +79,25 @@ fn workflow_capabilities(kind: &str) -> serde_json::Value {
         "runtimeCompatibility":{"catalogVersion":2,"catalogRevision":"a".repeat(40),"catalogSha256":"d".repeat(64),
             "skillsRevision":"e".repeat(40),"skillsManifestSha256":"f".repeat(64),"capabilityRevision":"hermes-sdlc-runtime/v2","capabilitySha256":"0".repeat(64)},
         "pm_continuation":{"contract_version":1,"base_path":"/internal/runtime/v1/pm",
-            "commands":if assignment {json!(["bind","resume","rebind","readback"])} else {json!(["checkpoint","readback"])},
+            "commands":if assignment {json!(["assign","bind","resume","rebind","readback"])} else {json!(["checkpoint","readback"])},
             "terminal_proof":"configured-runtime-readback","dispatch_owner":"fleet","execution_token_header":"X-Workflow-Execution-Token"}})
 }
 
 pub(super) fn workflow_assignment(request: &serde_json::Value) -> serde_json::Value {
-    let mut result = request.clone();
-    let map = result.as_object_mut().unwrap();
-    let task = map.remove("task").unwrap();
-    let key = map.remove("operation_key").unwrap();
-    map.remove("runtime_compatibility").unwrap();
-    map.remove("expected_revision").unwrap();
-    map.remove("expected_status").unwrap();
-    map.extend(json!({"task_key":task,"assignment_operation_key":key,"assignment_revision":1,
+    json!({"task_key":request["task"],"assignment_operation_key":request["assignment_operation_key"],
+        "assignment_revision":request["assignment_revision"],
         "workflow_id":1,"mode_id":2,"current_phase_id":3,"current_phase_code":"PM-DRAFT-01",
         "current_phase_name":"Draft","status":"active","binding_state":"unbound",
+        "workflow_key":"hermes-sdlc:project_manager","mode_key":"draft","cycle_number":0,"attempt_number":1,
+        "role_key":"project_manager","execution_scope":"business","stage_key":"draft",
+        "business_task_ref":request["task_ref"],"root_task_ref":request["root_ref"],
+        "assignment_ref":request["assignment_ref"],"stage_revision":request["owner_version"].as_u64().unwrap().to_string(),
+        "work_item_ref":null,"work_item_revision":null,"queue_item_ref":null,
         "task_workspace_ref":null,"workspace_revision":null,"tech_execution_workspace_ref":null,
         "tech_execution_attempt_ref":null,"decomposition_revision_ref":null,"workspace_generation":null,
-        "lease_generation":null,"binding_ref":null,"hermes_run_ref":null,"bind_operation_key":null,
-        "concrete_agent_ref":null}).as_object().unwrap().clone());
-    result
+        "lease_generation":1,"binding_ref":null,"hermes_run_ref":null,"bind_operation_key":null,
+        "concrete_agent_ref":null,"exact_input_refs":[{"kind":"pm_draft_input",
+            "ref":request["input_snapshot_ref"],"hash":request["input_sha256"]}]})
 }
 
 pub(super) struct AbortServer(pub(super) tokio::task::JoinHandle<()>);
@@ -255,8 +254,14 @@ async fn pm_production_dispatch_binds_and_steers_once_and_holds_unknown_post() {
                     }
                     assert_eq!(kind, if runtime {"runtime"} else {"assignment"});
                     assert_eq!(method, Method::POST);
-                    if path == "/internal/runtime/assign" {
-                        assert_eq!(body["operation_key"], reservation.identity.assignment_operation_key);
+                    if path == "/internal/runtime/v1/pm/assign" {
+                        let mut expected = serde_json::to_value(&reservation.identity).unwrap();
+                        let input = &op.input.as_ref().unwrap().input;
+                        expected.as_object_mut().unwrap().extend(json!({"owner_version":1,
+                            "input_snapshot_ref":input.snapshot_ref,"input_sha256":input.sha256,
+                            "runtime_compatibility":workflow_capabilities("assignment")["runtimeCompatibility"]}).as_object().unwrap().clone());
+                        assert_eq!(body, expected);
+                        assert_eq!(body["assignment_operation_key"], reservation.identity.assignment_operation_key);
                         let mut value = assigned.lock().await;
                         let result = value.get_or_insert_with(|| workflow_assignment(&body)).clone();
                         return Json(json!({"ok":true,"exit_code":0,"result":result})).into_response();
@@ -362,7 +367,7 @@ async fn pm_production_dispatch_binds_and_steers_once_and_holds_unknown_post() {
         );
         if !unknown {
             let at = |call: &str| calls.iter().position(|actual| actual == call).unwrap();
-            assert!(at("POST /internal/runtime/assign") < at("POST /v1/runs"));
+            assert!(at("POST /internal/runtime/v1/pm/assign") < at("POST /v1/runs"));
             assert!(at("GET /v1/runs/run_pm") < at("POST /internal/runtime/bind"));
             assert!(at("POST /internal/runtime/v1/pm/bind") < at("POST /internal/runtime/step"));
             assert!(at("POST /internal/runtime/step") < at("POST /v1/runs/run_pm/steer"));

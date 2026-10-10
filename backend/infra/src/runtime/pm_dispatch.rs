@@ -81,7 +81,7 @@ impl Capabilities {
         let (capabilities, commands): (&[&str], &[&str]) = if kind == "assignment" {
             (
                 &["assign", "bind", "rebind"],
-                &["bind", "resume", "rebind", "readback"],
+                &["assign", "bind", "resume", "rebind", "readback"],
             )
         } else {
             (&["step", "history"], &["checkpoint", "readback"])
@@ -144,9 +144,9 @@ struct Assignment {
     stage_key: String,
     business_task_ref: String,
     root_task_ref: String,
-    work_item_ref: String,
-    work_item_revision: i64,
-    queue_item_ref: String,
+    work_item_ref: Option<String>,
+    work_item_revision: Option<i64>,
+    queue_item_ref: Option<String>,
     task_workspace_ref: Option<String>,
     workspace_revision: Option<i64>,
     tech_execution_workspace_ref: Option<String>,
@@ -166,7 +166,6 @@ struct Assignment {
     current_phase_id: i64,
     current_phase_code: String,
     current_phase_name: String,
-    assignment_shape: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -187,11 +186,10 @@ struct AssignmentResponse {
 }
 
 impl AssignmentResponse {
-    fn validate(
+    fn validate_identity(
         &self,
         operation: &PmDraftOperation,
         reservation: &PmRunReservation,
-        run: Option<&str>,
     ) -> Result<(), AppError> {
         let a = &self.result;
         let expected = domain::initial_pm_assignment(operation, Value::Null)?;
@@ -204,23 +202,21 @@ impl AssignmentResponse {
             || a.assignment_revision != reservation.identity.assignment_revision
             || a.business_task_ref != reservation.identity.task_ref
             || a.root_task_ref != reservation.identity.root_ref
-            || a.work_item_ref != reservation.identity.task_ref
-            || a.queue_item_ref != reservation.identity.assignment_ref
-            || a.work_item_revision != 0
+            || a.work_item_ref.is_some()
+            || a.queue_item_ref.is_some()
+            || a.work_item_revision.is_some()
             || a.stage_revision
-                != expected["stage_revision"]
-                    .as_str()
+                != expected["owner_version"]
+                    .as_u64()
                     .ok_or_else(unavailable)?
-            || a.assignment_shape != "business-pre-decomposition"
+                    .to_string()
             || a.role_key != "project_manager"
             || a.workflow_key != "hermes-sdlc:project_manager"
             || a.mode_key != "draft"
             || a.execution_scope != "business"
-            || a.stage_key != "Draft"
+            || a.stage_key != "draft"
             || a.cycle_number != 0
             || a.attempt_number != 1
-            || a.status != "active"
-            || a.current_phase_code != "PM-DRAFT-01"
             || a.workflow_id <= 0
             || a.mode_id <= 0
             || a.current_phase_id <= 0
@@ -230,12 +226,26 @@ impl AssignmentResponse {
             || a.tech_execution_attempt_ref.is_some()
             || a.decomposition_revision_ref.is_some()
             || a.workspace_generation.is_some()
-            || a.lease_generation.is_some()
+            || a.lease_generation != Some(1)
             || a.exact_input_refs.len() != 1
-            || a.exact_input_refs[0].kind != "original_input"
+            || a.exact_input_refs[0].kind != "pm_draft_input"
             || a.exact_input_refs[0].reference != input.input.snapshot_ref.to_string()
             || a.exact_input_refs[0].hash != input.input.sha256
         {
+            return Err(unavailable());
+        }
+        Ok(())
+    }
+
+    fn validate(
+        &self,
+        operation: &PmDraftOperation,
+        reservation: &PmRunReservation,
+        run: Option<&str>,
+    ) -> Result<(), AppError> {
+        self.validate_identity(operation, reservation)?;
+        let a = &self.result;
+        if a.status != "active" || a.current_phase_code != "PM-DRAFT-01" {
             return Err(unavailable());
         }
         match run {
@@ -322,6 +332,7 @@ impl<'a> Workflow<'a> {
             )
             .await?,
         )?;
+        assigned.validate_identity(operation, &initial)?;
         let a = assigned.result;
         if !assigned.ok
             || assigned.exit_code != 0
@@ -547,7 +558,7 @@ pub(super) async fn dispatch(
     let assigned: AssignmentResponse = decode(
         workflow
             .call(
-                "/internal/runtime/assign",
+                "/internal/runtime/v1/pm/assign",
                 workflow.assignment,
                 Some(intent.workflow_assignment.clone()),
                 None,
@@ -847,6 +858,167 @@ fn validate_first_step(
 mod tests {
     use super::*;
 
+    fn assignment_fixture() -> Value {
+        serde_json::from_str(include_str!(
+            "../../tests/fixtures/pm-dispatch/workflow-assign-response.json"
+        ))
+        .unwrap()
+    }
+
+    fn assignment_operation() -> PmDraftOperation {
+        let wire: Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/pm-dispatch/workflow-assign-request.json"
+        ))
+        .unwrap();
+        let mut reservation: Value = serde_json::from_str(include_str!(
+            "../../../api/tests/fixtures/pm-draft/reservation.json"
+        ))
+        .unwrap();
+        reservation["input"]["sha256"] = wire["input_sha256"].clone();
+        let binding = reservation["binding"].clone();
+        serde_json::from_value(json!({"id":Uuid::from_u128(1),"owner_user_id":Uuid::from_u128(2),
+            "owner_subject":binding["owner_subject"],"tracker_instance_id":binding["tracker_instance_id"],
+            "project_id":binding["project_id"],"session_id":Uuid::from_u128(3),"credentials":null,
+            "request":{"agent_id":wire["agent_ref"],"title":"Owner goal","description":"Exact original input",
+                "idempotency_key":"owner-request"},
+            "draft":{"tracker_instance_id":binding["tracker_instance_id"],"project_id":binding["project_id"],
+                "task_id":binding["task_id"],"root_task_id":binding["root_task_id"],"owner_subject":binding["owner_subject"],
+                "task_key":"PM-1","stage":"Draft"},
+            "input":{"contract_version":1,"tracker_instance_id":binding["tracker_instance_id"],"project_id":binding["project_id"],
+                "task_id":binding["task_id"],"root_task_id":binding["root_task_id"],"owner_subject":binding["owner_subject"],
+                "input":{"snapshot_ref":wire["input_snapshot_ref"],"sha256":wire["input_sha256"],
+                    "title":"Owner goal","description":"Exact original input"}},"reservation":reservation}))
+        .unwrap()
+    }
+
+    #[test]
+    fn draft_assignment_decoder_requires_exact_producer_fields_including_nulls() {
+        let operation = assignment_operation();
+        let reservation = domain::initial_pm_reservation(&operation).unwrap();
+        let valid = assignment_fixture();
+        decode::<AssignmentResponse>(valid.clone())
+            .unwrap()
+            .validate(&operation, &reservation, None)
+            .unwrap();
+        for field in [
+            "work_item_ref",
+            "work_item_revision",
+            "queue_item_ref",
+            "task_workspace_ref",
+            "workspace_revision",
+            "tech_execution_workspace_ref",
+            "tech_execution_attempt_ref",
+            "decomposition_revision_ref",
+            "workspace_generation",
+            "binding_ref",
+            "hermes_run_ref",
+            "bind_operation_key",
+            "concrete_agent_ref",
+        ] {
+            let mut missing = valid.clone();
+            missing["result"].as_object_mut().unwrap().remove(field);
+            assert!(decode::<AssignmentResponse>(missing).is_err(), "{field}");
+        }
+        let mut extra = valid;
+        extra["result"]["assignment_shape"] = json!("business-pre-decomposition");
+        assert!(decode::<AssignmentResponse>(extra).is_err());
+    }
+
+    #[test]
+    fn draft_assignment_readback_rejects_identity_input_and_future_resource_drift() {
+        let operation = assignment_operation();
+        let reservation = domain::initial_pm_reservation(&operation).unwrap();
+        let valid = assignment_fixture();
+        for (pointer, wrong) in [
+            ("/ok", json!(false)),
+            ("/exit_code", json!(1)),
+            ("/result/task_key", json!("SDLC-2")),
+            ("/result/assignment_operation_key", json!("foreign")),
+            ("/result/assignment_ref", json!(Uuid::from_u128(9))),
+            ("/result/assignment_revision", json!(2)),
+            ("/result/business_task_ref", json!(Uuid::from_u128(9))),
+            ("/result/root_task_ref", json!(Uuid::from_u128(9))),
+            ("/result/stage_revision", json!("2")),
+            ("/result/role_key", json!("developer")),
+            ("/result/workflow_key", json!("hermes-sdlc:developer")),
+            ("/result/mode_key", json!("analysis")),
+            ("/result/execution_scope", json!("technical")),
+            ("/result/stage_key", json!("Draft")),
+            ("/result/cycle_number", json!(1)),
+            ("/result/attempt_number", json!(2)),
+            ("/result/work_item_ref", json!("invented")),
+            ("/result/work_item_revision", json!(0)),
+            ("/result/queue_item_ref", json!("invented")),
+            ("/result/task_workspace_ref", json!("invented")),
+            ("/result/workspace_revision", json!(1)),
+            ("/result/tech_execution_workspace_ref", json!("invented")),
+            ("/result/tech_execution_attempt_ref", json!("invented")),
+            ("/result/decomposition_revision_ref", json!("invented")),
+            ("/result/workspace_generation", json!(1)),
+            ("/result/lease_generation", Value::Null),
+            ("/result/lease_generation", json!(2)),
+            ("/result/exact_input_refs/0/kind", json!("original_input")),
+            ("/result/exact_input_refs/0/ref", json!(Uuid::from_u128(9))),
+            ("/result/exact_input_refs/0/hash", json!("f".repeat(64))),
+            ("/result/exact_input_refs", json!([])),
+            ("/result/status", json!("done")),
+            ("/result/current_phase_code", json!("PM-DRAFT-02")),
+        ] {
+            let mut wrong_value = valid.clone();
+            *wrong_value.pointer_mut(pointer).unwrap() = wrong;
+            assert!(
+                decode::<AssignmentResponse>(wrong_value)
+                    .unwrap()
+                    .validate(&operation, &reservation, None)
+                    .is_err(),
+                "{pointer}"
+            );
+        }
+    }
+
+    #[test]
+    fn draft_bind_preserves_native_tuple_and_advanced_cursor_identity() {
+        let operation = assignment_operation();
+        let reservation = domain::initial_pm_reservation(&operation).unwrap();
+        let mut valid = assignment_fixture();
+        valid["result"]["binding_state"] = json!("bound");
+        valid["result"]["binding_ref"] = json!(reservation.binding_ref);
+        valid["result"]["hermes_run_ref"] = json!("run_pm");
+        valid["result"]["bind_operation_key"] =
+            json!(format!("fleet-pm-runtime-bind:{}", operation.id));
+        valid["result"]["concrete_agent_ref"] = json!(reservation.identity.agent_ref);
+        decode::<AssignmentResponse>(valid.clone())
+            .unwrap()
+            .validate(&operation, &reservation, Some("run_pm"))
+            .unwrap();
+        for (field, wrong) in [
+            ("binding_state", json!("unbound")),
+            ("binding_ref", json!("foreign")),
+            ("hermes_run_ref", json!("run_foreign")),
+            ("bind_operation_key", json!("foreign")),
+            ("concrete_agent_ref", json!(Uuid::from_u128(9))),
+        ] {
+            let mut value = valid.clone();
+            value["result"][field] = wrong;
+            assert!(
+                decode::<AssignmentResponse>(value)
+                    .unwrap()
+                    .validate(&operation, &reservation, Some("run_pm"))
+                    .is_err(),
+                "{field}"
+            );
+        }
+        valid["result"]["current_phase_code"] = json!("PM-DRAFT-02");
+        valid["result"]["status"] = json!("blocked");
+        let cursor = decode::<AssignmentResponse>(valid).unwrap();
+        cursor.validate_identity(&operation, &reservation).unwrap();
+        assert!(
+            cursor
+                .validate(&operation, &reservation, Some("run_pm"))
+                .is_err()
+        );
+    }
+
     fn reservation() -> PmRunReservation {
         serde_json::from_value(json!({"session_id":Uuid::from_u128(1),"session_run_id":Uuid::from_u128(2),
             "identity":{"task":"SDLC-1","execution_ref":Uuid::from_u128(3),"tracker_instance_ref":"tracker",
@@ -874,6 +1046,21 @@ mod tests {
         for (pointer, wrong) in [
             ("/ok", json!(false)),
             ("/execution_token", json!("secret-not-a-scoped-token")),
+            ("/result/identity/task", json!("SDLC-2")),
+            ("/result/identity/execution_ref", json!(Uuid::from_u128(9))),
+            ("/result/identity/tracker_instance_ref", json!("foreign")),
+            (
+                "/result/identity/tracker_project_ref",
+                json!(Uuid::from_u128(9)),
+            ),
+            ("/result/identity/task_ref", json!(Uuid::from_u128(9))),
+            ("/result/identity/root_ref", json!(Uuid::from_u128(9))),
+            ("/result/identity/agent_ref", json!(Uuid::from_u128(9))),
+            (
+                "/result/identity/assignment_operation_key",
+                json!("foreign"),
+            ),
+            ("/result/identity/assignment_ref", json!(Uuid::from_u128(9))),
             ("/result/identity/assignment_revision", json!(2)),
             ("/result/session_run_id", json!(Uuid::from_u128(9))),
             ("/result/hermes_run_ref", json!("run_foreign")),
@@ -937,7 +1124,7 @@ mod tests {
             "source_provenance":{"schema_version":1,"source_revision":"a".repeat(40),"source_archive_sha256":"b".repeat(64),"runtime_bundle_sha256":"c".repeat(64)},
             "runtimeCompatibility":{"catalogVersion":2,"catalogRevision":"a".repeat(40),"catalogSha256":"d".repeat(64),
                 "skillsRevision":"e".repeat(40),"skillsManifestSha256":"f".repeat(64),"capabilityRevision":"hermes-sdlc-runtime/v2","capabilitySha256":"0".repeat(64)},
-            "pm_continuation":{"contract_version":1,"base_path":"/internal/runtime/v1/pm","commands":["bind","resume","rebind","readback"],
+            "pm_continuation":{"contract_version":1,"base_path":"/internal/runtime/v1/pm","commands":["assign","bind","resume","rebind","readback"],
                 "terminal_proof":"configured-runtime-readback","dispatch_owner":"fleet","execution_token_header":"X-Workflow-Execution-Token"}});
         decode::<Capabilities>(value.clone())
             .unwrap()
@@ -954,6 +1141,21 @@ mod tests {
             ),
             ("/pm_continuation/dispatch_owner", json!("hermes")),
             ("/pm_continuation/commands", json!(["bind"])),
+            (
+                "/pm_continuation/commands",
+                json!(["bind", "resume", "rebind", "readback"]),
+            ),
+            (
+                "/pm_continuation/commands",
+                json!([
+                    "assign",
+                    "bind",
+                    "resume",
+                    "rebind",
+                    "readback",
+                    "idle_prompt"
+                ]),
+            ),
         ] {
             let mut value = value.clone();
             *value.pointer_mut(pointer).unwrap() = wrong;
@@ -965,6 +1167,14 @@ mod tests {
                 "{pointer}"
             );
         }
+        let mut runtime = value.clone();
+        runtime["credential_kind"] = json!("runtime");
+        runtime["capabilities"] = json!(["step", "history"]);
+        runtime["pm_continuation"]["commands"] = json!(["checkpoint", "readback"]);
+        decode::<Capabilities>(runtime)
+            .unwrap()
+            .validate("runtime")
+            .unwrap();
         let mut extra = value;
         extra["custom_pre_model_barrier"] = json!(true);
         assert!(decode::<Capabilities>(extra).is_err());
