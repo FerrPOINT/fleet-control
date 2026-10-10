@@ -13,7 +13,7 @@ Tracker and Workflow stay read-only; root Base foreign changes are untouched.
 | Owner | Current isolated write scope / deliverable | Handoff criterion |
 | --- | --- | --- |
 | Curie | Exact inherited Chats browser fixtures | Union source and19 preservation checks handed off;102 component cases pass; real browser execution remains required |
-| Pascal | Isolated activation authority-INSERT repair from7c7f9dd | Use authenticated runtime hint to find the actual cause; minimal regression and unchanged authority guards; no heavy/native execution |
+| Pascal | Exact-source backend gate preparation | Authority alias repair is reviewed/integrated by d71b14f; prepare Rust codegen and all original gates with22/25 lineages and14 activation PG cases; no local heavy/native execution |
 | Feynman | Independent read-only Forge diagnostic review | Backend union and Forge1310958 source reviews have no confirmed P1/P2 findings; two PM P2 findings sent to Planck; full12/native acceptance remains unproven |
 | Planck | Fleet PM tools and continuation, normal successor offc29a9d | Configure supported Hermes tools and implement answer delivery/checkpoint/rebind/new run; no extra Hermes authorization hook, duplicate unknown dispatch or frontend edits |
 | Parent | Fleet integration, exact-source controls, CI, documentation and publication | Review worker diffs; qualify source/control closure; normal history/push; authenticate terminal receipts before any acceptance claim |

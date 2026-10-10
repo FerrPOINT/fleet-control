@@ -4,14 +4,14 @@
 
 ### Current Integration Work
 
-Published runtime source is `7c7f9dd`. A separate, uncommitted normal merge with
-GitHub main `c39ff84` preserves both the standalone Chats delivery safeguards and
+Normal merge `9e0bb49` with GitHub main `c39ff84` is published and preserves
+both the standalone Chats delivery safeguards and
 the PM dialogue/clarification/requirements interface. Backend source review has
 no confirmed P1/P2 findings; six source checks and focused rustfmt pass. This is
 not compiled Rust/PostgreSQL acceptance. The added exact-row receipt regression
 also checks redaction on replay and dispatch.
 
-The pending union's merged OpenAPI generates its client successfully. The Base
+The union's merged OpenAPI generates its client successfully. The Base
 generated-client drift check and compatibility check against freshly fetched
 main `c39ff84` pass; four native capture-contract tests pass and retain45 views
 at each of three viewports. Documentation links pass across128 Markdown files.
@@ -35,7 +35,12 @@ the full/default-pool or browser suite, or produce fresh screenshots.
   `bcc0fa122c70956765852fba111673ff483b2c1a06b2b3052f0758bbc4aa2839`,
   identifies `activation_authorize_authority_insert`; both cleanup checks pass.
   The fixed label narrows the failing operation, not its SQL/schema root cause.
-  Investigation now targets that INSERT without weakening authority predicates.
+  Source repair `ec03093`, integrated by normal merge `d71b14f`, changes the
+  conflicting SQL alias `old` to `prior_authority` through additive migration021.
+  Historical migrations and authorization predicates are unchanged. Independent
+  review has no confirmed P1/P2 findings; eight source checks and rustfmt pass.
+  The three new Rust unit cases and one PostgreSQL regression remain unexecuted.
+  Canonical/split migration inventories are now22/25; activation PG inventory14.
 - Forge [run38032103574](https://github.com/FerrPOINT/CI-CD/actions/runs/38032103574),
   controls `b9375dc`: authenticated artifact11662920813, ZIP SHA256
   `c81ddfb2e17b6dc3a01eb254311d7419eaaa204117688b8a297ea093094ba1c0`,
@@ -48,13 +53,13 @@ the full/default-pool or browser suite, or produce fresh screenshots.
   checkpoint/resume are in work. Its written Rust/PG cases have not run.
 
 Parallel ownership: Curie handed off the inherited browser fixtures and19 source
-preservation checks; Feynman reviewed the Forge diagnostic successor without
-confirmed P1/P2 findings; Pascal fixes the localized activation INSERT;
+preservation checks; Feynman reviewed the Forge diagnostic successor and alias
+repair without confirmed P1/P2 findings; Pascal prepares exact-source backend gates;
 Planck implements PM
 tools and continuation. Parent owns the normal merge, final tests, docs and
 publication. Hermes itself is unchanged; no custom pre-model access gate is
 required. Tracker and Workflow remain read-only. Existing screenshots are
-historical evidence, not fresh screenshots of the pending union.
+historical evidence, not fresh screenshots of this union.
 
 ### Latest Verified Checkpoint
 
