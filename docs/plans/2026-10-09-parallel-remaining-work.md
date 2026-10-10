@@ -13,7 +13,7 @@ owned checkouts; Tracker and Workflow remain read-only references.
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
 | Pascal | Observe actual corrected backend run38008974895 | Baseline correction independently reviewed; controlsf34ed9b/source5d91b13 published with74/9/21/24/167/294 unchanged. Authenticate terminal safe artifact without raw logs or blind retry. |
-| Feynman | Observe fresh PR64 CI38008810511 | Normal dependency refresh820a1af is published, main-based/Draft/MERGEABLE. Check all five exact-head jobs and review status; no source/body/merge/ready changes or duplicate backend watch. |
+| Feynman | Completed fresh PR64 CI38008810511 watch | All five exact-head jobs SUCCESS on820a1af. Parent independently verifies head/jobs and zero review threads; main/Draft/CLEAN/MERGEABLE. No source/merge/ready changes or duplicate backend watch. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
 | Parent | Integrate reviewed fixes and qualify release evidence | Clarification baseline correction5d91b13 and controlsf34ed9b are published. Preserve pending run identity and every authority assertion; integrate terminal evidence only after independent verification. Maintain docs and release boundaries without duplicating the two CI watches. |
 
@@ -209,9 +209,10 @@ PR64 dependency refresh820a1af is also normally published after parent tree,
 patch-id and no-migration/UI/pin/lock checks. Metadata is main-based, Draft,
 MERGEABLE, with zero reviews/threads. The remote body preserves the existing
 three headings/comments/checklist and clearly distinguishes historical18-gate
-evidence from current source/light checks. Fresh exact-head CI38008810511 is
-confirmed live; docs and minimum-rust pass, three other jobs remain pending at
-this checkpoint. Feynman owns only this outcome watch, Pascal owns only the
+evidence from current source/light checks. Fresh exact-head CI38008810511 now
+completes SUCCESS on820a1af: all five jobs pass. Parent independently verifies
+head/jobs and zero review threads, then updates only PR64's body/checklist after
+remote template preflight. Feynman's watch is complete; Pascal still owns the
 separate full backend run. PR47 remains OPEN and a release dependency. No force,
 rebase, main merge or unrelated PR update is performed.
 

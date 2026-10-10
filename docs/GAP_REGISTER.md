@@ -46,7 +46,8 @@ open; no actual full backend PASS is claimed.
 The reviewed correction is now source5d91b13; published controlsf34ed9b preserve
 all74 gates/9 journal cases and exact pins. Actual38008974895 is in progress.
 Separate PR64 source conflicts are closed by normal dependency merge820a1af;
-its new CI38008810511 is in progress. It remains Draft, with PR47/live configuration
+its new CI38008810511 passes all five jobs on the exact head. It remains Draft,
+with PR47/live configuration
 acceptance dependencies unchanged. No native or live PM gap is closed by either
 source publication.
 

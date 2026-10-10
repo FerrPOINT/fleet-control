@@ -11,7 +11,7 @@ heads; they do not accept this assembly.
 | Current gate | Exact source / authority | State |
 | --- | --- | --- |
 | Combined backend | Source5d91b13, controlsf34ed9b, run38008974895 | In progress; no full backend acceptance |
-| Config release PR64 | Head820a1af, run38008810511, dependency PR47 at11f97aa | Fresh CI pending; Draft |
+| Config release PR64 | Head820a1af, run38008810511, dependency PR47 at11f97aa | All five CI jobs PASS; Draft, dependency/live gates open |
 | Production Chats presentation | Frontend tree13ccbaba, correction6c022f3 |42 unit cases and six three-engine fixture cases pass; no live PM acceptance |
 | PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
 | Forge full12 | Public-safe controls1dbedf8, maintenance pin commit null | Cannot start acceptance without published qualified Base inputs |
@@ -80,7 +80,13 @@ Separate config PR64 is normally refreshed to820a1af with latest dependencyPR47
 11f97aa, which contains actualmainb750e7b. Source merge conflicts are closed:
 GitHub reports MERGEABLE and zero reviews/threads. The owned config delta remains
 32 paths/identical patch-id, with no migration/UI/SDK/lock change. Fresh CI38008810511
-is in progress on820a1af; PR64 remains Draft and PR47 remains a release dependency.
+completes SUCCESS on820a1af: backend, frontend, containers, docs and minimum-rust.
+Parent independently verifies exact head and every job. The workflow includes
+Rust/default and selected PG checks, OpenAPI drift, three-browser fixture checks
+and container smoke, not the separate historical18-stage config packet. Fresh
+metadata remains main/Draft/CLEAN/MERGEABLE, with zero reviews/threads. The PR
+body now records current CI and retains its existing headings/checklist. PR47
+remains a release dependency; live Workflow/package/credentials remain open.
 This does not import or accept the combined Docker/native/admission tail.
 
 Current-client visual follow-up6c022f3 is normally merged asd5f18d0. Its two-file
