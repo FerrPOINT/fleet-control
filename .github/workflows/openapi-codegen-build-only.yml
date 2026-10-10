@@ -38,7 +38,7 @@ jobs:
       - name: Check out exact Fleet source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e
+          ref: f7d586be10a958f4f454c357831018250c779256
           path: fleet-control
           fetch-depth: 2
           persist-credentials: false
@@ -79,7 +79,7 @@ jobs:
           ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
         run: |
           {
-            printf 'Source: `%s`\n\n' 31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e
+            printf 'Source: `%s`\n\n' f7d586be10a958f4f454c357831018250c779256
             printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
             printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"
