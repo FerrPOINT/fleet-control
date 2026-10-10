@@ -112,8 +112,9 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_migration_snapshots(root, REVIEWED)
 
     def test_additive024_cannot_relabel_ce_codegen_or_execute_pending_binding(self):
-        preparation = REVIEWED["config_union_preparation"]
-        self.assertEqual(REVIEWED["openapi_binding"], dict(status="pending_authentic_codegen", sha256=None))
+        pending = json.loads(self.source_blob(gate.INVENTORY, "dab203a25290ec0ecacbdd0d1ee8fe0a9dc96aa3"))
+        preparation = pending["config_union_preparation"]
+        self.assertEqual(pending["openapi_binding"], dict(status="pending_authentic_codegen", sha256=None))
         self.assertIsNone(preparation["codegen_evidence"])
         self.assertTrue(preparation["authentic_union_codegen_pending"])
         old = preparation["prior_exact_source_codegen_evidence"]
@@ -121,12 +122,28 @@ class HostedBackendTests(unittest.TestCase):
                          ("ce4153f453e730dad1e315131d65ca030243264c", 38058114502, 11671964606))
         self.assertNotEqual(old["artifact_bound_source_commit"], gate.SOURCE_SHA)
         with mock.patch.object(gate, "hosted_identity", return_value=(Path("owned"), "a" * 40)), \
-                mock.patch.object(gate, "clean_head"), mock.patch.object(gate, "reviewed_inventory", return_value=REVIEWED), \
+                mock.patch.object(gate, "clean_head"), mock.patch.object(gate, "reviewed_inventory", return_value=pending), \
                 mock.patch.object(gate, "git") as git, mock.patch.object(gate.subprocess, "Popen") as spawn:
             with self.assertRaisesRegex(ValueError, "binding is pending"):
                 gate.preflight()
             git.assert_not_called()
             spawn.assert_not_called()
+        gate.require_codegen_binding(REVIEWED)
+        bound = REVIEWED["config_union_preparation"]
+        self.assertEqual(bound["prior_exact_source_codegen_evidence"], old)
+        self.assertFalse(bound["authentic_union_codegen_pending"])
+        self.assertFalse(bound["compiled_inventory_includes_pre_regen_schema"])
+        self.assertEqual(bound["codegen_evidence"], dict(
+            source_commit="3445d922852026bb7ca08ea42186ca7028c7968b",
+            artifact_bound_source_commit="3445d922852026bb7ca08ea42186ca7028c7968b",
+            workflow_commit="4e499316f9d314b2f34867d32d0d0275bc42af1e",
+            run_id=38063507780, run_attempt=1, artifact_id=11673994046,
+            artifact_zip_sha256="d01dc1107122396080f1e3573e9b8a716ffdc200d1f03a5e00836e27f7ce2e0e",
+            reported_by_parent=False,
+            schema_sha256="afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501",
+            source_file_count=305,
+            source_inventory_sha256="9afccf360d82e802eceddb5179ee17cfdd1627c876b854115e3ace62ac9df072",
+            source_tree="7a9b7eb5ba13d4fad53add90cc6de07c95b838b4"))
 
     def test_recovery_successor_preserves_all143_selectors_82_stages_and_exact_additive_wiring(self):
         import ast
@@ -1096,8 +1113,7 @@ class HostedBackendTests(unittest.TestCase):
             gate.require_codegen_binding(frozen)
         with mock.patch.object(gate, "OPENAPI_SHA", historical_schema):
             gate.require_codegen_binding(qualified)
-        with self.assertRaisesRegex(ValueError, "binding is pending"):
-            gate.require_codegen_binding(REVIEWED)
+        gate.require_codegen_binding(REVIEWED)
         gate.require_codegen_binding(self.synthetic_bound_inventory())
         self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", gate.SOURCE_SHA)), gate.OPENAPI_SHA)
         with mock.patch.object(gate, "OPENAPI_SHA", prior_schema), self.assertRaisesRegex(ValueError, "binding is pending"):
