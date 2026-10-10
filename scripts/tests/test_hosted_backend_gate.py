@@ -41,7 +41,11 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(gate.GATES.count("pm_recovery_pg"), 1)
         self.assertEqual(ast.literal_eval(after["DATABASES"]), ast.literal_eval(before["DATABASES"]) + ("fleet_pm_recovery_test",))
         self.assertEqual(ast.literal_eval(after["URLS"]), dict(ast.literal_eval(before["URLS"]), FLEET_PM_RECOVERY_TEST_DATABASE_URL="fleet_pm_recovery_test"))
-        for name in before.keys() - {"SOURCE_SHA", "SOURCE_INVENTORY_SHA", "GATES", "DATABASES", "URLS"}:
+        self.assertEqual(ast.literal_eval(before["OPENAPI_SHA"]),
+                         "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76")
+        self.assertEqual(ast.literal_eval(after["OPENAPI_SHA"]),
+                         "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501")
+        for name in before.keys() - {"SOURCE_SHA", "SOURCE_INVENTORY_SHA", "OPENAPI_SHA", "GATES", "DATABASES", "URLS"}:
             self.assertEqual(ast.dump(before[name]), ast.dump(after[name]), name)
         selectors = lambda tree: {node.name for node in ast.walk(tree)
             if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
@@ -184,7 +188,8 @@ class HostedBackendTests(unittest.TestCase):
                          (38048577514, 1, 11667814381))
         self.assertEqual(evidence["workflow_commit"], "eed4bc54149e1b317c5eb3e3e7c628eeaffbdea4")
         self.assertEqual(evidence["artifact_zip_sha256"], "88460dd3e78b1eac14fe224d3c9b2bc1360618c0211d435cd9883c8ffd06b0c6")
-        self.assertEqual(evidence["schema_sha256"], gate.OPENAPI_SHA)
+        historical_schema = "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76"
+        self.assertEqual(evidence["schema_sha256"], historical_schema)
         self.assertEqual(set(evidence["source_delta"]), {"backend/infra/src/runtime/pm_recovery_pg_tests.rs",
             "backend/infra/src/runtime/pm_recovery_tests.rs", "docs/CURRENT_STATE.md", "docs/GAP_REGISTER.md",
             "docs/TESTING.md", "docs/contracts/CHAT_CLARIFICATION_CONTRACT.md"})
@@ -220,7 +225,8 @@ class HostedBackendTests(unittest.TestCase):
         for path in git("ls-tree", "-r", "--name-only", target, "--", "backend").decode().splitlines():
             if path.endswith("/build.rs") or "rust-toolchain" in path or path.endswith("/Cargo.toml"):
                 self.assertIn(path, closure)
-        gate.require_codegen_binding(frozen)
+        with mock.patch.object(gate, "OPENAPI_SHA", historical_schema):
+            gate.require_codegen_binding(frozen)
         pending = json.loads(self.source_blob(gate.INVENTORY, "e7a357f895617b057840a8c0d42d8552e2425d66"))
         self.assertEqual(pending["openapi_binding"], dict(status="pending_authentic_codegen", sha256=None))
         self.assertIsNone(pending["config_union_preparation"]["codegen_evidence"])
@@ -233,18 +239,24 @@ class HostedBackendTests(unittest.TestCase):
             workflow_commit="91a1c48c7a3f0cfad33586fb55c45f47ff864bc2", run_id=38052082418,
             run_attempt=1, artifact_id=11669374937,
             artifact_zip_sha256="8283b599e66dc66d5a05e961ae2b59bc5dffc1c408f7d2f35352608198730701",
-            reported_by_parent=True, schema_sha256=gate.OPENAPI_SHA,
+            reported_by_parent=True, schema_sha256=historical_schema,
             source_file_count=303,
             source_inventory_sha256="4ab1c70324a3b184096a69ed1dbdd72bcbf5f993fbdc1ecc6b01fb643f650457",
             source_tree="b975beb628bb68c03fb5bce45e7c43085837e41f"))
         self.assertEqual(REVIEWED["config_union_preparation"]["prior_exact_source_codegen_evidence"],
                          qualified["config_union_preparation"]["codegen_evidence"])
-        self.assertEqual(REVIEWED["openapi_binding"], dict(status="pending_authentic_codegen", sha256=None))
-        self.assertIsNone(REVIEWED["config_union_preparation"]["codegen_evidence"])
-        self.assertTrue(REVIEWED["config_union_preparation"]["authentic_union_codegen_pending"])
-        self.assertTrue(REVIEWED["config_union_preparation"]["compiled_inventory_includes_pre_regen_schema"])
-        with self.assertRaisesRegex(ValueError, "binding is pending"):
-            gate.require_codegen_binding(REVIEWED)
+        self.assertEqual(REVIEWED["openapi_binding"], dict(status="verified", sha256=gate.OPENAPI_SHA))
+        self.assertEqual(REVIEWED["config_union_preparation"]["codegen_evidence"], dict(
+            source_commit=gate.SOURCE_SHA, artifact_bound_source_commit=gate.SOURCE_SHA,
+            workflow_commit="e8fd29e4d45c749ac601d743a09400867f9635e6", run_id=38058114502,
+            run_attempt=1, artifact_id=11671964606,
+            artifact_zip_sha256="d209ef81e0f962dae8f1465852a0b06dcb6faacdd350ff85b5fda95a980c75cf",
+            reported_by_parent=True, schema_sha256=gate.OPENAPI_SHA, source_file_count=303,
+            source_inventory_sha256="95ab4d1ff7b20675b38dfdab686360ab6348bde52409b92849c60475b35a5546",
+            source_tree="67ea7aa66bf66f803226abbd4893be7517ca3317"))
+        self.assertFalse(REVIEWED["config_union_preparation"]["authentic_union_codegen_pending"])
+        self.assertFalse(REVIEWED["config_union_preparation"]["compiled_inventory_includes_pre_regen_schema"])
+        gate.require_codegen_binding(REVIEWED)
 
     def synthetic_bound_inventory(self):
         return dict(REVIEWED, openapi_binding=dict(status="verified", sha256=gate.OPENAPI_SHA))
@@ -458,9 +470,11 @@ class HostedBackendTests(unittest.TestCase):
             artifact_bound_source_commit=frozen_source, reported_by_parent=True,
             binding_kind="verified_code_parity", source_delta=sorted(delta)))
         self.assertNotEqual(source, frozen_source)  # Artifact was produced on f7, not directly on d458.
-        self.assertEqual(frozen["openapi_binding"], dict(status="verified", sha256=gate.OPENAPI_SHA))
-        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", frozen_source)), gate.OPENAPI_SHA)
-        gate.require_codegen_binding(frozen)
+        historical_schema = "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76"
+        self.assertEqual(frozen["openapi_binding"], dict(status="verified", sha256=historical_schema))
+        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", frozen_source)), historical_schema)
+        with mock.patch.object(gate, "OPENAPI_SHA", historical_schema):
+            gate.require_codegen_binding(frozen)
         for old in ("ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c",
                     "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953"):
             with mock.patch.object(gate, "OPENAPI_SHA", old), self.assertRaises(ValueError):
@@ -957,18 +971,20 @@ class HostedBackendTests(unittest.TestCase):
                 self.assertEqual("#[ignore" in attrs, record.get("ignored", True))
 
     def test_authentic_codegen_binding_and_missing_ancestry_fail_before_private_or_heavy_effects(self):
-        self.assertEqual(gate.OPENAPI_SHA, "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76")
+        self.assertEqual(gate.OPENAPI_SHA, "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501")
         prior_schema = "ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c"
         frozen = json.loads(self.source_blob(gate.INVENTORY, "0d1e5a4361610c0a0728137731f54fa5ab12c481"))
         self.assertEqual(frozen["openapi_binding"], dict(status="verified", sha256=prior_schema))
         self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", frozen["source_commit"])), prior_schema)
         qualified = json.loads(self.source_blob(gate.INVENTORY, "566a5db30842e43e6552d8da8c2138145cf7ed71"))
-        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", qualified["source_commit"])), gate.OPENAPI_SHA)
+        historical_schema = "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76"
+        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", qualified["source_commit"])), historical_schema)
         with mock.patch.object(gate, "OPENAPI_SHA", prior_schema):
             gate.require_codegen_binding(frozen)
-        gate.require_codegen_binding(qualified)
-        with self.assertRaisesRegex(ValueError, "binding is pending"):
-            gate.require_codegen_binding(REVIEWED)
+        with mock.patch.object(gate, "OPENAPI_SHA", historical_schema):
+            gate.require_codegen_binding(qualified)
+        gate.require_codegen_binding(REVIEWED)
+        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", gate.SOURCE_SHA)), gate.OPENAPI_SHA)
         with mock.patch.object(gate, "OPENAPI_SHA", prior_schema), self.assertRaisesRegex(ValueError, "binding is pending"):
             gate.require_codegen_binding(REVIEWED)
         evidence = REVIEWED["config_union_preparation"]["prior_codegen_evidence"]

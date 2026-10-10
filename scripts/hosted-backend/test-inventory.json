@@ -415,9 +415,22 @@
   "config_union_preparation": {
     "activation_diagnostic_commit": "ab222f0499de5d2394cff6d32af659bc3c94396e",
     "activation_intent_cases": 20,
-    "authentic_union_codegen_pending": true,
-    "codegen_evidence": null,
-    "compiled_inventory_includes_pre_regen_schema": true,
+    "authentic_union_codegen_pending": false,
+    "codegen_evidence": {
+      "artifact_bound_source_commit": "ce4153f453e730dad1e315131d65ca030243264c",
+      "artifact_id": 11671964606,
+      "artifact_zip_sha256": "d209ef81e0f962dae8f1465852a0b06dcb6faacdd350ff85b5fda95a980c75cf",
+      "reported_by_parent": true,
+      "run_attempt": 1,
+      "run_id": 38058114502,
+      "schema_sha256": "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501",
+      "source_commit": "ce4153f453e730dad1e315131d65ca030243264c",
+      "source_file_count": 303,
+      "source_inventory_sha256": "95ab4d1ff7b20675b38dfdab686360ab6348bde52409b92849c60475b35a5546",
+      "source_tree": "67ea7aa66bf66f803226abbd4893be7517ca3317",
+      "workflow_commit": "e8fd29e4d45c749ac601d743a09400867f9635e6"
+    },
+    "compiled_inventory_includes_pre_regen_schema": false,
     "controls_donor": "a7d7db205ee2ef7e480b5dc559156ad373135180",
     "executed": false,
     "final_qualified_source_pending": false,
@@ -2731,8 +2744,8 @@
     ]
   },
   "openapi_binding": {
-    "sha256": null,
-    "status": "pending_authentic_codegen"
+    "sha256": "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501",
+    "status": "verified"
   },
   "package_input": {
     "commit": "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58",
