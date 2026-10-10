@@ -1,5 +1,23 @@
 # Testing
 
+## PM Human Controls Candidate
+
+Current qualification must execute the five isolated PG/HTTP tests in
+`backend/infra/tests/support/pm_human_controls.rs`, in addition to all inherited
+PM, dispatch, configuration, migration and authorization tests. The history
+matrix covers proven continuation A followed by checkpoint B, missing Workflow
+proof, altered source-answer/checkpoint/execution/fence/native custody, repeated
+migration refusal and rollback preserving022 history. Source inspection and
+balanced SQL parentheses do not qualify those database behaviors.
+
+Frontend regressions cover malformed non-string delivery/continuation enums,
+original-ID pending recovery and Stop after owner/session/project/control
+revocation. Session403 must remove the action with the denied view; stale
+capabilities cannot authorize a dispatch or new journal entry. The19 direct
+validator assertions and ESLint/format checks passed locally; the new component
+tests and current three-browser suite still require executable qualification.
+API codegen does not compile infra/runtime; workspace checking is separate.
+
 ## Activation Fixture Canonical Hash Regression
 
 Authenticated failure receipt11658528950 from run38021438217/sourcee369fed
