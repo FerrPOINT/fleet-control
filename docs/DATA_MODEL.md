@@ -344,6 +344,14 @@ terminal state. Both paths lock the PM binding before the runtime run. A mapping
 mismatch rolls back proof and run state together. This never advances Tracker;
 business completion still requires its own workflow/requirements receipts.
 
+PM creation's public state is a projection, not a second run ledger. The original
+operation retains its task/chat identity. A submitted `pm_dispatch_journal`
+intent projects `awaiting_runtime_acceptance`; a saved native run reference
+projects `runtime_accepted`. Only the latter sets `dispatch_allowed=true`, and
+neither state proves terminal runtime execution or Tracker business completion.
+The frontend validates the exact state/step/boolean and task/session identity
+combination, including on same-operation recovery.
+
 ## Tracker Event Inbox
 
 The same single pending migration adds `tracker_event_cursors` and

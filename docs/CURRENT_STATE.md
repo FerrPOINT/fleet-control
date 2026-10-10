@@ -33,8 +33,8 @@ remain authoritative for later completion.
 | Backend, source32b | [38037641800](https://github.com/FerrPOINT/fleet-control/actions/runs/38037641800), controls6f23fd84, terminal FAIL; authenticated artifact11664703020 identifies one activation PG failure at `container_activation.rs:1483`; scratch/DB cleanup pass | Test-only correction merged, isolated PG execution and complete current-source full81 success pending |
 | Frontend, PM source830 | [38040245406](https://github.com/FerrPOINT/fleet-control/actions/runs/38040245406), controlsa5c0142, terminal FAIL after20 gates; strict artifact11665915258 readback identifies `chats-directory.spec.ts:59` in Chromium after the SSO/CORS repair; private cleanup passes | Exact browser failure repair, all engines, captures and visual acceptance; fail-fast leaves the other engines unexecuted |
 | PM integration | Shared stream/final persistence/restart attachment, typed continuation and phase cursor/report replay fixes merged; production Rust codegen compiles | Owner controls, delivered-answer resume discovery, Rust tests/PG/HTTP/live flow; source checks are not runtime acceptance |
-| Forge | [38040722608](https://github.com/FerrPOINT/CI-CD/actions/runs/38040722608), controls970f785, published diagnostic successor; current run must be read for its result | Prior authenticated failure38039120713 stopped between project creation and cache seal; exact step, physical per-stage limit readback and full12 receipt remain open |
-| Base maintenance | Draft [PR183](https://github.com/FerrPOINT/services-base/pull/183), exact43d0205;92 focused checks | Private CI, native installation and consumer acceptance; no installed packet promotion |
+| Forge | [38040722608](https://github.com/FerrPOINT/CI-CD/actions/runs/38040722608), controls970f785, terminal FAIL; strict artifact11666385445 readback identifies `cache_prepare`; cleanup/daemon stop pass, all first-job stages NOT_RUN | Cache preparation repair, physical per-stage limit readback and full12 receipt |
+| Base maintenance | Draft [PR183](https://github.com/FerrPOINT/services-base/pull/183), exact43d0205;92 focused checks; run38030482035 has10 no-runner/no-step jobs with billing/spending-limit annotations | Private CI has not tested this head; native installation and consumer acceptance remain; no installed packet promotion |
 
 Frontend controlsa5c0142 retain all23 gates, source blobs, three browser engines,
 timeouts and assertions. `--max-failures=1` only stops after an actual failure;
@@ -44,6 +44,11 @@ Forge controls970f785 preserve the runtime-only delegation drop-in and actual
 container CPU/memory/PID readback, adding closed diagnostic labels only. All12
 stages, product/SDK inputs and budgets remain. Parent repeats178 control tests:
 171 pass,7 explicit Linux-only skips. These are not native/full12 success.
+
+The PM creation API client now validates the authentic runtime-acceptance states;
+77 one-shot assertions execute its transpiled source with mocked HTTP/error
+dependencies. Three added Vitest cases still require the full frontend gate.
+The creation form remains a separate preview, not a production Chats entrypoint.
 
 ## Release Decision
 

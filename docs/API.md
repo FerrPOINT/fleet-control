@@ -194,14 +194,21 @@ Base path: `/api/v1`.
 - `POST /projects/{project_id}/pm-drafts`: opt-in verified human owner creation;
   accepts `agent_id`, `title`, `description`, `idempotency_key`. The operation is
   persisted before Tracker HTTP, recovers Draft/reservation through authoritative
-  readback, and atomically creates a private task-bound PM chat. `202` means
-  `awaiting_admission`, with `dispatch_allowed=false`, not an active PM run.
+  readback, and atomically creates a private task-bound PM chat. With dispatch
+  disabled, `202` returns `awaiting_admission` and `dispatch_allowed=false`.
+  With opt-in PM dispatch enabled, a submitted intent returns
+  `awaiting_runtime_acceptance` (`dispatch_allowed=false`) until native acceptance
+  is known, then `runtime_accepted` (`dispatch_allowed=true`). Both runtime states
+  require task/session IDs and `next_step=runtime`. Acceptance is not terminal
+  execution, workflow completion, requirements confirmation or task completion.
   Reuse the exact request/key after an interrupted response; changed payload is
   `409`. Human credentials are request-local and never saved for unattended retries.
   Each POST, including replay, first verifies the concrete agent's namespace via
   fresh Workflow ownership readback with a separate server-only machine PAT.
   Foreign project mapping is `409`; unavailable/denied/invalid ownership is `503`.
-  This is not full admission and does not enable dispatch. See [ENV](ENV.md).
+  Namespace ownership alone is not full admission; enabled dispatch independently
+  checks current assignment, configuration and workflow before the native request.
+  See [ENV](ENV.md).
 - `GET /pm-drafts/operations/{operation_id}`: owner-only, fresh human/project
   access; returns historical creation state, IDs and no original input or machine
   credentials. It is not current workflow or admission authority and never
@@ -215,7 +222,9 @@ Base path: `/api/v1`.
   `{}` (arrays, null, fields and nonobjects are `422`); continue the persisted
   original operation without accepting replacement input, agent or command key.
   Rechecks human identity, owner, current project access, rollout and namespace.
-  Returns `202` with existing incomplete/awaiting-admission state, never a run.
+  Returns `202` with the current creation/runtime-acceptance projection. It reuses
+  the saved operation and dispatch custody; an unknown native acceptance is not
+  permission to submit a new native run.
 - `GET /pm-drafts/projects?after={canonicalUuid}`: verified human project choices
   from Tracker's strict `/api/v1/sdlc/project-directory`, with no legacy directory
   fallback. Returns `enabled`, `tracker_instance_id`, `projects` (ID/key/name)

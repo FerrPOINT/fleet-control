@@ -391,8 +391,9 @@ class SourceContracts(unittest.TestCase):
             self.assertNotRegex(body, r"\b(?:it|test|describe)\.(?:skip|only|todo)\b")
         # Parent's actual focused 102 = detail 60 + directory 19 + core 18 + binding 5.
         # Only those four files differ from the hosted 355/36 baseline: 355 - 60 - 15 + 102.
-        self.assertEqual(gate.QUALIFIED_UNIT_COUNTS,
-                         dict(files_passed=38, tests_passed=355 - 60 - 15 + 102, files_skipped=0, tests_skipped=0))
+        historical_helper = gate.git(ROOT, "show", "a5c01429e7db8a71db6b7629fa9f11256cb618b0:scripts/hosted_frontend_gate.py").decode()
+        self.assertIn(f"QUALIFIED_UNIT_COUNTS = dict(files_passed=38, tests_passed={355 - 60 - 15 + 102}, files_skipped=0, tests_skipped=0)",
+                      historical_helper)
         self.assertEqual(gate.git(ROOT, "diff", "--exit-code", union, frozen,
                                   "--", "frontend/playwright.config.ts"), b"")
 
@@ -424,27 +425,61 @@ class SourceContracts(unittest.TestCase):
         self.assertRegex(current, r"contentType: 'text/event-stream',\s+headers,")
 
     def test_directory_messages_successor_exact_source_and_preserved_assertions(self):
-        self.assertEqual(gate.SOURCE_SHA, "089ee0c7066adf459849556f511d81dc859cb6c3")
-        self.assertEqual(gate.SOURCE_TREE, "8f288ba7db64911fc5ca8f3703ee981528e557f6")
-        self.assertEqual(gate.SOURCE_PARENTS, ["facb25b9eae66db0c8b762ab68a5963422edf58f",
-                                             "a8b045a080dd11da9827279c7cd79088f30542e7"])
-        gate.qualify_source(ROOT)
-        inventory = git_blob_inventory(gate.SOURCE_SHA)
+        source = "089ee0c7066adf459849556f511d81dc859cb6c3"
+        self.assertEqual(gate.git(ROOT, "show", "-s", "--format=%T %P", source).decode().strip(),
+                         "8f288ba7db64911fc5ca8f3703ee981528e557f6 facb25b9eae66db0c8b762ab68a5963422edf58f a8b045a080dd11da9827279c7cd79088f30542e7")
+        inventory = git_blob_inventory(source)
         self.assertEqual(len(inventory), 885)
-        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
-        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
+        self.assertEqual(gate.digest(gate.canonical(inventory)),
+                         "53a917fdffc74d764532760ad1b80ac2e97df2b054ab63c6c6617d034319ad6a")
         previous = "83091f055e3b34fcfe6a6d59b1703c117261c027"
         path = "frontend/e2e/chats-directory.spec.ts"
-        self.assertEqual(gate.git(ROOT, "diff", "--name-only", previous, gate.SOURCE_SHA,
+        self.assertEqual(gate.git(ROOT, "diff", "--name-only", previous, source,
                                   "--", "frontend", "openapi").decode().splitlines(),
                          [path, "openapi/openapi.json"])
         old = gate.git(ROOT, "show", previous + ":" + path).decode()
-        current = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + path).decode()
+        current = gate.git(ROOT, "show", source + ":" + path).decode()
         self.assertEqual(gate.digest(current.encode()), "0cb8a1963ec1fb2c5ab73a2077d1318150ae83fd6dbe51a08c257bfcf0373401")
         added = "    if (url.pathname === `/api/v1/sessions/${last}/messages` && route.request().method() === 'GET')\n      return reply([])\n"
         self.assertEqual(current.replace(added, "", 1), old)
         self.assertEqual(current.count("expect("), 27)
         self.assertLess(current.index(added), current.index("if (url.pathname !== '/api/v1/chats/directory') return reply({})"))
+
+    def test_pm_decoder_successor_preserves_all_units_and_adds_three_cases(self):
+        self.assertEqual(gate.SOURCE_SHA, "34ee5f0b8f4c7f65d9b1f1503b38c21316c1b49b")
+        self.assertEqual(gate.SOURCE_TREE, "fc74ed299d89cc872874ae7314eb2f3a16de419b")
+        self.assertEqual(gate.SOURCE_PARENTS, ["089ee0c7066adf459849556f511d81dc859cb6c3"])
+        gate.qualify_source(ROOT)
+        inventory = git_blob_inventory(gate.SOURCE_SHA)
+        self.assertEqual(len(inventory), 885)
+        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
+        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
+        previous = gate.SOURCE_PARENTS[0]
+        prior = git_blob_inventory(previous)
+        tests = lambda items: {p: h for p, h in items.items()
+                               if re.fullmatch(r"frontend/src/.+\.test\.(ts|tsx)", p)}
+        old_tests, new_tests = tests(prior), tests(inventory)
+        self.assertEqual(set(new_tests), set(old_tests))
+        self.assertEqual(len(new_tests), 38)
+        path = "frontend/src/api/pm-drafts.test.ts"
+        self.assertEqual({p for p in new_tests if new_tests[p] != old_tests[p]}, {path})
+        old = gate.git(ROOT, "show", previous + ":" + path).decode()
+        current = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + path).decode()
+        self.assertEqual(gate.digest(current.encode()), "cbe9af9b55ae82bc231321eb129adbbf7917df2d05cfacd6ce551403f49182cc")
+        start = current.index("  it.each(['awaiting_runtime_acceptance', 'runtime_accepted'] as const)(")
+        end = current.index("  it('rejects invented dispatch, incomplete identities and invalid partial-success states'")
+        self.assertEqual(current[:start] + current[end:], old)
+        addition = current[start:end]
+        self.assertEqual(len(re.findall(r"\bit\(", old)), 5)
+        self.assertEqual(len(re.findall(r"\bit\(", addition)), 1)
+        self.assertEqual(re.findall(r"\bit\.each\((.*?)\)\(", addition, re.S),
+                         ["['awaiting_runtime_acceptance', 'runtime_accepted'] as const"])
+        self.assertNotRegex(addition, r"\b(?:it|test|describe)\.(?:skip|only|todo)\b")
+        for p in prior:
+            if p.startswith("frontend/e2e/") or p in ("frontend/playwright.config.ts", "openapi/openapi.json"):
+                self.assertEqual(inventory[p], prior[p], p)
+        self.assertEqual(gate.QUALIFIED_UNIT_COUNTS,
+                         dict(files_passed=38, tests_passed=382 + 2 + 1, files_skipped=0, tests_skipped=0))
 
 
 class CompletionContracts(unittest.TestCase):
@@ -459,7 +494,8 @@ class CompletionContracts(unittest.TestCase):
                          dict(files_passed=2, tests_passed=8, files_skipped=0, tests_skipped=1))
 
     def test_exact_frozen_baseline_counts(self):
-        self.assertEqual(gate.unit_counts(b"Test Files 38 passed (38)\nTests 382 passed (382)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertEqual(gate.unit_counts(b"Test Files 38 passed (38)\nTests 385 passed (385)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertNotEqual(gate.unit_counts(b"Test Files 38 passed (38)\nTests 382 passed (382)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 355 passed (355)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 348 passed (348)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 337 passed (337)"), gate.QUALIFIED_UNIT_COUNTS)
