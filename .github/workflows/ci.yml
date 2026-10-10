@@ -293,14 +293,15 @@ jobs:
           sha256sum "$binary" > "$RUNNER_TEMP/pm-auth-evidence/auth-binary.sha256"
           echo "FLEET_REAL_AUTH_TEST_BINARY=$binary" >> "$GITHUB_ENV"
           echo "FLEET_REAL_AUTH_TEST_BINARY_SHA256=$(sha256sum "$binary" | awk '{print $1}')" >> "$GITHUB_ENV"
-      - name: Require real Fleet issuance replay conflict and revoke
+      - name: Require real Fleet issuance replay conflict revoke expiry and restart
         run: |
           set -euo pipefail
           cargo test --locked --manifest-path "$RUNNER_TEMP/pm-auth-source/fleet-control/backend/Cargo.toml" -p infra --test pm_credentials_real_auth -- --ignored --test-threads=1 > "$RUNNER_TEMP/pm-auth-evidence/consumer.log" 2>&1
           grep -Fx 'test real_base_delegation_wire_replay_conflict_and_revoke_match_fleet ... ok' "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
-          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
+          grep -Fx 'test real_base_expired_children_replay_without_minting_and_are_rejected_by_fleet ... ok' "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
+          grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
           sha256sum --check "$RUNNER_TEMP/pm-auth-evidence/sources.sha256"
-          printf 'real_base_delegation_wire_replay_conflict_and_revoke_match_fleet: 1 passed; 0 failed; 0 ignored\n' > "$RUNNER_TEMP/pm-auth-evidence/consumer-result.txt"
+          printf '%s\n' 'real_base_delegation_wire_replay_conflict_and_revoke_match_fleet: passed' 'real_base_expired_children_replay_without_minting_and_are_rejected_by_fleet: passed' '2 passed; 0 failed; 0 ignored' > "$RUNNER_TEMP/pm-auth-evidence/consumer-result.txt"
       - name: Preserve non-secret source and consumer evidence only
         if: always()
         uses: actions/upload-artifact@v7
