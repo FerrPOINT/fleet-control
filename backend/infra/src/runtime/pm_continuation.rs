@@ -194,7 +194,6 @@ pub(super) async fn resume(
         .await?
         .ok_or_else(unavailable)?;
     workflow.verify_intent(&intent)?;
-    pm_dispatch::verify_context(supervisor, &agent, &intent).await?;
     let status = supervisor.probe_pm_run(&agent, &old).await?;
     if !status.terminal() {
         stop_once(supervisor, &agent, &old, &intent, &key).await?;
@@ -282,7 +281,7 @@ pub(super) async fn resume(
         serde_json::to_string(answer).map_err(|_| unavailable())?
     );
     crate::pm_tool_config::reject_server_secrets(&input, &supervisor.config)?;
-    let next = PmDispatchIntent {
+    let mut next = PmDispatchIntent {
         session_run_id: saved.id,
         request_body: serde_json::to_string(
             &json!({"input":input,"session_id":reservation.runtime_session_id()}),
@@ -292,6 +291,27 @@ pub(super) async fn resume(
         hermes_run_ref: None,
         ..intent.clone()
     };
+    if let Some(original) = supervisor.repo.get_pm_dispatch(saved.id).await? {
+        if original.request_body != next.request_body
+            || original.workflow_assignment != next.workflow_assignment
+            || original.workflow_origin != next.workflow_origin
+            || original.workflow_credential_fingerprint != next.workflow_credential_fingerprint
+        {
+            return Err(AppError::conflict("PM continuation custody changed"));
+        }
+        next = original;
+        next.submitted = false;
+        next.hermes_run_ref = None;
+    } else {
+        next.origin = supervisor.hermes_base_url(&agent).await?;
+        next.credential_fingerprint = hermes_wire::credential_fingerprint(
+            &crate::agent_runtime_token(&supervisor.config, agent.id)?,
+        );
+        next.runtime_context = json!({});
+        supervisor
+            .bind_container_dispatch(&agent, &mut next.runtime_context)
+            .await?;
+    }
     let next = pm_recovery::prepare(supervisor, &agent, next).await?;
     let base = pm_dispatch::verify_context(supervisor, &agent, &next).await?;
     let token = crate::agent_runtime_token(&supervisor.config, agent.id)?;

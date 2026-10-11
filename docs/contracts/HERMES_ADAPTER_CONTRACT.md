@@ -31,6 +31,22 @@ free-form launch remains unsupported under the inspected Workflow contract.
 This source integration is not native/live acceptance; no Hermes patch or
 custom pre-model handshake is required.
 
+The source-frozen shared-probe candidate retains strict original terminal custody for
+PM callback and continuation after successful replacement or rollback. It
+rechecks the original reservation, accepted dispatch/run/session mapping and
+current task custody; incomplete or nonterminal evidence still takes the strict
+native probe path. Fresh owner/project, Tracker/Workflow and configuration
+checks remain. Current runtime pins apply only before a new continuation intent's
+first prepare; persisted intents are not repinned. Historical terminal proof
+does not commit a missing transcript mirror or establish business success.
+Cached Stopped/Cancelled/Failed needs no mirror commit, but Completed may use
+the shortcut only with `terminal_committed=true`; otherwise its historical
+mandatory flags remain unproven and original strict native readback is required.
+Unavailable proof after replacement remains held, without fabricating a marker.
+Independent source review passed; PostgreSQL/native qualification remains pending.
+Controlled HTTP/repository activation and origin fixtures are not physical
+Docker generation/replacement qualification.
+
 Disabling new PM dispatch does not disable the read-only follower of an already
 submitted, acknowledged run. Original runtime/session pins and terminal-once
 guards remain mandatory; an unknown ACK never authorizes a replacement POST.

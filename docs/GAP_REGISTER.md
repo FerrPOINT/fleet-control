@@ -12,12 +12,12 @@ workstreams without duplicating the history of every qualification attempt.
 | Gate                     | Current limitation                                                                                                                                                                                                                                                | Exit evidence                                                                                                                                                                                                              |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Combined source          | Chats foundation and PM runtime assembly are normally merged; reviewed corrections, actual-controller regressions and new projection still require combined-source qualification                                                                                  | Reviewed normal merge preserving both histories, task-bound access, paginated private history, owner controls and original command custody                                                                                 |
-| Agents/configuration     | Native257 build failure remains UNKNOWN/TAIL. Local available commit2.09GiB is below6GiB; C:54.70GiB passes host disk floor but daemon free disk is unconfirmed. Grouping audit35/0/0 passes; no QA launched                                                      | Path/marker/junction safety, real two-agent isolation, readiness, drain/activation/interrupted recovery/rollback; peer unchanged and no replacement under an active run                                                    |
+| Agents/configuration     | Native257 remains UNKNOWN/TAIL. Latest known observation2026-10-11 01:49UTC: available commit2.990GiB<6GiB, physical18.664GiB; C:53.760GiB>=30GiB. Daemon free disk unconfirmed; no QA launched                                                                   | Path/marker/junction safety, real two-agent isolation, readiness, drain/activation/interrupted recovery/rollback; peer unchanged and no replacement under an active run                                                    |
 | Tracker assignments      | Dedicated PM path exists; no generic seven-role execution consumer. Analysis reservation is not dispatch authority; other non-PM lifecycles remain producer gaps                                                                                                  | Compatible producer-backed ownership, assignment, effective config, lease/fence, heartbeat and first step; stale/replaced execution cannot perform side effects                                                            |
 | Hermes dispatch/recovery | Bounded original-key PM replay is reviewed, not fully production-path qualified                                                                                                                                                                                   | Original request/key survives crash/unknown acceptance; one native run; durable stream/final mirror once; EOF never implies completion                                                                                     |
-| PM tools                 | Exact-run instruction receipt gates new question/revision claims; older5bc passed check/strict Clippy, not complete PG/HTTP qualification. Latest6843/source8f failed check3/84 with no retained cause                                                            | Real scoped Tracker/Workflow/Base calls; current-run receipt before publication, no owner impersonation; current assignment checked; retries retain immutable body/key                                                     |
-| PM continuation          | Delivered-pending discovery/original-ID recovery exist; unprovable legacy delivered history blocks023 upgrade                                                                                                                                                     | PG/HTTP and historical-data rehearsal; real old-run terminal/safe-stop proof and exact checkpoint/rebind before confirmed continuation                                                                                     |
-| PM stream/controls       | Latest6843/source8f run38097365328/1 FAIL check3/84 exit101, unknown/empty diagnostics, untruncated, both cleanups true; PG not reached. PM recovery13 PASS belongs only to historical50cb/source5bc                                                              | Complete Rust/PG gate, actual delta/final/reconnect, owner stop/steer, safe-stop readback and audited run/action-bound approvals                                                                                           |
+| PM tools                 | Exact-run instruction receipt gates new question/revision claims; latest terminal8090/source300c failed foundation11/84 after check/Clippy/credentials PG completed in order, not complete PG/HTTP qualification                                                  | Real scoped Tracker/Workflow/Base calls; current-run receipt before publication, no owner impersonation; current assignment checked; retries retain immutable body/key                                                     |
+| PM continuation          | Delivered-pending discovery/original-ID recovery exist; reviewed4d4 adds strict historical terminal custody, not PG/native qualification. Unprovable legacy delivered history still blocks023 upgrade                                                             | PG/HTTP and historical-data rehearsal; real old-run terminal/safe-stop proof and exact checkpoint/rebind before confirmed continuation                                                                                     |
+| PM stream/controls       | 8090/source300c run38102509149/1 FAIL foundation11/84 exit101, test_failure at backend/infra/tests/support/pm_events.rs:296:9, readable/untruncated, both cleanups true; no assertion reason. Historical50cb/source5bc PM13 PASS does not qualify4d4              | Complete Rust/PG gate, actual delta/final/reconnect, owner stop/steer, safe-stop readback and audited run/action-bound approvals                                                                                           |
 | Idle PM dialogue         | Explicit capability restriction and disabled composer are implemented; server/live qualification remains pending                                                                                                                                                  | Verify the existing restriction; arbitrary idle turns must not fabricate a question/checkpoint or silently fall back to private-chat dispatch                                                                              |
 | Production Chats         | Actualaca/fc0 passes all23 gates and461 units with strict artifact readback; all three browsers pass47 tests with zero flaky and nine live-only skips each. Confirmation warning regression and selected corrected captures pass. Creation form remains a preview | Reviewed production creation/recovery entrypoint, agent-to-task navigation, filters, owner-only actions, preserved drafts, explicit partial success and foreign-user/count/stream denial; complete live-service acceptance |
 | Requirements             | Gateway and exact-revision UI are not live vertical acceptance                                                                                                                                                                                                    | Real questions/answers/final document, owner exact revision/hash confirmation and actual Tracker Backlog; stale revision and operator proxy rejected                                                                       |
@@ -27,12 +27,15 @@ workstreams without duplicating the history of every qualification attempt.
 | Docs/screens/release     | Qualifiedaca 135 catalogue and9 PM views imported from authenticated artifact11677891567 with route/hash manifests; selected corrected mobile/desktop views reviewed, not the whole set. Prior6dd evidence stays historical                                       | Remaining visual/redaction/Compose gates and separate reviewed task-owned PRs with exact remote heads; fixture captures never substitute for live acceptance                                                               |
 | Live acceptance          | No genuine complete PM or full runtime/execution acceptance receipt for this assembly                                                                                                                                                                             | Compatible services complete approved positive/negative flows and seven-agent delivery/integration without duplicate work or false success                                                                                 |
 
-Reviewed source8f adds025 for custodial Stop and strict terminal readback; fixture949
-corrects per-case background-worker lifetime. Both need final-input qualification;
-the latest8f attempt fails check before PG without a retained compiler cause.
-The older5bc PM13 pass does not qualify them or establish the historical gate51
-SQL cause. Diagnostic-only controls6843 retain unchanged source8f; the terminal
-failure identifies no compiler cause and grants no passing qualification.
+Historical3e/source7a8 failed check with E0369 but no localized expression;
+earlier6843/source8f remains historical and is not reclassified. Latest
+[38102509149](https://github.com/FerrPOINT/fleet-control/actions/runs/38102509149)/1
+on8090/source300c fails foundation11/84. Check/Clippy/credentials PG completed in
+the ordered prefix, not all PG or final API comparison. No assertion reason is
+retained; this is not proof of the earlier compiler cause. It excludes reviewed,
+published4d4 historical-terminal continuation, which still requires PG/native
+qualification. Historical5bc PM13 does not qualify these later sources or establish
+the historical gate51 SQL cause.
 Published config/PM candidatec976c27 holds activation with409 before drain
 for pending PM reservations, including no-journal/prepared/unknown acceptance;
 accepted-running drain remains. PG qualification pending, no new migration;
@@ -57,8 +60,19 @@ remain in the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#current-h
 Passing admission, source review or metadata observation grants no live acceptance.
 
 Workflow PR90 is merged asef2cf9e/source994bc8e with a checkpoint fix and unchanged
-PM OpenAPI. Its external PM acceptance claim uses different stacked candidates,
-not Fleet/Tracker main or our assembly; consumer qualification remains open.
+PM OpenAPI. Its authenticated generic assign/bind/step supports all six non-PM
+roles, but does not provide missing Tracker-owned admission/heartbeat/fencing
+and verified-stop capacity release. Its external PM acceptance claim uses different
+stacked candidates, not Fleet/Tracker main or our assembly; consumer qualification
+remains open.
+
+Workspace audit integration remains open: the foreign/untracked root Base
+`audit_docker_groups.py` uses static `BACKENDS`/`WEBS` and rejects configured
+`sdlc1`/`sdlc2` managed services `agentN-runtime-<generation>`; published Base
+maine624 lacks that audit and `service_names`. Historical35/0/0 had no managed
+agents, so does not qualify future placement. This is a source-contract mismatch,
+not an observed deployed violation. Reconcile managed-runtime registration with
+trusted existing workspace policy, not a new controller or regex bypass.
 
 ## Execution Rules
 

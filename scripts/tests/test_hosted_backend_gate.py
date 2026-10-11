@@ -86,6 +86,9 @@ class HostedBackendTests(unittest.TestCase):
             if key == "ignored":
                 expected.add(("backend/infra/tests/support/pm_human_controls.rs",
                     "pm_human_controls::pm_stop_drain_migration_preserves_v25_function_and_holds_retained_stop_history"))
+            else:
+                expected.add(("backend/infra/src/runtime/pm_readback.rs",
+                    "durable_terminal_requires_complete_original_acceptance_and_terminal_mapping"))
             self.assertEqual(after - before, expected)
             self.assertTrue(before <= after)
         migration = "backend/migration/src/m20261011_000025_pm_stop_custody.rs"
@@ -93,7 +96,7 @@ class HostedBackendTests(unittest.TestCase):
                          {migration, "backend/migration/src/m20261011_000026_pm_stop_drain.rs"})
         self.assertTrue(previous["rust_source_sha256"].keys() <= REVIEWED["rust_source_sha256"].keys())
         self.assertEqual((len(REVIEWED["compiled_source_sha256"]), len(REVIEWED["rust_source_sha256"])), (405, 192))
-        self.assertEqual((len(REVIEWED["workspace_default_declarations"]), len(REVIEWED["ignored"])), (401, 181))
+        self.assertEqual((len(REVIEWED["workspace_default_declarations"]), len(REVIEWED["ignored"])), (402, 181))
         self.assertEqual(REVIEWED["default_foundation_ignored"], 126)
         for stage, names in previous["groups"].items():
             actual = REVIEWED["groups"][stage]
@@ -185,7 +188,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(set(REVIEWED["groups"]) - set(previous["groups"]), {"pm_ack_migration"})
         self.assertEqual([name for name in REVIEWED["groups"]["pm_recovery_pg"] if "production_aaa_future_layout" not in name],
                          previous["groups"]["pm_recovery_pg"])
-        for kind, count in (("workspace_default_declarations", 401), ("ignored", 181)):
+        for kind, count in (("workspace_default_declarations", 402), ("ignored", 181)):
             identity = lambda row: (row["source"], row["name"])
             before = {identity(row) for row in previous[kind]}
             after = {identity(row) for row in REVIEWED[kind]}
@@ -883,10 +886,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "300c4d1c93f3ddff75a37db6044c85ad9c1b8849")
+        self.assertEqual(gate.SOURCE_SHA, "3305e4cec37be9fa93a1d16c794f548d5db24bb9")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "a691c927e6259b32c7fc3c0c75bdff4f35a82312")
+        self.assertEqual(tree, "5a1e54dac437ae2b487e3466aad9a7c337858527")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -897,7 +900,8 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual({identity(row) for row in REVIEWED["workspace_default_declarations"]}
                          - {identity(row) for row in previous3445["workspace_default_declarations"]},
                          {('backend/infra/tests/support/pm_dispatch.rs', 'pm_publication_claim_requires_exact_run_instruction_receipt'),
-                          ('backend/infra/src/runtime/pm_readback.rs', 'completed_requires_the_shared_terminal_flags')})
+                          ('backend/infra/src/runtime/pm_readback.rs', 'completed_requires_the_shared_terminal_flags'),
+                          ('backend/infra/src/runtime/pm_readback.rs', 'durable_terminal_requires_complete_original_acceptance_and_terminal_mapping')})
         groups = copy.deepcopy(previous3445["groups"])
         new_case = "pm_dispatch::pm_publication_claim_requires_exact_run_instruction_receipt"
         groups["foundation"] = sorted(groups["foundation"] + [new_case])
@@ -908,7 +912,8 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(REVIEWED["groups"], groups)
         self.assertEqual(set(REVIEWED["pm_workspace_required"])
                          - set(previous3445["pm_workspace_required"]), {new_case,
-                            "runtime::pm_readback::tests::completed_requires_the_shared_terminal_flags"})
+                            "runtime::pm_readback::tests::completed_requires_the_shared_terminal_flags",
+                            "runtime::pm_readback::tests::durable_terminal_requires_complete_original_acceptance_and_terminal_mapping"})
         self.assertEqual(REVIEWED["migration_registries"], {key: names + ["m20261011_000025_pm_stop_custody", "m20261011_000026_pm_stop_drain"]
             for key, names in previous3445["migration_registries"].items()})
         gate.require_codegen_binding(REVIEWED)
@@ -933,6 +938,7 @@ class HostedBackendTests(unittest.TestCase):
             "backend/infra/tests/support/runtime_stream_bounds.rs", "backend/migration/src/lib.rs",
             "backend/migration/src/lineage_tests.rs", "backend/migration/src/m20261011_000025_pm_stop_custody.rs",
             "backend/infra/src/config_revisions.rs", "backend/infra/src/runtime/run_control.rs",
+            "backend/infra/src/runtime/pm_continuation.rs", "backend/infra/tests/support/pm_events.rs",
             "backend/infra/tests/support/pm_dispatch.rs", "backend/migration/src/m20261011_000026_pm_stop_drain.rs"}
         self.assertEqual({path for path in new_delta if path.startswith("backend/")}, changed_rust)
         self.assertTrue(all(path in changed_rust or path == "README.md" or path.startswith("docs/") for path in new_delta))
@@ -985,7 +991,8 @@ class HostedBackendTests(unittest.TestCase):
         expected_inventory["ignored"] = REVIEWED["ignored"]
         expected_inventory["default_foundation_ignored"] = 126
         expected_inventory["pm_workspace_required"] = sorted(prior["pm_workspace_required"] + [
-            "runtime::pm_readback::tests::completed_requires_the_shared_terminal_flags"])
+            "runtime::pm_readback::tests::completed_requires_the_shared_terminal_flags",
+            "runtime::pm_readback::tests::durable_terminal_requires_complete_original_acceptance_and_terminal_mapping"])
         expected_inventory["groups"]["pm_recovery_pg"] = REVIEWED["groups"]["pm_recovery_pg"]
         expected_inventory["groups"]["pm_human_controls"] = sorted(prior["groups"]["pm_human_controls"] + [
             "pm_human_controls::pm_stop_custody_migration_preserves_original_function_and_holds_unsafe_downgrade",
@@ -1581,7 +1588,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(len(REVIEWED["groups"]["runtime_terminal"]), 14)
         self.assertEqual(len(REVIEWED["groups"]["foundation"]), 77)
         self.assertEqual(REVIEWED["default_foundation_ignored"], 126)
-        self.assertEqual(len(REVIEWED["workspace_default_declarations"]), 401)
+        self.assertEqual(len(REVIEWED["workspace_default_declarations"]), 402)
         self.assertIn("activation_probe_hash_matches_base_unicode_snapshot",
                       {row["name"] for row in REVIEWED["workspace_default_declarations"]})
         self.assertEqual(REVIEWED["authority"]["old_ignored"], 130)
@@ -1633,7 +1640,7 @@ class HostedBackendTests(unittest.TestCase):
         ignored = "\n".join(name + ": test" for name in names)
         ordinary = ignored + "\nnormal: test\n" + "\n".join(name + ": test" for name in REVIEWED["pm_workspace_required"])
         result = gate.verify_runtime_inventory(ordinary, ignored, REVIEWED)
-        self.assertEqual(result["listed_default_count"], 51)
+        self.assertEqual(result["listed_default_count"], 52)
         for bad in ("", ignored + "\nextra: test", ignored + "\n" + names[0] + ": test", "\n".join(ignored.splitlines()[1:])):
             with self.assertRaises(ValueError):
                 gate.verify_runtime_inventory(ordinary, bad, REVIEWED)
@@ -1896,7 +1903,7 @@ class HostedBackendTests(unittest.TestCase):
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
             actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.GATE, gate.INVENTORY) else (ROOT / path).read_bytes()
             self.assertEqual(actual, expected, path)
-        self.assertEqual(gate.SOURCE_SHA, "300c4d1c93f3ddff75a37db6044c85ad9c1b8849")
+        self.assertEqual(gate.SOURCE_SHA, "3305e4cec37be9fa93a1d16c794f548d5db24bb9")
         self.assertEqual(len(gate.GATES), 84)
 
     def test_hosted_six_gib_policy_is_exact_and_retains_three_gib_reserve(self):
@@ -2321,6 +2328,10 @@ class HostedBackendTests(unittest.TestCase):
         before = ast.parse(self.source_blob(gate.HELPER, frozen))
         text = (ROOT / gate.HELPER).read_text().replace(gate.SOURCE_SHA, previous["source_commit"])
         text = text.replace(gate.SOURCE_INVENTORY_SHA, gate.digest(gate.canonical(previous["compiled_source_sha256"])))
+        text = text.replace('len(value["workspace_default_declarations"]) == 402',
+                            'len(value["workspace_default_declarations"]) == 401')
+        text = text.replace('len(value["pm_workspace_required"]) == 51', 'len(value["pm_workspace_required"]) == 50')
+        text = text.replace('len(set(value["pm_workspace_required"])) == 51', 'len(set(value["pm_workspace_required"])) == 50')
         for old, new in ((r"\b181\b", "180"), (r"\b126\b", "125")):
             text = re.sub(old, new, text)
         for old, new in (('len(value["groups"]["pm_human_controls"]) == 7', 'len(value["groups"]["pm_human_controls"]) == 6'),

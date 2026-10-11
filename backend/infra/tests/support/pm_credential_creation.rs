@@ -27,7 +27,18 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
         "invalid-terminal",
         "lost-guidance-ack",
         "draining",
+        "replacement",
+        "rollback",
+        "replacement-unknown-native-post",
+        "replacement-completed-uncommitted",
     ] {
+        let replacement = matches!(
+            fault,
+            "replacement"
+                | "rollback"
+                | "replacement-unknown-native-post"
+                | "replacement-completed-uncommitted"
+        );
         let case_runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -64,6 +75,7 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
         ));
         let calls = Arc::new(Mutex::new(Vec::<String>::new()));
         let stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let retired = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         let state = (
@@ -74,9 +86,10 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
             expected_native,
             assigned,
             phase_state.clone(),
+            retired.clone(),
         );
         let router=Router::new().fallback(move |method:Method,uri:axum::http::Uri,headers:HeaderMap,bytes:axum::body::Bytes|{
-            let (ledger,calls,stopped,reservation,expected_native,assigned,phase_state)=state.clone();
+            let (ledger,calls,stopped,reservation,expected_native,assigned,phase_state,retired)=state.clone();
             async move {
                 let path=uri.path(); calls.lock().await.push(format!("{method} {path}"));
                 let body:Value=if bytes.is_empty(){Value::Null}else{serde_json::from_slice(&bytes).unwrap()};
@@ -167,6 +180,9 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
                     return Json(if snapshot["state"]=="active" {json!({"ok":true,"result":snapshot.clone(),"execution_token":"b".repeat(64)})}else{json!({"ok":true,"result":snapshot.clone()})}).into_response();
                 }
                 assert_eq!(headers["authorization"],expected_native);
+                if path=="/v1/runs/run_old" && retired.load(Ordering::SeqCst) {
+                    return StatusCode::GONE.into_response();
+                }
                 match path {
                     "/health"=>Json(json!({"status":"ok"})).into_response(),
                     "/v1/capabilities"=>{
@@ -189,7 +205,7 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
                     "/v1/runs"=>{
                         assert_eq!(method,Method::POST);assert_eq!(headers["idempotency-key"],ledger.lock().await["resume_session_run_id"].as_str().unwrap());
                         assert!(stopped.load(Ordering::SeqCst));assert!(!body.to_string().contains(PARENT));assert!(!body.to_string().contains(CHILD));
-                        if fault=="unknown-native-post" {(StatusCode::SERVICE_UNAVAILABLE,Json(json!({"error":"unknown acceptance"}))).into_response()}
+                        if matches!(fault,"unknown-native-post"|"replacement-unknown-native-post") {(StatusCode::SERVICE_UNAVAILABLE,Json(json!({"error":"unknown acceptance"}))).into_response()}
                         else {(StatusCode::ACCEPTED,Json(json!({"run_id":"run_new","status":"started","replayed":false}))).into_response()}
                     }
                     "/v1/runs/run_new"=>Json(json!({"object":"hermes.run","run_id":"run_new","session_id":"native-session","status":"running"})).into_response(),
@@ -201,6 +217,17 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
                 }
             }
         });
+        // Reuse the same controlled peer at a new origin; the old run will be unavailable.
+        let replacement_peer = if replacement {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port = listener.local_addr().unwrap().port();
+            let router = router.clone();
+            Some((port, super::pm_dispatch::AbortServer(tokio::spawn(async move {
+                axum::serve(listener, router).await.unwrap()
+            }))))
+        } else {
+            None
+        };
         let _peer = super::pm_dispatch::AbortServer(tokio::spawn(async move {
             axum::serve(listener, router).await.unwrap()
         }));
@@ -285,11 +312,15 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
             .unwrap();
         let config = Arc::new(fixture.config.clone());
         let (events, _) = tokio::sync::broadcast::channel(32);
-        let runtime = Arc::new(infra::runtime::LocalRuntimeSupervisor::new(
-            config.clone(),
-            fixture.remote.repo.clone(),
-            events.clone(),
-        ));
+        let runtime = Arc::new(if replacement {
+            // These cases own repository activation claims; do not start a competing activator.
+            let config = config.clone();
+            let repo = fixture.remote.repo.clone();
+            let events = events.clone();
+            std::thread::spawn(move || infra::runtime::LocalRuntimeSupervisor::new(config, repo, events)).join().unwrap()
+        } else {
+            infra::runtime::LocalRuntimeSupervisor::new(config.clone(), fixture.remote.repo.clone(), events.clone())
+        });
         let (restart, _) = tokio::sync::mpsc::channel(1);
         let ctx = Arc::new(app::AppContext::new(
             config,
@@ -787,11 +818,15 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
                 .unwrap(),
         ));
         let (restart_events, _) = tokio::sync::broadcast::channel(32);
-        let restarted = infra::runtime::LocalRuntimeSupervisor::new(
-            Arc::new(fixture.config.clone()),
-            restarted_repo.clone(),
-            restart_events,
-        );
+        let restarted = if replacement {
+            let config = Arc::new(fixture.config.clone());
+            let repo = restarted_repo.clone();
+            std::thread::spawn(move || infra::runtime::LocalRuntimeSupervisor::new(config, repo, restart_events)).join().unwrap()
+        } else {
+            infra::runtime::LocalRuntimeSupervisor::new(
+                Arc::new(fixture.config.clone()), restarted_repo.clone(), restart_events,
+            )
+        };
         db.execute(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "UPDATE agent_config_heads SET draining=true WHERE agent_id=$1",
@@ -1057,15 +1092,119 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
             questions[0]["answer"] = serde_json::to_value(answer).unwrap();
             questions[0]["state"] = json!("answered");
         }
+        let original = fixture.remote.repo.get_pm_dispatch(op.id).await.unwrap().unwrap();
+        let old_reads = if replacement {
+            let repo = &fixture.remote.repo;
+            let agent = repo.get_agent(op.request.agent_id).await.unwrap();
+            stopped.store(true, Ordering::SeqCst);
+            if fault == "replacement-completed-uncommitted" {
+                // Reproduce legacy observation custody, which did not require completion flags.
+                repo.observe_pm_run(op.id, PmRuntimeStatus::Completed).await.unwrap();
+            } else {
+                let record = repo.get_pm_run(op.id).await.unwrap();
+                assert_eq!(runtime.probe_pm_run(&agent, &record).await.unwrap(), PmRuntimeStatus::Stopped);
+                repo.observe_pm_run(op.id, PmRuntimeStatus::Stopped).await.unwrap();
+            }
+            assert!(!repo.pm_stream_context(op.id).await.unwrap().1,
+                "terminal observation need not wait for assistant mirror commit");
+            let effective = repo.get_effective_config_revision(agent.id).await.unwrap().unwrap();
+            let draft = repo.create_config_revision(agent.id, effective.snapshot.config, op.owner_user_id).await.unwrap();
+            repo.validate_config_revision(agent.id, draft.revision, vec![]).await.unwrap();
+            repo.request_config_activation(agent.id, draft.revision, op.owner_user_id).await.unwrap();
+            let claim = repo.claim_config_activation().await.unwrap().unwrap();
+            assert_eq!((claim.agent_id, claim.revision), (agent.id, draft.revision));
+            // Controlled repository publication, not physical Docker activation qualification.
+            repo.finish_config_activation(agent.id, draft.revision,
+                (fault == "rollback").then(|| "controlled rollback".into()), true).await.unwrap();
+            let effective = repo.get_effective_config_revision(agent.id).await.unwrap().unwrap();
+            assert_eq!(effective.revision, if fault == "rollback" {1} else {draft.revision});
+            assert_eq!(repo.get_config_revision(agent.id, draft.revision).await.unwrap().state,
+                if fault == "rollback" {"failed"} else {"active"});
+            assert!(!repo.agent_is_draining(agent.id).await.unwrap());
+            let marker = std::path::Path::new(&agent.paths.config).join(".fleet-config-revision.json");
+            let mut bytes: Value = serde_json::from_slice(&std::fs::read(&marker).unwrap()).unwrap();
+            bytes["revision"] = json!(effective.revision);
+            std::fs::write(&marker, serde_json::to_vec(&bytes).unwrap()).unwrap();
+            db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                "UPDATE agents SET api_port=$2 WHERE id=$1",
+                [agent.id.into(), i32::from(replacement_peer.as_ref().unwrap().0).into()])).await.unwrap();
+            retired.store(true, Ordering::SeqCst);
+            Some(calls.lock().await.iter().filter(|r| r.as_str()=="GET /v1/runs/run_old").count())
+        } else {
+            None
+        };
+        let resume_runtime = if replacement {
+            let repo = Arc::new(PostgresFleetRepository::new(
+                sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap()).await.unwrap(),
+            ));
+            let config = Arc::new(fixture.config.clone());
+            let (events, _) = tokio::sync::broadcast::channel(32);
+            Arc::new(std::thread::spawn(move || infra::runtime::LocalRuntimeSupervisor::new(config, repo, events)).join().unwrap())
+        } else {
+            runtime.clone()
+        };
+        let delivered = if replacement {
+            let reloaded = fixture.remote.repo.get_clarification_command(&actor, saved.id).await.unwrap();
+            assert_eq!(reloaded.id, delivered.id);
+            assert_eq!(reloaded.state, ClarificationDeliveryState::Delivered);
+            reloaded
+        } else {
+            delivered
+        };
+        if replacement && fault != "replacement-completed-uncommitted" {
+            let mut foreign = actor.clone();
+            foreign.subject = "foreign-owner".into();
+            assert!(resume_runtime.resume_pm_answer(&foreign, &delivered).await.is_err());
+            ledger.lock().await["fence"] = json!(2);
+            assert!(resume_runtime.resume_pm_answer(&actor, &delivered).await.is_err());
+            ledger.lock().await["fence"] = json!(1);
+            let agent = fixture.remote.repo.get_agent(op.request.agent_id).await.unwrap();
+            let marker = std::path::Path::new(&agent.paths.config).join(".fleet-config-revision.json");
+            let bytes = std::fs::read(&marker).unwrap();
+            let mut foreign: Value = serde_json::from_slice(&bytes).unwrap();
+            foreign["agent_id"] = json!(Uuid::new_v4());
+            std::fs::write(&marker, serde_json::to_vec(&foreign).unwrap()).unwrap();
+            assert!(resume_runtime.resume_pm_answer(&actor, &delivered).await.is_err());
+            std::fs::write(&marker, bytes).unwrap();
+            assert!(!calls.lock().await.iter().any(|r| r.as_str()=="POST /internal/runtime/v1/pm/resume" || r.as_str()=="POST /v1/runs"));
+            assert!(fixture.remote.repo.get_pm_run(saved.id).await.is_err());
+        }
         for _ in 0..2 {
+            if fault == "replacement-completed-uncommitted" {
+                assert!(resume_runtime.resume_pm_answer(&actor, &delivered).await.is_err());
+                continue;
+            }
             assert_eq!(
-                runtime.resume_pm_answer(&actor, &delivered).await.unwrap(),
-                if fault == "none" {
+                resume_runtime.resume_pm_answer(&actor, &delivered).await.unwrap(),
+                if matches!(fault, "none" | "replacement" | "rollback") {
                     PmContinuationOutcome::Confirmed
                 } else {
                     PmContinuationOutcome::Pending
                 }
             );
+        }
+        if replacement {
+            let preserved = fixture.remote.repo.get_pm_dispatch(op.id).await.unwrap().unwrap();
+            assert_eq!(serde_json::to_value(&preserved).unwrap(), serde_json::to_value(&original).unwrap(),
+                "replacement cannot rewrite predecessor custody");
+            assert_eq!(calls.lock().await.iter().filter(|r| r.as_str()=="GET /v1/runs/run_old").count(), old_reads.unwrap(),
+                "complete durable stopped proof must not probe the retired runtime");
+            if fault == "replacement-completed-uncommitted" {
+                assert!(fixture.remote.repo.get_pm_run(saved.id).await.is_err());
+                assert!(fixture.remote.repo.get_pm_dispatch(saved.id).await.unwrap().is_none());
+            } else {
+                let next = fixture.remote.repo.get_pm_dispatch(saved.id).await.unwrap().unwrap();
+                assert_eq!(next.origin, format!("http://127.0.0.1:{}", replacement_peer.as_ref().unwrap().0));
+                assert_ne!(next.origin, original.origin);
+                if fault == "replacement-unknown-native-post" {
+                    assert!(next.submitted && next.hermes_run_ref.is_none());
+                    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                        "UPDATE agents SET api_port=$2 WHERE id=$1", [op.request.agent_id.into(), i32::from(port).into()])).await.unwrap();
+                    assert!(resume_runtime.resume_pm_answer(&actor, &delivered).await.is_err());
+                    assert_eq!(serde_json::to_value(fixture.remote.repo.get_pm_dispatch(saved.id).await.unwrap().unwrap()).unwrap(), serde_json::to_value(next).unwrap(),
+                        "unknown new POST keeps its first frozen intent, not fresh replacement pins");
+                }
+            }
         }
         if fault == "none" {
             let resumed = fixture
@@ -1174,27 +1313,27 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
                 .iter()
                 .filter(|r| r.as_str() == "POST /v1/runs/run_old/stop")
                 .count(),
-            1
+            usize::from(!replacement)
         );
         assert_eq!(
             requests
                 .iter()
                 .filter(|r| r.as_str() == "POST /v1/runs")
                 .count(),
-            usize::from(matches!(fault, "none" | "unknown-native-post"))
+            usize::from(matches!(fault, "none" | "unknown-native-post" | "replacement" | "rollback" | "replacement-unknown-native-post"))
         );
         assert_eq!(
             requests
                 .iter()
                 .filter(|r| r.as_str() == "POST /internal/runtime/v1/pm/rebind")
                 .count(),
-            usize::from(fault == "none")
+            usize::from(matches!(fault, "none" | "replacement" | "rollback"))
         );
         assert_eq!(
             ledger.lock().await["state"],
-            if fault == "none" {
+            if matches!(fault, "none" | "replacement" | "rollback") {
                 "active"
-            } else if matches!(fault, "stop-not-terminal" | "invalid-terminal") {
+            } else if matches!(fault, "stop-not-terminal" | "invalid-terminal" | "replacement-completed-uncommitted") {
                 "waiting"
             } else {
                 "resume_pending"

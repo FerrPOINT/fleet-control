@@ -208,10 +208,10 @@
     "fleet-control/backend/infra/src/runtime/hermes_wire.rs": "d4405fb075a5a47cb24fe1fc7381270a0d1b794fc85cdb7550d4a9bbe5e2efea",
     "fleet-control/backend/infra/src/runtime/mod.rs": "7c94d73b8ff63af2602a044743beac79bed77b7366c161d13edd22649dcb7f20",
     "fleet-control/backend/infra/src/runtime/native_context.rs": "201a9b00094a67ddd9ed60ff7a0432cbb9688d4faa40f63384af09915581eb55",
-    "fleet-control/backend/infra/src/runtime/pm_continuation.rs": "5f0ac8d8a46bae9452ac89fd607148328a2b8e5052674c6ba9c767ccce4afc0b",
+    "fleet-control/backend/infra/src/runtime/pm_continuation.rs": "14550f9c286114dc86668a8b48127750024955b7aa77902727d5266c96122e95",
     "fleet-control/backend/infra/src/runtime/pm_dispatch.rs": "d0e4a7811206de719aad68ad1607ddd721aaceebbc9111420f5fd346d9e84ba3",
     "fleet-control/backend/infra/src/runtime/pm_events.rs": "08c38c979248ae9ae918fdc4cdbd1ace6fd2a59f46f62e5e508a1ed941867743",
-    "fleet-control/backend/infra/src/runtime/pm_readback.rs": "286ae050caaeb760ec7ff02fb4f13678bb123c053a4a7b0d4fa149f210fdf20a",
+    "fleet-control/backend/infra/src/runtime/pm_readback.rs": "af32a239f51b49a8bfa3212de6e6493a4d2a7d037e84c50d177016ae66d14347",
     "fleet-control/backend/infra/src/runtime/pm_recovery.rs": "80e3fe8e7f2293dfb8406cd4e7f35b80c556e68fc4be002bbc25daa3f7ce5e67",
     "fleet-control/backend/infra/src/runtime/pm_recovery_pg_tests.rs": "56926dcd735da7e70ffabb0973871a0e3bc70949139f3788afa888c24fbecfc8",
     "fleet-control/backend/infra/src/runtime/pm_recovery_tests.rs": "a442ef991f446154302cc73527fc7e9ad630cc7f93897acc1df9ef332166b493",
@@ -243,10 +243,10 @@
     "fleet-control/backend/infra/tests/support/clarification_custody.rs": "142c92494640f5e9c7d06e61bc5ac5a17508a0a24406a8e19fc49bef04a90081",
     "fleet-control/backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "fleet-control/backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
-    "fleet-control/backend/infra/tests/support/pm_credential_creation.rs": "406d635d249a6cd641df0b2a157612eb9ceae0c9e34968d5d86e9a1c3397365e",
+    "fleet-control/backend/infra/tests/support/pm_credential_creation.rs": "fc57b843de27142e3d84593618508acf86b88e29f7120a90c73a3c0713908d16",
     "fleet-control/backend/infra/tests/support/pm_dispatch.rs": "784d9ef439e4b31339e98f9022df1de75d5a36eba02d138b9695ac8f348dd1c5",
     "fleet-control/backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
-    "fleet-control/backend/infra/tests/support/pm_events.rs": "3919f37e56a78e45132166c7431cdc8c0920d9a1238c8ca66ebe459ec1304903",
+    "fleet-control/backend/infra/tests/support/pm_events.rs": "fad553bf7e2a57fee29203028db5dad7efc9365d6acdebc5c3de228414765c30",
     "fleet-control/backend/infra/tests/support/pm_human_controls.rs": "e0dac01620c47870d95c6b51b4f4d9490d16301859274170cbc5e2edd85a264e",
     "fleet-control/backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "fleet-control/backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
@@ -440,7 +440,7 @@
         "backend/cli/Cargo.toml"
       ],
       "api_dependency_closure_git_sha256": "721d0adcd6a5c08d362ea5e25535173333aeac74173608009184818fc30c4159",
-      "artifact_bound_source_commit": "300c4d1c93f3ddff75a37db6044c85ad9c1b8849",
+      "artifact_bound_source_commit": "3305e4cec37be9fa93a1d16c794f548d5db24bb9",
       "artifact_id": 11674599663,
       "artifact_zip_sha256": "8e1284e91d778d99281b1fa27df8b5dd7887679dd1068d023ae50a84f6fb1cbb",
       "binding_kind": "verified_api_dependency_closure_parity",
@@ -453,6 +453,7 @@
         "README.md",
         "backend/infra/src/config_revisions.rs",
         "backend/infra/src/pm_controls.rs",
+        "backend/infra/src/runtime/pm_continuation.rs",
         "backend/infra/src/runtime/pm_readback.rs",
         "backend/infra/src/runtime/pm_recovery_pg_tests.rs",
         "backend/infra/src/runtime/run_control.rs",
@@ -476,6 +477,7 @@
         "docs/MIGRATIONS.md",
         "docs/OPERATIONS.md",
         "docs/README.md",
+        "docs/REMAINING_DELIVERY_WORK.md",
         "docs/assets/design/chat-controller-2026-10-10/manifest.json",
         "docs/assets/design/chat-controller-2026-10-10/pm-chat-clarification-1920.png",
         "docs/assets/design/chat-controller-2026-10-10/pm-chat-clarification-2560.png",
@@ -626,6 +628,7 @@
         "docs/assets/screens/qualified-manifest-38072655687.json",
         "docs/assets/screens/qualified-provenance-38072655687.json",
         "docs/contracts/AGENT_RUNTIME_CONTRACT.md",
+        "docs/contracts/CHAT_CLARIFICATION_CONTRACT.md",
         "docs/contracts/HERMES_ADAPTER_CONTRACT.md",
         "frontend/src/pages/chat-detail/index.test.tsx",
         "frontend/src/pages/chat-detail/task-detail.tsx"
@@ -726,7 +729,7 @@
       "workflow_commit": "eed4bc54149e1b317c5eb3e3e7c628eeaffbdea4"
     },
     "prior_stages_preserved": 74,
-    "source_commit": "300c4d1c93f3ddff75a37db6044c85ad9c1b8849"
+    "source_commit": "3305e4cec37be9fa93a1d16c794f548d5db24bb9"
   },
   "default_foundation_ignored": 126,
   "executed": false,
@@ -3060,6 +3063,7 @@
     "runtime::pm_dispatch::tests::pm_bind_requires_the_complete_exact_initial_snapshot",
     "runtime::pm_dispatch::tests::workflow_capabilities_do_not_accept_catalog_credentials_or_base_pending",
     "runtime::pm_readback::tests::completed_requires_the_shared_terminal_flags",
+    "runtime::pm_readback::tests::durable_terminal_requires_complete_original_acceptance_and_terminal_mapping",
     "runtime::pm_recovery::tests::concurrent_original_and_same_key_replay_have_one_native_effect",
     "runtime::pm_recovery::tests::original_key_lost_ack_then_reload_replay_returns_same_native_run",
     "runtime::pm_recovery::tests::original_key_rejects_changed_payload_without_another_native_effect",
@@ -3228,10 +3232,10 @@
     "backend/infra/src/runtime/hermes_wire.rs": "d4405fb075a5a47cb24fe1fc7381270a0d1b794fc85cdb7550d4a9bbe5e2efea",
     "backend/infra/src/runtime/mod.rs": "7c94d73b8ff63af2602a044743beac79bed77b7366c161d13edd22649dcb7f20",
     "backend/infra/src/runtime/native_context.rs": "201a9b00094a67ddd9ed60ff7a0432cbb9688d4faa40f63384af09915581eb55",
-    "backend/infra/src/runtime/pm_continuation.rs": "5f0ac8d8a46bae9452ac89fd607148328a2b8e5052674c6ba9c767ccce4afc0b",
+    "backend/infra/src/runtime/pm_continuation.rs": "14550f9c286114dc86668a8b48127750024955b7aa77902727d5266c96122e95",
     "backend/infra/src/runtime/pm_dispatch.rs": "d0e4a7811206de719aad68ad1607ddd721aaceebbc9111420f5fd346d9e84ba3",
     "backend/infra/src/runtime/pm_events.rs": "08c38c979248ae9ae918fdc4cdbd1ace6fd2a59f46f62e5e508a1ed941867743",
-    "backend/infra/src/runtime/pm_readback.rs": "286ae050caaeb760ec7ff02fb4f13678bb123c053a4a7b0d4fa149f210fdf20a",
+    "backend/infra/src/runtime/pm_readback.rs": "af32a239f51b49a8bfa3212de6e6493a4d2a7d037e84c50d177016ae66d14347",
     "backend/infra/src/runtime/pm_recovery.rs": "80e3fe8e7f2293dfb8406cd4e7f35b80c556e68fc4be002bbc25daa3f7ce5e67",
     "backend/infra/src/runtime/pm_recovery_pg_tests.rs": "56926dcd735da7e70ffabb0973871a0e3bc70949139f3788afa888c24fbecfc8",
     "backend/infra/src/runtime/pm_recovery_tests.rs": "a442ef991f446154302cc73527fc7e9ad630cc7f93897acc1df9ef332166b493",
@@ -3261,10 +3265,10 @@
     "backend/infra/tests/support/clarification_custody.rs": "142c92494640f5e9c7d06e61bc5ac5a17508a0a24406a8e19fc49bef04a90081",
     "backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
-    "backend/infra/tests/support/pm_credential_creation.rs": "406d635d249a6cd641df0b2a157612eb9ceae0c9e34968d5d86e9a1c3397365e",
+    "backend/infra/tests/support/pm_credential_creation.rs": "fc57b843de27142e3d84593618508acf86b88e29f7120a90c73a3c0713908d16",
     "backend/infra/tests/support/pm_dispatch.rs": "784d9ef439e4b31339e98f9022df1de75d5a36eba02d138b9695ac8f348dd1c5",
     "backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
-    "backend/infra/tests/support/pm_events.rs": "3919f37e56a78e45132166c7431cdc8c0920d9a1238c8ca66ebe459ec1304903",
+    "backend/infra/tests/support/pm_events.rs": "fad553bf7e2a57fee29203028db5dad7efc9365d6acdebc5c3de228414765c30",
     "backend/infra/tests/support/pm_human_controls.rs": "e0dac01620c47870d95c6b51b4f4d9490d16301859274170cbc5e2edd85a264e",
     "backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
@@ -3335,7 +3339,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "300c4d1c93f3ddff75a37db6044c85ad9c1b8849",
+  "source_commit": "3305e4cec37be9fa93a1d16c794f548d5db24bb9",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
@@ -5186,21 +5190,28 @@
     },
     {
       "ignored": false,
-      "line": 116,
+      "line": 230,
+      "name": "durable_terminal_requires_complete_original_acceptance_and_terminal_mapping",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_readback.rs"
+    },
+    {
+      "ignored": false,
+      "line": 315,
       "name": "only_runtime_terminal_status_is_proof",
       "package": "infra",
       "source": "backend/infra/src/runtime/pm_readback.rs"
     },
     {
       "ignored": false,
-      "line": 146,
+      "line": 345,
       "name": "wrong_or_missing_run_identity_fails_closed",
       "package": "infra",
       "source": "backend/infra/src/runtime/pm_readback.rs"
     },
     {
       "ignored": false,
-      "line": 157,
+      "line": 356,
       "name": "completed_requires_the_shared_terminal_flags",
       "package": "infra",
       "source": "backend/infra/src/runtime/pm_readback.rs"
@@ -5767,105 +5778,105 @@
     },
     {
       "ignored": false,
-      "line": 1720,
+      "line": 1859,
       "name": "pm_credentials_pg_changed_valid_child_uuid_replay_conflicts_without_context_or_mutation",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 1725,
+      "line": 1864,
       "name": "pm_credentials_pg_changed_valid_child_expiry_replay_conflicts_without_context_or_mutation",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 1731,
+      "line": 1870,
       "name": "pm_credentials_pg_parent_principal_mismatch_prevents_first_post",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 1784,
+      "line": 1923,
       "name": "pm_credentials_pg_parent_principal_mismatch_retains_ack_without_another_post",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 1837,
+      "line": 1976,
       "name": "pm_credentials_pg_child_principal_mismatch_retains_ack_without_usable_credential",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 1890,
+      "line": 2029,
       "name": "pm_credentials_pg_lost_ack_restart_replays_exact_child_without_run_or_secret",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 1943,
+      "line": 2082,
       "name": "pm_credentials_pg_partial_success_keeps_receipt_and_checks_current_context_on_replay",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 1964,
+      "line": 2103,
       "name": "pm_credentials_pg_rotated_parent_origins_or_ttl_conflict_before_external_request",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 1996,
+      "line": 2135,
       "name": "pm_credentials_pg_concurrent_preparation_freezes_one_receipt_and_rejects_payload_conflict",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2026,
+      "line": 2165,
       "name": "pm_credentials_pg_revoked_child_cannot_be_used",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2042,
+      "line": 2181,
       "name": "pm_credentials_pg_expired_receipt_stops_before_external_renewal",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2058,
+      "line": 2197,
       "name": "pm_credentials_pg_database_guards_monotonic_journal_and_single_redacted_audit",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2151,
+      "line": 2290,
       "name": "pm_credentials_pg_first_intent_and_ack_require_readable_strict_shapes",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2255,
+      "line": 2394,
       "name": "pm_credentials_pg_revoked_parent_prevents_post_and_does_not_erase_ack",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2271,
+      "line": 2410,
       "name": "pm_credentials_pg_audit_failure_rolls_back_journal_and_recovers_original_child",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
@@ -5956,63 +5967,63 @@
     },
     {
       "ignored": false,
-      "line": 118,
+      "line": 141,
       "name": "pm_disabled_continuation_is_pending_for_custody_not_required_only_when_absent",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"
     },
     {
       "ignored": false,
-      "line": 167,
+      "line": 190,
       "name": "pm_terminal_packet_concurrent_replay_is_once_and_keeps_ordinary_guard",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"
     },
     {
       "ignored": false,
-      "line": 241,
+      "line": 258,
       "name": "pm_terminal_pin_owner_and_atomic_rollback_are_enforced",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"
     },
     {
       "ignored": false,
-      "line": 290,
+      "line": 307,
       "name": "pm_observed_terminal_remains_recoverable_until_mirrored_and_marker_is_monotonic",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"
     },
     {
       "ignored": false,
-      "line": 617,
+      "line": 626,
       "name": "pm_http_restart_follow_cumulative_redacted_deltas_and_final_message",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"
     },
     {
       "ignored": false,
-      "line": 621,
+      "line": 630,
       "name": "pm_http_eof_requires_independent_terminal_readback",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"
     },
     {
       "ignored": false,
-      "line": 626,
+      "line": 635,
       "name": "pm_http_foreign_session_and_unknown_ack_never_release_or_redispatch",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"
     },
     {
       "ignored": false,
-      "line": 632,
+      "line": 641,
       "name": "pm_http_disabled_dispatch_recovers_accepted_sse_and_terminal_once",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"
     },
     {
       "ignored": false,
-      "line": 638,
+      "line": 647,
       "name": "pm_http_disabled_dispatch_denies_foreign_pins_and_unknown_ack",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"

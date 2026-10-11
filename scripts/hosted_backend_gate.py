@@ -27,7 +27,7 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/config-union-backend-20261010"
-SOURCE_SHA = "300c4d1c93f3ddff75a37db6044c85ad9c1b8849"
+SOURCE_SHA = "3305e4cec37be9fa93a1d16c794f548d5db24bb9"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 UTILITY_SHA = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
@@ -46,7 +46,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "85b4e0e0e384bbae3508e30f5176ea7e2ba7cbb35baccf9ad983532bf22b2951"
+SOURCE_INVENTORY_SHA = "4443bd2bb86d6b3f72f9bbf0f242da46ef1d11101335dbad4f7d09521a581793"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
@@ -472,9 +472,9 @@ def reviewed_inventory(controls):
             and len(value["groups"]["runtime_terminal"]) == 14, "Ignored coverage weakened")
     require(len({(item["package"], item["target_kind"], item["target"], item["name"])
                  for item in value["ignored"]}) == 181, "Duplicate ignored identities")
-    require(len(value["groups"]["foundation"]) == 77 and len(value["workspace_default_declarations"]) == 401,
+    require(len(value["groups"]["foundation"]) == 77 and len(value["workspace_default_declarations"]) == 402,
             "Default/foundation declaration coverage drift")
-    require(len(value["pm_workspace_required"]) == 50 and len(set(value["pm_workspace_required"])) == 50,
+    require(len(value["pm_workspace_required"]) == 51 and len(set(value["pm_workspace_required"])) == 51,
             "PM workspace selector coverage drift")
     require(len(value["groups"]["pm_human_controls"]) == 7
             and len(set(value["groups"]["pm_human_controls"])) == 7, "PM human selector coverage drift")
