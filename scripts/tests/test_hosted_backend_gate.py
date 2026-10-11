@@ -911,10 +911,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "2dcff77e01dc957e3a1d2ffda39b309835ac8d19")
+        self.assertEqual(gate.SOURCE_SHA, "c3fc175b97168736717c72c2b32e1036c5b6f9db")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "46950f240c51c30bfb82ff13a1761770256937d0")
+        self.assertEqual(tree, "beeb851103acf908c395b90e7bbcc816d979034e")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -968,8 +968,9 @@ class HostedBackendTests(unittest.TestCase):
         source_delta = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
             original["source_commit"], gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
         self.assertEqual({path for path in source_delta if path.startswith("backend/")},
-                         {"backend/infra/tests/support/pm_credential_creation.rs"})
-        self.assertTrue(all(path.startswith("docs/") or path == "backend/infra/tests/support/pm_credential_creation.rs"
+                         {"backend/infra/src/runtime/pm_continuation.rs", "backend/infra/tests/support/pm_credential_creation.rs"})
+        self.assertTrue(all(path.startswith("docs/") or path in {
+            "backend/infra/src/runtime/pm_continuation.rs", "backend/infra/tests/support/pm_credential_creation.rs"}
                             for path in source_delta))
         self.assertEqual(preparation["codegen_evidence"], dict(original,
             artifact_bound_source_commit=gate.SOURCE_SHA, binding_kind="verified_api_dependency_closure_parity",
@@ -2008,7 +2009,7 @@ class HostedBackendTests(unittest.TestCase):
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
             actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.GATE, gate.INVENTORY) else (ROOT / path).read_bytes()
             self.assertEqual(actual, expected, path)
-        self.assertEqual(gate.SOURCE_SHA, "2dcff77e01dc957e3a1d2ffda39b309835ac8d19")
+        self.assertEqual(gate.SOURCE_SHA, "c3fc175b97168736717c72c2b32e1036c5b6f9db")
         self.assertEqual(len(gate.GATES), 84)
 
     def test_hosted_six_gib_policy_is_exact_and_retains_three_gib_reserve(self):
