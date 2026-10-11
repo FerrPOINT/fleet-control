@@ -1,5 +1,12 @@
 # Data Model
 
+The never-started managed Stop candidate reuses the existing `agent_runtime`
+creation witness and agent-row lock; it adds no table, migration or receipt.
+Successful no-op changes only the agent status to stopped, retaining `not_started`
+and empty runtime evidence for replay. Preparation/launch/activation and run
+custody prevent that shortcut. Archival retains journals and rejects an orphan
+preparation unless its exact generation/receipt has a matching exited launch.
+
 PM instruction receipts reuse `pm_tool_commands(kind='workflow_step')`: the
 immutable request retains caller/body and Workflow/mode identity; `result`
 retains the actual validated bounded instruction response. New question/revision

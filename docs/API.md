@@ -377,6 +377,13 @@ Fleet:
 - `GET/PUT /leaders/{leader_agent_id}/executors`
 - `GET /executors`
 
+The source candidate permits managed Hermes `stop` and subsequent `DELETE`
+without a physical Stop only for a verified never-started creation witness.
+The response uses the existing runtime-operation shape; no new endpoint or DTO
+is introduced. Unknown/private/preparation custody stays held, and concurrent
+preparation or activation can reject archival after Stop. Refresh the agent;
+do not delete journals to clear the hold. PostgreSQL/API qualification is pending.
+
 Sessions and workflow:
 
 Единые правила чатов и source-review расхождения описаны в [CHAT.md](CHAT.md).
