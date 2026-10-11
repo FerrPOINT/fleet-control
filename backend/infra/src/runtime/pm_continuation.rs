@@ -186,7 +186,7 @@ pub(super) async fn resume(
         || old.hermes_run_ref.as_deref() != Some(&snapshot.hermes_run_ref)
         || old.reservation.fence != snapshot.fence - i64::from(snapshot.state == "resume_pending")
     {
-        return Err(unavailable());
+        return Err(AppError::conflict("PM continuation custody changed"));
     }
     let intent = supervisor
         .repo
