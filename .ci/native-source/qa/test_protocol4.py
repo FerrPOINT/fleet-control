@@ -151,9 +151,34 @@ class Protocol4Tests(unittest.TestCase):
         self.assertEqual(current, original.replace(b"/base169/", b"/base-runtime/"))
         for name in ("packet.py","hermes_fixture.py","launch.py","compile_proof.py","live/Cargo.toml"):
             with self.subTest(name=name):
-                self.assertEqual((run.HERE / name).read_bytes().replace(b"\r\n",b"\n"),
+                current = (run.HERE / name).read_bytes().replace(b"\r\n",b"\n")
+                if name == "compile_proof.py":
+                    # Invert only the exact reviewed failure instrumentation, not success qualification.
+                    block = current[current.index(b"BUILD_STEPS = "):current.index(b"def artifact(")]
+                    self.assertEqual(hashlib.sha256(block).hexdigest(),
+                                     "75f5096c174b63bc517a6136c4e00c20fcbd70b76a6b4d6f6fa932c5fc7f21c3")
+                    current = current.replace(block, b"\n\n", 1)
+                    for addition in (b"import os\n", b"import re\n", b"import stat\n",
+                                     b'    parser.add_argument("--failure-step", choices=sorted(BUILD_STEPS))\n',
+                                     b'    parser.add_argument("--failure-exit", type=int)\n',
+                                     b'        if args.failure_step:\n'
+                                     b'            record = failure(args.failure_step, args.failure_exit, args.artifacts)\n'
+                                     b'            if record is None:\n'
+                                     b'                return 1\n'
+                                     b'            write_json(args.output, record)\n'
+                                     b'            return 0\n'):
+                        self.assertEqual(current.count(addition), 1)
+                        current = current.replace(addition, b"", 1)
+                self.assertEqual(current,
                                  packet.git(root,"show",BASELINE + ":qa/" + name))
         build = (run.HERE / "build.sh").read_bytes().replace(b"\r\n", b"\n")
+        added = [line for line in build.splitlines(keepends=True)
+                 if line.startswith((b"build_step=", b"  build_step=", b"trap '"))]
+        self.assertEqual(len(added), 15)
+        self.assertEqual(hashlib.sha256(b"".join(added)).hexdigest(),
+                         "a1e79f20a53095e1b9e8cceacb4bfd1665a37b84b0488489ddbe3d03642c75a3")
+        for addition in added:
+            build = build.replace(addition, b"", 1)
         build = build.replace(b'"${FLEET_QA_MIN_FREE_BYTES:?sealed capacity floor required}"', b"32212254720")
         self.assertEqual(build, packet.git(root, "show", BASELINE + ":qa/build.sh"))
 

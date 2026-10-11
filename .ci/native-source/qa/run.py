@@ -19,6 +19,7 @@ import uuid
 sys.dont_write_bytecode = True
 from packet import checked, exact_sha, export, git, inventory, member, sha, write_json
 import hosted_policy
+import compile_proof
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -318,11 +319,14 @@ def failure_projection(report):
                "FileNotFoundError", "PermissionError", "TimeoutExpired", "CalledProcessError"}
     parity = report.get("parity")
     cleanup = parity.get("cleanup_inventory") if type(parity) is dict else None
-    return dict(state="failed",
+    result = dict(state="failed",
                 failure_phase=phase if type(phase) is str and phase in phases else "unknown",
                 failure_class=kind if type(kind) is str and kind in classes else "OtherError",
                 cleanup_verified=True if type(cleanup) is str and cleanup == "passed" else
                                  False if type(cleanup) is str and cleanup == "failed" else None)
+    if phase == "build" and "build_failure" in report:
+        result["build_failure"] = compile_proof.failure_record(report["build_failure"])
+    return result
 
 
 def verify_compile_proof(packet, manifest):
@@ -639,6 +643,8 @@ def execute(packet, ack, context, *, scenario_runner=None, services_provider=Non
                 (scenario_runner or original_scenario)(operation,packet,docker,controller_id,controller,m,logged,report)
             except BaseException as error:
                 remember_failure(report,phase,error)
+                if phase == "build":
+                    report["build_failure"] = compile_proof.read_failure(packet / "output/build-failure.json")
                 raise
             finally:
                 phase_before_cleanup = phase

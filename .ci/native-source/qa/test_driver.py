@@ -6,6 +6,7 @@ import io
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 import tomllib
@@ -540,6 +541,122 @@ class CompileProofTests(unittest.TestCase):
                 packet.write_json(root / "output/compile-proof.json",changed)
                 with self.subTest(key=key), self.assertRaises(ValueError):
                     run.verify_compile_proof(root,dict(source_files=files))
+
+    def test_build_failure_codes_only_and_constant_main_coordinates(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "cargo.jsonl"
+            records = []
+            for name, code in (("/scratch/src/live/src/main.rs", "E0308"),
+                               ("/private/base/secret.rs", "E0369"),
+                               ("live/src/main.rs", "E0277")):
+                records.append(dict(reason="compiler-message", message=dict(level="error", code=dict(code=code),
+                    message="PRIVATE_TOKEN", rendered="PRIVATE_BODY", spans=[dict(file_name=name, is_primary=True,
+                    line_start=42, column_start=9, text=["PRIVATE_SOURCE"])])))
+            path.write_text("\n".join(json.dumps(r) for r in records))
+            result = compile_proof.failure("cargo", 101, path)
+            self.assertEqual(result, dict(step="cargo", exit_code=101, diagnostics=[
+                dict(code="E0308", line=42, column=9), dict(code="E0369"), dict(code="E0277")]))
+            self.assertNotIn("PRIVATE", json.dumps(result))
+            self.assertNotIn("file", json.dumps(result))
+            self.assertLess(len(json.dumps(result)), 2048)
+            records[0]["message"]["spans"][0]["line_start"] = True
+            records[1]["message"]["code"]["code"] = "E0369 PRIVATE"
+            records[2]["message"]["level"] = "warning"
+            path.write_text("\n".join(json.dumps(r) for r in records))
+            self.assertEqual(compile_proof.failure("cargo", 101, path)["diagnostics"], [dict(code="E0308")])
+
+    def test_build_failure_input_and_record_bounds_fail_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "cargo.jsonl"
+            for raw in (b"private-not-json", b"{}\n" * 16385, b" " * (8 * 1024 ** 2 + 1),
+                        b"[" * 1100 + b"]" * 1100, b"[]", b'{"reason":"compiler-message","message":true}'):
+                path.write_bytes(raw)
+                self.assertEqual(compile_proof.failure("cargo", 101, path),
+                                 dict(step="cargo", exit_code=101, diagnostics=[]))
+            path.unlink()
+            self.assertEqual(compile_proof.failure("toolchain", 7, path)["diagnostics"], [])
+            self.assertIsNone(compile_proof.read_failure(path))
+            self.assertIsNone(compile_proof.read_failure(Path(temp)))
+            record = dict(step="cargo", exit_code=101, diagnostics=[dict(code="E0308")])
+            for changed in ({**record, "step":"private"}, {**record, "exit_code":True},
+                            {**record, "exit_code":0}, {**record, "exit_code":256}, {**record, "body":"private"},
+                            {**record, "diagnostics":[dict(code="E0308", file="private")]},
+                            {**record, "diagnostics":[dict(code="E0308", line=0, column=1)]},
+                            {**record, "diagnostics":record["diagnostics"] * 9}):
+                path.write_text(json.dumps(changed))
+                self.assertIsNone(compile_proof.read_failure(path))
+            path.write_bytes(b" " * 2049)
+            self.assertIsNone(compile_proof.read_failure(path))
+            path.write_bytes(b"[" * 1000 + b"]" * 1000)
+            self.assertIsNone(compile_proof.read_failure(path))
+            path.write_text(json.dumps(record))
+            self.assertEqual(compile_proof.read_failure(path), record)
+            with patch.object(compile_proof.os, "open", side_effect=OSError("PRIVATE_READ")):
+                self.assertIsNone(compile_proof.read_failure(path))
+            with patch.object(Path, "is_symlink", return_value=True):
+                self.assertIsNone(compile_proof.read_failure(path))
+
+    def test_build_failure_eight_codes_and_original_success_cli(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / "cargo.jsonl"
+            records = [dict(reason="compiler-message", message=dict(level="error", code=dict(code=f"E{i:04}")))
+                       for i in range(12)]
+            path.write_text("\n".join(json.dumps(r) for r in records + records))
+            self.assertEqual(compile_proof.failure("cargo", 101, path)["diagnostics"],
+                             [dict(code=f"E{i:04}") for i in range(8)])
+            args = ["compile_proof.py", "--artifacts", str(path), "--root", str(root),
+                    "--executable", str(root / "binary"), "--copied", str(root / "copy"),
+                    "--output", str(root / "proof.json")]
+            proof = dict(state="actual_locked_compile_verified")
+            with patch.object(sys, "argv", args), patch.object(compile_proof, "qualify", return_value=proof) as qualify, \
+                 patch.object(compile_proof, "write_json") as write:
+                self.assertEqual(compile_proof.main(), 0)
+                qualify.assert_called_once_with(path, root, root / "binary", root / "copy")
+                write.assert_called_once_with(root / "proof.json", proof)
+            with patch.object(sys, "argv", args + ["--failure-step", "cargo", "--failure-exit", "101"]), \
+                 patch.object(compile_proof, "qualify") as qualify, patch.object(compile_proof, "write_json") as write:
+                self.assertEqual(compile_proof.main(), 0)
+                qualify.assert_not_called()
+                self.assertEqual(write.call_args.args[1]["exit_code"], 101)
+            with patch.object(sys, "argv", args + ["--failure-step", "cargo", "--failure-exit", "0"]), \
+                 patch.object(compile_proof, "write_json") as write:
+                self.assertEqual(compile_proof.main(), 1)
+                write.assert_not_called()
+
+    def test_build_failure_public_projection_and_capture_precede_cleanup(self):
+        record = dict(step="cargo", exit_code=101, diagnostics=[dict(code="E0308", line=3, column=2)])
+        result = run.failure_projection(dict(failure_phase="build", failure_class="RuntimeError", build_failure=record))
+        self.assertEqual(result["build_failure"], record)
+        self.assertEqual(run.failure_projection(dict(failure_phase="build", build_failure={"body":"PRIVATE"}))["build_failure"], None)
+        self.assertNotIn("build_failure", run.failure_projection(dict(failure_phase="initial", build_failure=record)))
+        tree = ast.parse((run.HERE / "run.py").read_bytes())
+        execute = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "execute")
+        reads = [n for n in ast.walk(execute) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                 and n.func.attr == "read_failure"]
+        cleanup = [n.lineno for n in ast.walk(execute) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                   and n.func.id == "cleanup_native"]
+        self.assertEqual(len(reads), 1)
+        self.assertLess(reads[0].lineno, min(cleanup))
+
+    def test_build_shell_trap_preserves_original_exit_and_every_old_command(self):
+        script = (run.HERE / "build.sh").read_text()
+        original = "\n".join(line for line in script.splitlines() if not line.startswith(("build_step=", "  build_step=", "trap ")))
+        self.assertEqual(hashlib.sha256((original + "\n").encode()).hexdigest(),
+                         "d9ebe12483d8579d7566d2807e57ce4bb6a8ac4968a12b2b384fe745b3106ecc")
+        steps = {line.strip().split("=", 1)[1] for line in script.splitlines() if line.strip().startswith("build_step=")}
+        self.assertEqual(steps, compile_proof.BUILD_STEPS)
+        bash = shutil.which("bash") if sys.platform != "win32" else "C:/Program Files/Git/bin/bash.exe"
+        if not bash or not Path(bash).is_file():
+            self.skipTest("Bash unavailable for pure trap execution")
+        trap = next(line for line in script.splitlines() if line.startswith("trap "))
+        for step in ("toolchain", "cargo", "compile_proof"):
+            for writer_code in (0, 17):
+                command = "set -euo pipefail\npython3() { printf '%s\\n' \"$*\"; return " + str(writer_code) + "; }\n"
+                command += trap.replace(">/dev/null 2>&1", "") + f"\nbuild_step={step}\n(exit 23)\n"
+                result = subprocess.run([bash, "-c", command], capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 23)
+                self.assertIn(f"--failure-step {step} --failure-exit 23", result.stdout)
 
 
 if __name__ == "__main__":

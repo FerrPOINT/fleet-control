@@ -106,8 +106,8 @@ prevents success output; terminal VM teardown is not cleanup evidence.
 The authored caller requires parent/independent review before publication. Its
 public preflight verifies the exact source tuple and additions before any private
 Base token use. All35 copied QA/image files match component
-`cf0edd25139cc12cd379c3085ac7c60beefe4369`; their compact path/SHA256 map digest is
-`be370b367f3b7d58a5eb0f5bf658e669126daa3d1b274c755e694a2585c789c6`.
+`7aeeef584b88c8cf366912d6c14187af29a3925e`; their compact path/SHA256 map digest is
+`a0e9c37135cc4ed28c8b1dae38d5488a29041c9ae4e19a30fbd9585c3135dc94`.
 Only this README and the workflow are caller-specific. No cache, Git donor,
 credentials or prepared packet is included. In that one host job, set absolute
 exact Git input directories (no dependency copies):
@@ -189,6 +189,12 @@ Original-nine failed output exposes only fixed first-failure phase/class and
 matrix cleanup proof (true/false/null); terminal-save failure uses the same
 projection, never the private report. Successful output and all runtime checks
 are unchanged. This does not recover the cause of prior failed attempts.
+
+Build failures may additionally expose a fixed shell step, original exit code
+and at most eight Rust Edddd codes; optional coordinates refer only to the fixed
+live main.rs. Missing or invalid evidence remains null, with no error text or
+private path. Input/record bounds are 8MiB/16384 lines and 2KiB; no new artifact
+is uploaded. Successful output, original commands and locked inputs are unchanged.
 
 The caller's only artifact is a success-only `receipt.json` (maximum64KiB).
 It revalidates existing original-nine and cut reports, actual compile proofs,
