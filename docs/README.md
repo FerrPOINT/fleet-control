@@ -83,7 +83,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 ## Quality And Delivery
 
-- [PM tools handoff requirements and offline conformance](contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md)
+- [Current PM MCP handoff and historical oracle boundary](contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md)
 - [TESTING.md](TESTING.md)
 - [UI_READINESS_VERIFICATION.md](UI_READINESS_VERIFICATION.md)
 - [QUALITY_GATE.md](QUALITY_GATE.md)

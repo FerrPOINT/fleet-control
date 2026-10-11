@@ -303,7 +303,7 @@
     "fleet-control/backend/migration/tests/hermes_journal_time_order.rs": "8a4d973b337b3dfe121de559a08db691214ea884abea39ab4f93f657d8a2d87e",
     "fleet-control/backend/migration/tests/mapped_controller_recovery.rs": "1282967e3865e6e0a61b2a60e7ece6c707cd135253ba781507bc722dcd8a9574",
     "fleet-control/backend/migration/tests/message_order.rs": "1a9ca88498c5dd0eca875887b0aeb97cc533d813b8d161ffb5f24c4301809e46",
-    "fleet-control/backend/migration/tests/pm_ack_bounds.rs": "be6e71f8ef796ed07e6d02dd56e4ab559f12d20ad2b82323d52f2a7b3b973dbf",
+    "fleet-control/backend/migration/tests/pm_ack_bounds.rs": "dc8a8db5afc8f11b0ebd8358df217a16beddf791924cf9e97afeae1a4d61f76a",
     "fleet-control/backend/migration/tests/pm_credentials.rs": "d4a3f240a78d8c1afc29b97d17aac29179459b4ff96b23d023450ee9c787c463",
     "fleet-control/backend/migration/tests/recovered_activation.rs": "f76696f05cde5c94e86247cc030cfd7f9f370eaf3d16841d911fd1c5c2e3b297",
     "fleet-control/backend/migration/tests/runtime_controls.rs": "7860e5d77acda234169bc9f393ae3e98b1bf9a3ce7c309db64122988ff8a49a2",
@@ -440,7 +440,7 @@
         "backend/cli/Cargo.toml"
       ],
       "api_dependency_closure_git_sha256": "0d22170992190d7735249345d3a959cdba9b010772161afd3a7e5576335be520",
-      "artifact_bound_source_commit": "c3fc175b97168736717c72c2b32e1036c5b6f9db",
+      "artifact_bound_source_commit": "ce234726ad47f0e33258392cb86f0074747759e0",
       "artifact_id": 11689594281,
       "artifact_zip_sha256": "09539a222f8fb0bb75b660f2ca21355700bc7571c8752a6c6a51aef627c9ea2a",
       "binding_kind": "verified_api_dependency_closure_parity",
@@ -452,10 +452,14 @@
       "source_delta": [
         "backend/infra/src/runtime/pm_continuation.rs",
         "backend/infra/tests/support/pm_credential_creation.rs",
+        "backend/migration/tests/pm_ack_bounds.rs",
         "docs/CURRENT_STATE.md",
         "docs/GAP_REGISTER.md",
+        "docs/README.md",
         "docs/REMAINING_DELIVERY_WORK.md",
-        "docs/contracts/CHAT_CLARIFICATION_CONTRACT.md"
+        "docs/contracts/CHAT_CLARIFICATION_CONTRACT.md",
+        "docs/contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md",
+        "scripts/pm_tools_conformance/README.md"
       ],
       "source_file_count": 307,
       "source_inventory_sha256": "205edcde1a1a6b45481817583bbdfcb0599cef0b7799cb18e40ccafa616fde5f",
@@ -772,7 +776,7 @@
       "workflow_commit": "eed4bc54149e1b317c5eb3e3e7c628eeaffbdea4"
     },
     "prior_stages_preserved": 74,
-    "source_commit": "c3fc175b97168736717c72c2b32e1036c5b6f9db"
+    "source_commit": "ce234726ad47f0e33258392cb86f0074747759e0"
   },
   "default_foundation_ignored": 126,
   "executed": false,
@@ -3380,7 +3384,7 @@
     "backend/migration/tests/hermes_journal_time_order.rs": "8a4d973b337b3dfe121de559a08db691214ea884abea39ab4f93f657d8a2d87e",
     "backend/migration/tests/mapped_controller_recovery.rs": "1282967e3865e6e0a61b2a60e7ece6c707cd135253ba781507bc722dcd8a9574",
     "backend/migration/tests/message_order.rs": "1a9ca88498c5dd0eca875887b0aeb97cc533d813b8d161ffb5f24c4301809e46",
-    "backend/migration/tests/pm_ack_bounds.rs": "be6e71f8ef796ed07e6d02dd56e4ab559f12d20ad2b82323d52f2a7b3b973dbf",
+    "backend/migration/tests/pm_ack_bounds.rs": "dc8a8db5afc8f11b0ebd8358df217a16beddf791924cf9e97afeae1a4d61f76a",
     "backend/migration/tests/pm_credentials.rs": "d4a3f240a78d8c1afc29b97d17aac29179459b4ff96b23d023450ee9c787c463",
     "backend/migration/tests/recovered_activation.rs": "f76696f05cde5c94e86247cc030cfd7f9f370eaf3d16841d911fd1c5c2e3b297",
     "backend/migration/tests/runtime_controls.rs": "7860e5d77acda234169bc9f393ae3e98b1bf9a3ce7c309db64122988ff8a49a2",
@@ -3395,7 +3399,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "c3fc175b97168736717c72c2b32e1036c5b6f9db",
+  "source_commit": "ce234726ad47f0e33258392cb86f0074747759e0",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",

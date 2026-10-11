@@ -158,9 +158,12 @@ async fn pm_ack_bounds_repairs_installed_022_preserving_custody_and_empty_roundt
     let error = db.execute(update("run_old".into())).await.unwrap_err();
     assert!(error.to_string().contains("invalid regular expression"));
     assert_eq!(journal(&db).await, pending);
-    Migrator::up(&db, None).await.unwrap();
+    // Keep downgrade assertions on the repair when later migrations are registered.
+    let repair_steps = u32::try_from(target + 1 - old_ledger.len()).unwrap();
+    Migrator::up(&db, Some(repair_steps)).await.unwrap();
     let upgraded_ledger = ledger(&db).await;
-    assert_eq!(upgraded_ledger.len(), migrations.len());
+    assert_eq!(upgraded_ledger.len(), target + 1);
+    assert_eq!(upgraded_ledger.last_key_value().unwrap().0, REPAIR);
     for (version, applied_at) in old_ledger {
         assert_eq!(upgraded_ledger.get(&version), Some(&applied_at));
     }
