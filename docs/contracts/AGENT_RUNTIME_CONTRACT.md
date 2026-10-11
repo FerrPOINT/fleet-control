@@ -11,6 +11,13 @@ Unknown evidence stays held; Stop ACK is not terminal or business completion.
 No endpoint/schema change or Hermes producer patch is introduced. This candidate
 remains unqualified for current-source PostgreSQL/native acceptance.
 
+The026 source candidate exempts only explicit PM Stop from config drain and the
+PM MCP profile verifier; Steer retains both gates. Owner/project/assignment,
+coordinator, Tracker/Workflow, native, credentials and original custody checks
+remain unchanged. Pending-PM activation409 remains; accepted-running PM drains
+normally, and Stop ACK cannot release that drain without terminal proof.026 is
+additive, leaves025 unchanged and is not PostgreSQL/runtime verified.
+
 ## Free-Chat Recovery Candidate
 
 Original-key recovery is an authenticated, non-dispatch observation of a durable

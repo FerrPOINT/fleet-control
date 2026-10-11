@@ -23,7 +23,7 @@ workstreams without duplicating the history of every qualification attempt.
 | Requirements             | Gateway and exact-revision UI are not live vertical acceptance                                                                                                                                                                                                    | Real questions/answers/final document, owner exact revision/hash confirmation and actual Tracker Backlog; stale revision and operator proxy rejected                                                                       |
 | Forge                    | 278/sourcee781 run38093642467/1 terminalFAIL: authenticated A5/B PG5+24 negatives/14 cleaned journals PASS; C OCI7 exit101, CLI1/child DiskSpaceGuard; stages8-12 NOT_RUN. Cleanup/all remaining0; original aggregate rejects C, no full12                        | Terminal exact-source full12; actual candidate SHA/repo pipeline/attempt/artifact/deployment/health/acceptance receipts and rollback; scoped cleanup                                                                       |
 | Base                     | Maintenance PR183 merged externally with unchanged helper blobs; private CI still stops before steps on billing/spending limits. Merge alone is not consumer acceptance                                                                                           | Required auth/scopes/maintenance input verified on exact source and native consumers; no business scheduler or clarification logic in Base                                                                                 |
-| Contracts/migrations     | Actualaa11 Rust OpenAPI matches verifieda5f schema/seven producer DTOs; source8f adds025, lineage26/29. Current-source upgrade/down/up/refusal and full backend/native tests remain required                                                                      | Final-source generated API/client, clean DB migrations/history preservation, PG/HTTP and contract checks                                                                                                                   |
+| Contracts/migrations     | Actualaa11 Rust OpenAPI matches verifieda5f schema/seven producer DTOs; current026 source candidate has lineage27/30, with025 unchanged. Current-source upgrade/down/up/refusal and full backend/native tests remain required                                     | Final-source generated API/client, clean DB migrations/history preservation, PG/HTTP and contract checks                                                                                                                   |
 | Docs/screens/release     | Qualifiedaca 135 catalogue and9 PM views imported from authenticated artifact11677891567 with route/hash manifests; selected corrected mobile/desktop views reviewed, not the whole set. Prior6dd evidence stays historical                                       | Remaining visual/redaction/Compose gates and separate reviewed task-owned PRs with exact remote heads; fixture captures never substitute for live acceptance                                                               |
 | Live acceptance          | No genuine complete PM or full runtime/execution acceptance receipt for this assembly                                                                                                                                                                             | Compatible services complete approved positive/negative flows and seven-agent delivery/integration without duplicate work or false success                                                                                 |
 
@@ -37,10 +37,16 @@ Published config/PM candidatec976c27 holds activation with409 before drain
 for pending PM reservations, including no-journal/prepared/unknown acceptance;
 accepted-running drain remains. PG qualification pending, no new migration;
 actual6843/source8f FAIL does not qualify this candidate.
+The026 source candidate permits only explicit PM Stop during accepted-running
+drain and skips only its PM MCP profile verifier; Steer and other authority/custody
+checks remain guarded. Pending-PM activation409 remains, and ACK is not terminal
+proof. This additive candidate is not PostgreSQL/runtime verified.
 
 Historical exact698 release audit found15 new migrations/523 paths versus mainc39.
-Current8f has16 new migrations010-025/524 paths against that same base, with
+Historical8f has16 new migrations010-025/524 paths against that same base, with
 canonical/split26/29. Existing47/64 remain dependencies, not vehicles for the assembly.
+The current026 candidate has17 new migrations010-026 and canonical/split27/30;
+no final-source path inventory or release qualification is claimed.
 C11 adds011 relative to its configuration prerequisite but inherits010 relative
 to current main. Prefix reconciliation, individual migration ownership and
 each prefix's checks remain required; no broad main PR or dependency mutation

@@ -16,6 +16,13 @@ exact boolean completed=true/partial=false/interrupted=false. Unknown evidence
 does not release custody. No endpoint/schema change or Hermes producer patch is
 required; current-source PostgreSQL/native qualification remains pending.
 
+The026 Fleet source candidate permits only explicit PM Stop during config drain
+and skips the PM MCP profile verifier only for Stop. Steer retains both gates;
+owner/project/assignment, coordinator, Tracker/Workflow, native, credential and
+original-custody checks remain unchanged. Pending-PM activation409 and
+accepted-running drain remain; ACK is not terminal proof. The Hermes producer
+and wire protocol are unchanged; PostgreSQL/runtime qualification is pending.
+
 Saved-answer delivery and PM continuation have independent durable states.
 Continuation needs the original answer/checkpoint, prior-run terminal proof,
 verified Workflow rebind and exact native acceptance; EOF, unavailable runtime

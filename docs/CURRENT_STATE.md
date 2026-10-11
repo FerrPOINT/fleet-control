@@ -13,7 +13,10 @@ canonical clarification answers and accepted-PM-run following while new dispatch
 is disabled. Migration024 repairs the ACK constraint additively; original022 is
 unchanged. Reviewed source8f8e69d adds025 for custodial owner Stop after lost
 guidance ACK and shares strict terminal validation;010-024 remain unchanged.
-Canonical/split lineages are26/29. These fixes are source-reviewed;
+The current source candidate adds026 for explicit PM Stop under config drain
+and a Stop-only PM MCP profile-verifier bypass; other authority/custody checks
+remain unchanged. Its canonical/split lineages are27/30;025 is unchanged.
+Source inspection is not PostgreSQL/runtime verification;
 current-source Rust/PostgreSQL and native qualification remain required.
 Frontend candidate `dc7d1ee2574c1a05b55d794f4252b6ba37916a82` retains the final
 live-region update barrier and corrects the browser fixture to read the existing
@@ -87,7 +90,7 @@ commit2.09GiB, below the unchanged6GiB floor; daemon free disk is unconfirmed.
 Grouping audit35/0/0 passes with only permanent projects, not capacity admission.
 No QA was launched; native qualification remains held.
 
-Backend controls retain all existing checks. Additive024/025 migration tests
+Backend controls retain all existing checks. Additive024/025/026 migration tests
 must be explicitly selected and their own disposable databases cleaned.
 Source/pure checks do not execute PostgreSQL, HTTP or native runtimes.
 
@@ -121,7 +124,9 @@ and exact-revision confirmation flow and the broader seven-agent delivery/
 integration scenario are both still required.
 
 Historical exact698 versus mainc39 had523 changed paths and15 new migrations010-024.
-Current8f versus that same mainc39 has524 changed paths and16 new migrations010-025.
+Historical8f versus that same mainc39 has524 changed paths and16 new migrations010-025.
+The current026 candidate has17 new migrations010-026 against mainc39;
+its final source inventory and qualification remain pending.
 This assembly is not a narrow one-migration main PR. Existing
 PR47 owns010; PR64's configuration delta requires reconciliation with current
 foundation/main. The prepared C11 unit owns011 relative to that prerequisite,
