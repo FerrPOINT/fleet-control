@@ -126,6 +126,11 @@ Fleet task-bound prompt/steer remains blocked until verified workflow orchestrat
 
 Save a config draft, validate it, then explicitly activate. Desired and effective
 revisions can differ. During drain, do not force changes beneath active runs.
+Published unqualified candidatec976c27 returns409 before setting drain while a bound
+PM run is pending, even without a dispatch journal or with prepared/unknown
+acceptance. Reconcile original custody; do not clear a reservation or issue a
+new command to force activation. Accepted-running PM retains normal drain;
+activation waits for its terminal proof. This guard adds no migration.
 If activation fails and rollback is unconfirmed, keep the drain in place and
 inspect the last error. Crash recovery/operator reconciliation is not yet a public
 API; do not edit state rows to fabricate readiness.
