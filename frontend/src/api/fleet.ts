@@ -463,3 +463,24 @@ export function bulkCreateDeploymentJobs(req: BulkDeploymentRequest) {
     body: JSON.stringify(req),
   })
 }
+
+export async function createContextSession(
+  req: import('./generated').components['schemas']['CreateContextSessionRequest'],
+) {
+  const receipt = await apiRequest<
+    import('./generated').components['schemas']['ContextSessionReceipt']
+  >('/api/v2/sessions', { method: 'POST', body: JSON.stringify(req) })
+  const source = receipt.session
+  const session: AgentSession = {
+    ...source,
+    leader_agent_id: source.leader_agent_id ?? null,
+    leader_agent_name: source.leader_agent_name ?? null,
+    parent_session_id: source.parent_session_id ?? null,
+    created_by_leader_agent_id: source.created_by_leader_agent_id ?? null,
+    task_key: source.task_key ?? null,
+    namespace_id: source.namespace_id ?? null,
+    external_session_id: source.external_session_id ?? null,
+    last_message_preview: source.last_message_preview ?? null,
+  }
+  return { ...receipt, session }
+}

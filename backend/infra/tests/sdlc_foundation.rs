@@ -5,7 +5,7 @@ use domain::{
     SessionRunState, UpdateAgentConfigRequest,
 };
 use infra::{PostgresFleetRepository, connect_database, run_migrations};
-use sea_orm::{ConnectionTrait, DatabaseBackend, Statement, TransactionTrait};
+use sea_orm::{ConnectionTrait, DatabaseBackend, DatabaseConnection, Statement, TransactionTrait};
 use shared::{AppConfig, DatabaseConfig};
 use std::sync::{
     Arc,
@@ -86,6 +86,10 @@ async fn fixture_at(url: String) -> (PostgresFleetRepository, Uuid, Uuid) {
         connect_timeout_seconds: 10,
         idle_timeout_seconds: 60,
     };
+    fixture_with_config(config).await
+}
+
+async fn fixture_with_config(config: DatabaseConfig) -> (PostgresFleetRepository, Uuid, Uuid) {
     run_migrations(config.clone()).await.unwrap();
     let db = connect_database(config).await.unwrap();
     let owner = Uuid::new_v4();
@@ -524,6 +528,7 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
     let user = api::middleware::CurrentUser {
         id: owner,
         role: domain::SystemRole::User,
+        central_write: None,
         is_system_admin: false,
     };
     let route = format!(
@@ -873,6 +878,149 @@ fn configuration() -> UpdateAgentConfigRequest {
     }
 }
 
+async fn message_count(db: &DatabaseConnection, session_id: Uuid) -> i64 {
+    db.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT count(*) AS rows FROM session_messages WHERE session_id=$1",
+        [session_id.into()],
+    ))
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "rows")
+    .unwrap()
+}
+
+#[tokio::test]
+async fn message_receipts_and_replay_are_independent_of_history_limit() {
+    let (repo, owner, stranger) = fixture()
+        .await
+        .expect("FLEET_TEST_DATABASE_URL is required for the receipt regression");
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    for history_size in [499_i32, 500] {
+        let agent_id = agent(&repo).await;
+        let session = repo
+            .create_session(chat(agent_id, &format!("history-{history_size}")), owner)
+            .await
+            .unwrap();
+        let seed_size = history_size - i32::try_from(message_count(&db, session.id).await).unwrap();
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO session_messages
+             (id,session_id,author_type,author_user_id,body,message_kind,delivery_state,created_at)
+             SELECT gen_random_uuid(),$1,'user',$2,'Earlier message '||n,'user_prompt','mirrored',
+                    timestamptz '2000-01-01' + n * interval '1 second'
+             FROM generate_series(1,$3) n",
+            [session.id.into(), owner.into(), seed_size.into()],
+        ))
+        .await
+        .unwrap();
+        assert_eq!(
+            message_count(&db, session.id).await,
+            i64::from(history_size)
+        );
+        let mut request = prompt("00000000-0000-4000-8000-000000000399");
+        request.body = "Discuss password=fixture-value".into();
+        request.message_kind = None;
+        let result = repo
+            .create_session_message(session.id, request.clone(), owner)
+            .await;
+        let count = message_count(&db, session.id).await;
+        assert_eq!(count, i64::from(history_size) + 1);
+        let created =
+            result.expect("A committed message must return its receipt beyond the history page");
+        assert_eq!(created.session_id, session.id);
+        assert_eq!(created.author_user_id, Some(owner));
+        assert_eq!(created.body, "Discuss password=redacted");
+        assert_eq!(
+            created.request_payload_hash.as_deref(),
+            Some("ae34a8dd992f505a7b8e0f5ad8248284d857471f3a8067a041aa8632eff34087",)
+        );
+        assert!(!created.replayed);
+        let replay = repo
+            .create_session_message(session.id, request.clone(), owner)
+            .await
+            .unwrap();
+        assert_eq!(replay.id, created.id);
+        assert!(replay.replayed);
+        assert_eq!(replay.body, created.body);
+        assert_eq!(replay.request_payload_hash, created.request_payload_hash);
+        let mut changed = request.clone();
+        changed.body = "Different payload".into();
+        assert!(
+            repo.create_session_message(session.id, changed, owner)
+                .await
+                .is_err()
+        );
+        assert!(
+            repo.create_session_message(session.id, request.clone(), stranger)
+                .await
+                .is_err()
+        );
+        let listed = repo.list_session_messages(session.id).await.unwrap();
+        assert_eq!(listed.len(), 500);
+        assert!(
+            listed
+                .iter()
+                .all(|message| message.request_payload_hash.is_none())
+        );
+        assert_eq!(
+            listed.iter().any(|message| message.id == created.id),
+            history_size == 499
+        );
+        assert_eq!(message_count(&db, session.id).await, count);
+        // Select this fixture ahead of other tests' pending outbox rows.
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE message_dispatch_outbox SET created_at=timestamptz '2000-01-01' WHERE message_id=$1",
+            [created.id.into()],
+        )).await.unwrap();
+        let claimed = repo.claim_message_dispatch().await.unwrap().unwrap();
+        assert_eq!(claimed.id, created.id);
+        assert_eq!(claimed.body, request.body);
+        assert!(claimed.request_payload_hash.is_none());
+        repo.finish_message_dispatch(
+            claimed.id,
+            true,
+            Some("Fixture retains unknown runtime acceptance".into()),
+        )
+        .await
+        .unwrap();
+        let runtime_id = format!("mirror-{history_size}");
+        let mirror = repo
+            .insert_session_message_mirror(
+                session.id,
+                Some(agent_id),
+                "Confirmed reply".into(),
+                MessageKind::AssistantMessage,
+                Some(runtime_id.clone()),
+            )
+            .await
+            .unwrap();
+        let replayed_mirror = repo
+            .insert_session_message_mirror(
+                session.id,
+                Some(agent_id),
+                "Confirmed reply".into(),
+                MessageKind::AssistantMessage,
+                Some(runtime_id),
+            )
+            .await
+            .unwrap();
+        assert_eq!(mirror.session_id, session.id);
+        assert_eq!(mirror.body, "Confirmed reply");
+        assert_eq!(mirror.id, replayed_mirror.id);
+        assert!(mirror.request_payload_hash.is_none());
+        assert_eq!(message_count(&db, session.id).await, count + 1);
+        assert_eq!(
+            repo.list_session_messages(session.id).await.unwrap().len(),
+            500
+        );
+    }
+}
+
 #[tokio::test]
 async fn pm_draft_chat_creation_is_atomic_idempotent_and_cannot_queue_a_prompt() {
     let Some((repo, reservation)) = pm_fixture().await else {
@@ -1178,8 +1326,362 @@ async fn pm_fixture() -> Option<(PostgresFleetRepository, domain::PmRunReservati
             checkpoint_ref: None,
             fence: 1,
             runtime_binding: Some(runtime_binding),
+            native_session_key: None,
+            native_message_id: None,
         },
     ))
+}
+
+#[tokio::test]
+async fn pm_checkpoint_journal_is_original_monotonic_and_survives_lost_ack() {
+    use migration::MigratorTrait;
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    repo.reserve_pm_run(reservation.clone()).await.unwrap();
+    let record = repo
+        .accept_pm_run(
+            reservation.session_run_id,
+            "run_checkpoint".into(),
+            "native-checkpoint-session".into(),
+        )
+        .await
+        .unwrap();
+    let mut command = serde_json::to_value(&reservation.identity).unwrap();
+    command.as_object_mut().unwrap().extend([
+        (
+            "operation_key".into(),
+            serde_json::json!("checkpoint-original"),
+        ),
+        ("expected_version".into(), serde_json::json!(1)),
+        (
+            "expected_fence".into(),
+            serde_json::json!(reservation.fence),
+        ),
+        (
+            "binding_ref".into(),
+            serde_json::json!(reservation.binding_ref),
+        ),
+        ("hermes_run_ref".into(), serde_json::json!("run_checkpoint")),
+        (
+            "session_run_id".into(),
+            serde_json::json!(reservation.session_run_id),
+        ),
+        ("checkpoint_ref".into(), serde_json::json!(Uuid::new_v4())),
+        (
+            "clarification_request_ref".into(),
+            serde_json::json!(Uuid::new_v4()),
+        ),
+        ("clarification_version".into(), serde_json::json!(3)),
+        ("requirements_revision".into(), serde_json::json!(2)),
+    ]);
+    let journal = domain::PmCheckpointJournal {
+        request_sha256: domain::pm_canonical_hash(&command),
+        command: command.clone(),
+        receipt: None,
+    };
+    let (a, b) = tokio::join!(
+        repo.save_pm_checkpoint(&record, journal.clone()),
+        repo.save_pm_checkpoint(&record, journal.clone())
+    );
+    assert!(a.unwrap().receipt.is_none());
+    assert!(b.unwrap().receipt.is_none());
+    assert_eq!(
+        repo.pending_pm_checkpoints(reservation.session_id)
+            .await
+            .unwrap(),
+        vec![reservation.session_run_id]
+    );
+    let receipt = serde_json::json!({"contract_version":1,"identity":reservation.identity,"state":"waiting","version":2,"fence":reservation.fence,
+        "session_run_id":reservation.session_run_id,"binding_ref":reservation.binding_ref,"hermes_run_ref":"run_checkpoint",
+        "checkpoint":{"checkpoint_ref":command["checkpoint_ref"],"clarification_request_ref":command["clarification_request_ref"],
+            "clarification_version":3,"requirements_revision":2},"resume_operation_key":null,"resume_session_run_id":null,
+        "terminal_readback":null,"workflow_step_allowed":false,"resume_delivered":false});
+    let mut wrong = journal.clone();
+    wrong.receipt = Some(receipt.clone());
+    wrong.receipt.as_mut().unwrap()["fence"] = serde_json::json!(2);
+    assert!(repo.save_pm_checkpoint(&record, wrong).await.is_err());
+    let mut ack = journal.clone();
+    ack.receipt = Some(receipt.clone());
+    repo.save_pm_checkpoint(&record, ack).await.unwrap();
+    assert_eq!(
+        repo.save_pm_checkpoint(&record, journal.clone())
+            .await
+            .unwrap()
+            .receipt,
+        Some(receipt.clone())
+    );
+    assert!(
+        repo.pending_pm_checkpoints(reservation.session_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let reread = PostgresFleetRepository::new(
+        sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap(),
+    )
+    .pm_checkpoint(reservation.session_run_id)
+    .await
+    .unwrap()
+    .unwrap();
+    reread.validate(&record).unwrap();
+    assert_eq!(reread.receipt, Some(receipt));
+    let mut conflict = journal;
+    conflict.command["operation_key"] = serde_json::json!("replacement");
+    conflict.request_sha256 = domain::pm_canonical_hash(&conflict.command);
+    assert!(repo.save_pm_checkpoint(&record, conflict).await.is_err());
+    for sql in [
+        "UPDATE pm_run_checkpoints SET receipt=NULL WHERE session_run_id=$1",
+        "DELETE FROM pm_run_checkpoints WHERE session_run_id=$1",
+    ] {
+        assert!(
+            db.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                sql,
+                [reservation.session_run_id.into()]
+            ))
+            .await
+            .is_err()
+        );
+    }
+    let checkpoint_migration = migration::Migrator::migrations()
+        .into_iter()
+        .find(|item| item.name() == "m20261009_000025_pm_checkpoints")
+        .unwrap();
+    assert!(
+        checkpoint_migration
+            .down(&migration::SchemaManager::new(&db))
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.pm_checkpoint(reservation.session_run_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .receipt
+            .is_some()
+    );
+}
+
+#[tokio::test]
+async fn pm_resume_journal_preserves_original_ids_and_refuses_replacement_or_lossy_down() {
+    use migration::MigratorTrait;
+    let Some((repo, mut reservation)) = pm_fixture().await else {
+        return;
+    };
+    let message = Uuid::new_v4();
+    reservation.dispatch_operation_key = message.to_string();
+    reservation.native_session_key = Some(domain::pm_native_session_key(
+        reservation.session_id,
+        reservation.identity.agent_id().unwrap(),
+        message,
+    ));
+    repo.reserve_pm_run(reservation.clone()).await.unwrap();
+    let accepted = repo
+        .accept_pm_run(
+            reservation.session_run_id,
+            "run_resume_old".into(),
+            Uuid::new_v4().to_string(),
+        )
+        .await
+        .unwrap();
+    repo.observe_pm_run(
+        &accepted,
+        domain::PmRuntimeStatus::Stopped,
+        &RepositoryPmCustody,
+    )
+    .await
+    .unwrap();
+    let old = repo.get_pm_run(reservation.session_run_id).await.unwrap();
+    let mut command = serde_json::to_value(&reservation.identity).unwrap();
+    command.as_object_mut().unwrap().extend([
+        (
+            "operation_key".into(),
+            serde_json::json!("checkpoint-for-resume"),
+        ),
+        ("expected_version".into(), serde_json::json!(1)),
+        ("expected_fence".into(), serde_json::json!(1)),
+        (
+            "binding_ref".into(),
+            serde_json::json!(reservation.binding_ref),
+        ),
+        (
+            "hermes_run_ref".into(),
+            serde_json::json!(old.hermes_run_ref),
+        ),
+        (
+            "session_run_id".into(),
+            serde_json::json!(reservation.session_run_id),
+        ),
+        ("checkpoint_ref".into(), serde_json::json!(Uuid::new_v4())),
+        (
+            "clarification_request_ref".into(),
+            serde_json::json!(Uuid::new_v4()),
+        ),
+        ("clarification_version".into(), serde_json::json!(1)),
+        ("requirements_revision".into(), serde_json::json!(1)),
+    ]);
+    let checkpoint_data = serde_json::json!({"checkpoint_ref":command["checkpoint_ref"],"clarification_request_ref":command["clarification_request_ref"],
+        "clarification_version":1,"requirements_revision":1});
+    let checkpoint = domain::PmCheckpointJournal {
+        request_sha256: domain::pm_canonical_hash(&command),
+        command: command.clone(),
+        receipt: Some(serde_json::json!({
+        "contract_version":1,"identity":reservation.identity,"state":"waiting","version":2,"fence":1,"session_run_id":reservation.session_run_id,
+        "binding_ref":reservation.binding_ref,"hermes_run_ref":old.hermes_run_ref,"checkpoint":checkpoint_data,"resume_operation_key":null,
+        "resume_session_run_id":null,"terminal_readback":null,"workflow_step_allowed":false,"resume_delivered":false})),
+    };
+    repo.save_pm_checkpoint(&old, checkpoint.clone())
+        .await
+        .unwrap();
+    let event = Uuid::new_v4();
+    let next = Uuid::new_v4();
+    command["operation_key"] = serde_json::json!(format!(
+        "fleet-pm-resume:{}:{event}",
+        reservation.session_run_id
+    ));
+    command["expected_version"] = serde_json::json!(2);
+    command["answer_event_ref"] = serde_json::json!(event);
+    command["new_session_run_id"] = serde_json::json!(next);
+    let intent = domain::PmResumeIntent {
+        old_session_run_id: reservation.session_run_id,
+        new_session_run_id: next,
+        message_id: Uuid::new_v4(),
+        source_event_id: event,
+        source_answer_id: Uuid::new_v4(),
+        request_sha256: domain::pm_canonical_hash(&command),
+        command,
+        prompt: "actual structured answer fixture".into(),
+    };
+    let journal = domain::PmResumeJournal {
+        intent: intent.clone(),
+        receipt: None,
+    };
+    let (a, b) = tokio::join!(
+        repo.save_pm_resume(&old, &checkpoint, journal.clone()),
+        repo.save_pm_resume(&old, &checkpoint, journal.clone())
+    );
+    assert_eq!(
+        a.unwrap().intent.new_session_run_id,
+        b.unwrap().intent.new_session_run_id
+    );
+    let mut observation = serde_json::to_value(&reservation.identity).unwrap();
+    observation.as_object_mut().unwrap().extend([
+        ("observation_ref".into(), serde_json::json!(Uuid::new_v4())),
+        (
+            "binding_ref".into(),
+            serde_json::json!(reservation.binding_ref),
+        ),
+        (
+            "hermes_run_ref".into(),
+            serde_json::json!(old.hermes_run_ref),
+        ),
+        (
+            "session_run_id".into(),
+            serde_json::json!(reservation.session_run_id),
+        ),
+        ("status".into(), serde_json::json!("stopped")),
+        (
+            "dispatch_operation_key".into(),
+            serde_json::json!(reservation.dispatch_operation_key),
+        ),
+        (
+            "checkpoint_ref".into(),
+            checkpoint.command["checkpoint_ref"].clone(),
+        ),
+        ("fence".into(), serde_json::json!(1)),
+    ]);
+    let receipt = serde_json::json!({"contract_version":1,"identity":reservation.identity,"state":"resume_pending","version":3,"fence":2,
+        "session_run_id":reservation.session_run_id,"binding_ref":reservation.binding_ref,"hermes_run_ref":old.hermes_run_ref,"checkpoint":checkpoint_data,
+        "resume_operation_key":intent.command["operation_key"],"resume_session_run_id":next,"terminal_readback":observation,
+        "workflow_step_allowed":false,"resume_delivered":false});
+    let mut bad = journal.clone();
+    bad.receipt = Some(receipt.clone());
+    bad.receipt.as_mut().unwrap()["terminal_readback"]["session_run_id"] =
+        serde_json::json!(Uuid::new_v4());
+    assert!(repo.save_pm_resume(&old, &checkpoint, bad).await.is_err());
+    let mut ack = journal.clone();
+    ack.receipt = Some(receipt.clone());
+    repo.save_pm_resume(&old, &checkpoint, ack).await.unwrap();
+    assert_eq!(
+        repo.save_pm_resume(&old, &checkpoint, journal.clone())
+            .await
+            .unwrap()
+            .receipt,
+        Some(receipt)
+    );
+    let mut replacement = journal;
+    replacement.intent.new_session_run_id = Uuid::new_v4();
+    replacement.intent.command["new_session_run_id"] =
+        serde_json::json!(replacement.intent.new_session_run_id);
+    replacement.intent.request_sha256 = domain::pm_canonical_hash(&replacement.intent.command);
+    assert!(
+        repo.save_pm_resume(&old, &checkpoint, replacement)
+            .await
+            .is_err()
+    );
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    for sql in [
+        "UPDATE pm_run_resumes SET journal=jsonb_set(journal,'{receipt}','null') WHERE old_run_id=$1",
+        "DELETE FROM pm_run_resumes WHERE old_run_id=$1",
+    ] {
+        assert!(
+            db.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                sql,
+                [reservation.session_run_id.into()]
+            ))
+            .await
+            .is_err()
+        );
+    }
+    let resume_migration = migration::Migrator::migrations()
+        .into_iter()
+        .find(|item| item.name() == "m20261009_000026_pm_resumes")
+        .unwrap();
+    assert!(
+        resume_migration
+            .down(&migration::SchemaManager::new(&db))
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.pm_resume(reservation.session_run_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .receipt
+            .is_some()
+    );
+    repo.queue_pm_resume(reservation.session_run_id)
+        .await
+        .unwrap();
+    repo.queue_pm_resume(reservation.session_run_id)
+        .await
+        .unwrap();
+    let saved = repo
+        .pm_resume(reservation.session_run_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let queued = repo
+        .pm_resume_by_message(saved.intent.message_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(queued.intent.new_session_run_id, next);
+    let row=db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT count(*) AS n FROM session_messages WHERE id=$1 AND author_type='system' AND message_kind='control'",
+        [saved.intent.message_id.into()])).await.unwrap().unwrap();
+    assert_eq!(row.try_get::<i64>("", "n").unwrap(), 1);
 }
 
 fn tracker_page(binding: &domain::TaskChatBinding) -> domain::TrackerOutboxPage {
@@ -2075,6 +2577,7 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
         .layer(axum::Extension(api::middleware::CurrentUser {
             id: session.user_id,
             role: domain::SystemRole::User,
+            central_write: None,
             is_system_admin: false,
         }))
         .with_state(ctx);
@@ -2933,6 +3436,7 @@ async fn task_approval_rechecks_assignment_after_waiting_for_actor_lock() {
         .layer(axum::Extension(api::middleware::CurrentUser {
             id: session.user_id,
             role: domain::SystemRole::User,
+            central_write: None,
             is_system_admin: false,
         }))
         .with_state(ctx);
@@ -3508,6 +4012,7 @@ async fn config_revision_readiness_http_uses_exact_heads_without_trusting_databa
                 .layer(axum::Extension(api::middleware::CurrentUser {
                     id: owner,
                     role: domain::SystemRole::Operator,
+                    central_write: None,
                     is_system_admin: false,
                 })),
         )
@@ -3516,6 +4021,7 @@ async fn config_revision_readiness_http_uses_exact_heads_without_trusting_databa
             endpoint.layer(axum::Extension(api::middleware::CurrentUser {
                 id: owner,
                 role: domain::SystemRole::User,
+                central_write: None,
                 is_system_admin: false,
             })),
         )
@@ -4262,13 +4768,27 @@ async fn runtime_http_events_scenario(
     expected: SessionRunState,
     expected_reply: bool,
 ) -> Option<(Arc<PostgresFleetRepository>, Uuid)> {
-    let (repo, owner, _) = fixture().await?;
+    let url = std::env::var("FLEET_TEST_DATABASE_URL").ok()?;
+    let (repo, owner, _) = fixture_with_config(DatabaseConfig {
+        url,
+        max_connections: 3,
+        min_connections: 0,
+        connect_timeout_seconds: 10,
+        idle_timeout_seconds: 1,
+    })
+    .await;
     let agent_id = agent(&repo).await;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
-    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
-        .await
-        .unwrap();
+    let db = connect_database(DatabaseConfig {
+        url: std::env::var("FLEET_TEST_DATABASE_URL").unwrap(),
+        max_connections: 1,
+        min_connections: 0,
+        connect_timeout_seconds: 10,
+        idle_timeout_seconds: 1,
+    })
+    .await
+    .unwrap();
     db.execute(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
         "UPDATE agents SET api_port = $2 WHERE id = $1",

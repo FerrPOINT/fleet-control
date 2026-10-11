@@ -176,6 +176,8 @@ async fn fixture_with_pool(max_connections: u32) -> Option<Fixture> {
         checkpoint_ref: None,
         fence: 1,
         runtime_binding: Some(runtime_binding),
+        native_session_key: None,
+        native_message_id: None,
     };
     repo.reserve_pm_run(reservation.clone()).await.unwrap();
     let effective_session = Uuid::new_v4().to_string();

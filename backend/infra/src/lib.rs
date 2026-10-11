@@ -10,12 +10,14 @@ mod controller_recovery_delivery;
 mod controller_stop_delivery;
 mod effective_configuration;
 pub mod entities;
+mod execution_context;
 mod hermes_approval_recovery;
 mod hermes_dispatch_journal;
 mod message_dispatch;
 pub mod pm_credentials;
 mod pm_draft;
 mod pm_execution;
+pub mod pm_workflow;
 mod request_observer_package;
 pub mod runtime;
 mod runtime_acceptance;
@@ -51,7 +53,6 @@ use entities::{
     runtime_approval_request, runtime_template, session_agent_run, session_message,
     session_participant, user, workflow_binding,
 };
-use hmac::{Hmac, Mac};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::NotSet, ActiveValue::Set, ColumnTrait, ConnectOptions,
     ConnectionTrait, Database, DatabaseBackend, DatabaseConnection, EntityTrait, IntoActiveModel,
@@ -68,7 +69,17 @@ use std::{
 };
 use uuid::Uuid;
 
-type HmacSha256 = Hmac<Sha256>;
+fn namespace_persistence_error(error: sea_orm::DbErr) -> AppError {
+    if let sea_orm::DbErr::Exec(sea_orm::RuntimeErr::SqlxError(sql))
+    | sea_orm::DbErr::Query(sea_orm::RuntimeErr::SqlxError(sql)) = &error
+        && let Some(database) = sql.as_database_error()
+        && database.code().as_deref() == Some("55000")
+        && database.message() == "namespace_execution_adapter_not_enabled"
+    {
+        return AppError::conflict("namespace_execution_adapter_not_enabled");
+    }
+    AppError::database(error)
+}
 
 pub async fn connect_database(config: DatabaseConfig) -> Result<DatabaseConnection, AppError> {
     if config.url.trim().is_empty() {
@@ -80,14 +91,16 @@ pub async fn connect_database(config: DatabaseConfig) -> Result<DatabaseConnecti
         .min_connections(config.min_connections)
         .connect_timeout(Duration::from_secs(config.connect_timeout_seconds))
         .idle_timeout(Duration::from_secs(config.idle_timeout_seconds));
-    Database::connect(options).await.map_err(AppError::database)
+    Database::connect(options)
+        .await
+        .map_err(namespace_persistence_error)
 }
 
 pub async fn run_migrations(config: DatabaseConfig) -> Result<(), AppError> {
     let db = connect_database(config).await?;
     migration::Migrator::up(&db, None)
         .await
-        .map_err(AppError::database)
+        .map_err(namespace_persistence_error)
 }
 
 pub struct PostgresFleetRepository {
@@ -95,6 +108,214 @@ pub struct PostgresFleetRepository {
 }
 
 impl PostgresFleetRepository {
+    async fn create_session_mode(
+        &self,
+        req: CreateSessionRequest,
+        user_id: Uuid,
+        queue_execution: bool,
+    ) -> Result<AgentSession, AppError> {
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
+        let idempotency_key = req
+            .idempotency_key
+            .as_ref()
+            .map(|key| key.trim().to_string())
+            .filter(|key| !key.is_empty());
+        let idempotency_payload_hash = match idempotency_key.as_ref() {
+            Some(_) => Some(payload_hash(
+                &serde_json::to_value(&req).map_err(AppError::internal)?,
+            )?),
+            None => None,
+        };
+        if let Some(key) = idempotency_key.as_ref() {
+            txn.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                [format!("session:{user_id}:{key}").into()],
+            ))
+            .await
+            .map_err(namespace_persistence_error)?;
+        }
+        if let Some(key) = idempotency_key.as_ref()
+            && let Some(existing) = agent_session::Entity::find()
+                .filter(agent_session::Column::UserId.eq(user_id))
+                .filter(agent_session::Column::IdempotencyKey.eq(key))
+                .one(&txn)
+                .await
+                .map_err(namespace_persistence_error)?
+        {
+            if existing.idempotency_payload_hash == idempotency_payload_hash {
+                txn.commit().await.map_err(namespace_persistence_error)?;
+                return self.get_session(existing.id).await;
+            }
+            return Err(AppError::conflict(
+                "idempotency_key was already used with a different session payload",
+            ));
+        }
+        let primary_agent_id = selected_primary_agent_id(&req)?;
+        let agent = load_agent_row(&txn, primary_agent_id).await?;
+        if agent.status == AgentStatus::Archived.as_str() {
+            return Err(AppError::conflict(
+                "cannot create a chat with an archived agent",
+            ));
+        }
+        user::Entity::find_by_id(user_id)
+            .one(&txn)
+            .await
+            .map_err(namespace_persistence_error)?
+            .ok_or_else(|| AppError::not_found("user", user_id))?;
+        let parent = match req.parent_session_id {
+            Some(parent_session_id) => Some(
+                agent_session::Entity::find_by_id(parent_session_id)
+                    .one(&txn)
+                    .await
+                    .map_err(namespace_persistence_error)?
+                    .ok_or_else(|| AppError::not_found("parent_session", parent_session_id))?,
+            ),
+            None => None,
+        };
+        let primary_product_role = parse_product_role(&agent.product_role);
+        if parent
+            .as_ref()
+            .is_some_and(|parent| parent.user_id != user_id)
+        {
+            return Err(AppError::Forbidden);
+        }
+        let leader_agent_id = req
+            .leader_agent_id
+            .or_else(|| parent.as_ref().and_then(|session| session.leader_agent_id))
+            .or_else(|| {
+                (primary_product_role == AgentProductRole::Leader).then_some(primary_agent_id)
+            });
+
+        if let Some(leader_id) = leader_agent_id {
+            ensure_agent_product_role(&txn, leader_id, AgentProductRole::Leader, "leader").await?;
+            if primary_product_role == AgentProductRole::Leader && leader_id != primary_agent_id {
+                return Err(AppError::validation(
+                    "leader chat must use the same primary and leader agent",
+                ));
+            }
+            if primary_product_role == AgentProductRole::Executor {
+                let allowed = leader_executor::Entity::find_by_id((leader_id, primary_agent_id))
+                    .one(&txn)
+                    .await
+                    .map_err(namespace_persistence_error)?
+                    .is_some();
+                if !allowed {
+                    return Err(AppError::validation(
+                        "selected leader does not manage this executor",
+                    ));
+                }
+            }
+        }
+
+        let session_id = Uuid::new_v4();
+        let ts = now();
+        let visibility = if leader_agent_id.is_some() {
+            SessionVisibility::LeaderScoped
+        } else {
+            SessionVisibility::Private
+        };
+        agent_session::Entity::insert(agent_session::ActiveModel {
+            id: Set(session_id),
+            agent_id: Set(primary_agent_id),
+            user_id: Set(user_id),
+            leader_agent_id: Set(leader_agent_id),
+            parent_session_id: Set(req.parent_session_id),
+            created_by_leader_agent_id: Set(parent
+                .as_ref()
+                .and_then(|session| session.leader_agent_id)),
+            visibility: Set(visibility.as_str().to_string()),
+            title: Set(req.title),
+            task_key: Set(req.task_key),
+            state: Set(SessionState::Draft.as_str().to_string()),
+            namespace_id: Set(req.namespace_id.or(agent.namespace_id.clone())),
+            external_session_id: Set(None),
+            last_message_preview: Set(Some("Session created in Fleet Control".to_string())),
+            idempotency_key: Set(idempotency_key.clone()),
+            idempotency_payload_hash: Set(idempotency_payload_hash.clone()),
+            created_at: Set(ts),
+            updated_at: Set(ts),
+        })
+        .exec(&txn)
+        .await
+        .map_err(namespace_persistence_error)?;
+        session_participant::Entity::insert(session_participant::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            session_id: Set(session_id),
+            participant_type: Set(SessionParticipantType::User.as_str().to_string()),
+            user_id: Set(Some(user_id)),
+            agent_id: Set(None),
+            session_role: Set(SessionRole::Owner.as_str().to_string()),
+            created_at: Set(ts),
+        })
+        .exec(&txn)
+        .await
+        .map_err(namespace_persistence_error)?;
+        session_participant::Entity::insert(session_participant::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            session_id: Set(session_id),
+            participant_type: Set(SessionParticipantType::Agent.as_str().to_string()),
+            user_id: Set(None),
+            agent_id: Set(Some(primary_agent_id)),
+            session_role: Set(SessionRole::Primary.as_str().to_string()),
+            created_at: Set(ts),
+        })
+        .exec(&txn)
+        .await
+        .map_err(namespace_persistence_error)?;
+        if let Some(leader_id) = leader_agent_id {
+            session_participant::Entity::insert(session_participant::ActiveModel {
+                id: Set(Uuid::new_v4()),
+                session_id: Set(session_id),
+                participant_type: Set(SessionParticipantType::Agent.as_str().to_string()),
+                user_id: Set(None),
+                agent_id: Set(Some(leader_id)),
+                session_role: Set(SessionRole::Leader.as_str().to_string()),
+                created_at: Set(ts),
+            })
+            .exec(&txn)
+            .await
+            .map_err(namespace_persistence_error)?;
+        }
+        let primary_run_role = if primary_product_role == AgentProductRole::Leader {
+            SessionRunRole::Leader
+        } else {
+            SessionRunRole::Primary
+        };
+        if queue_execution {
+            session_agent_run::Entity::insert(pending_session_run(
+                session_id,
+                primary_agent_id,
+                primary_run_role,
+                ts,
+            ))
+            .exec(&txn)
+            .await
+            .map_err(namespace_persistence_error)?;
+        }
+        session_message::Entity::insert(session_message::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            session_id: Set(session_id),
+            author_type: Set(MessageAuthorType::System.as_str().to_string()),
+            author_user_id: Set(None),
+            author_agent_id: Set(None),
+            body: Set("Session created in Fleet Control".to_string()),
+            message_kind: Set(MessageKind::SystemEvent.as_str().to_string()),
+            runtime_message_id: Set(None),
+            idempotency_key: Set(None),
+            idempotency_payload_hash: Set(None),
+            created_by_user_id: Set(Some(user_id)),
+            delivery_state: Set(MessageDeliveryState::Mirrored.as_str().to_string()),
+            delivery_error: Set(None),
+            created_at: Set(ts),
+        })
+        .exec(&txn)
+        .await
+        .map_err(namespace_persistence_error)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
+        self.get_session(session_id).await
+    }
+
     pub fn new(db: DatabaseConnection) -> Self {
         Self { db }
     }
@@ -313,11 +534,7 @@ fn redacted_env(kind: AgentKind, agent: &Agent) -> Value {
 }
 
 pub fn agent_runtime_token(config: &AppConfig, agent_id: Uuid) -> Result<String, AppError> {
-    let mut mac = HmacSha256::new_from_slice(config.fleet.runtime_token_secret.as_bytes())
-        .map_err(AppError::internal)?;
-    mac.update(b"fleet-control/hermes-api-key/v1/");
-    mac.update(agent_id.to_string().as_bytes());
-    Ok(format!("fc_{}", hex::encode(mac.finalize().into_bytes())))
+    app::agent_runtime_credential(config, agent_id)
 }
 
 fn command_preview(kind: AgentKind, config: &AppConfig, agent: &Agent) -> String {
@@ -383,12 +600,12 @@ async fn load_agent(db: &DatabaseConnection, id: Uuid) -> Result<Agent, AppError
     let agent = agent::Entity::find_by_id(id)
         .one(db)
         .await
-        .map_err(AppError::database)?
+        .map_err(namespace_persistence_error)?
         .ok_or_else(|| AppError::not_found("agent", id))?;
     let runtime = agent_runtime::Entity::find_by_id(id)
         .one(db)
         .await
-        .map_err(AppError::database)?
+        .map_err(namespace_persistence_error)?
         .ok_or_else(|| AppError::not_found("agent_runtime", id))?;
     Ok(agent_from_models(agent, runtime))
 }
@@ -400,7 +617,7 @@ where
     agent::Entity::find_by_id(id)
         .one(db)
         .await
-        .map_err(AppError::database)?
+        .map_err(namespace_persistence_error)?
         .ok_or_else(|| AppError::not_found("agent", id))
 }
 
@@ -676,6 +893,414 @@ impl FleetRepository for PostgresFleetRepository {
     async fn get_pm_run(&self, id: Uuid) -> Result<domain::PmRunRecord, AppError> {
         pm_execution::get(self, id).await
     }
+    async fn current_pm_execution_run(
+        &self,
+        execution: Uuid,
+    ) -> Result<domain::PmRunRecord, AppError> {
+        let rows = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT session_run_id FROM pm_run_bindings WHERE reservation #>> '{identity,execution_ref}'=$1
+              AND terminal_status IS NULL AND hermes_run_ref IS NOT NULL LIMIT 2",
+            [execution.to_string().into()])).await.map_err(namespace_persistence_error)?;
+        if rows.len() != 1 {
+            return Err(AppError::Unavailable(
+                "PM execution has no unique current native run".into(),
+            ));
+        }
+        pm_execution::get(
+            self,
+            rows[0]
+                .try_get("", "session_run_id")
+                .map_err(namespace_persistence_error)?,
+        )
+        .await
+    }
+    async fn find_pm_native_run(
+        &self,
+        agent: Uuid,
+        native_session: &str,
+    ) -> Result<Option<domain::PmRunRecord>, AppError> {
+        let rows = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT session_run_id FROM pm_run_bindings WHERE agent_id=$1 AND hermes_session_ref=$2 AND terminal_status IS NULL LIMIT 2",
+            [agent.into(),native_session.into()])).await.map_err(namespace_persistence_error)?;
+        if rows.len() > 1 {
+            return Err(AppError::conflict(
+                "PM native session has ambiguous active bindings",
+            ));
+        }
+        match rows.first() {
+            None => Ok(None),
+            Some(row) => Ok(Some(
+                pm_execution::get(
+                    self,
+                    row.try_get("", "session_run_id")
+                        .map_err(namespace_persistence_error)?,
+                )
+                .await?,
+            )),
+        }
+    }
+    async fn waiting_pm_runs(&self, session: Uuid) -> Result<Vec<Uuid>, AppError> {
+        self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT p.session_run_id FROM pm_run_bindings p JOIN pm_run_checkpoints c USING(session_run_id)
+             WHERE p.session_id=$1 AND p.terminal_status IS NOT NULL AND c.receipt IS NOT NULL",
+            [session.into()])).await.map_err(namespace_persistence_error)?.into_iter()
+            .map(|row| row.try_get("", "session_run_id").map_err(namespace_persistence_error)).collect()
+    }
+    async fn pm_resume_by_message(
+        &self,
+        message: Uuid,
+    ) -> Result<Option<domain::PmResumeJournal>, AppError> {
+        self.db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT journal FROM pm_run_resumes WHERE message_id=$1",
+                [message.into()],
+            ))
+            .await
+            .map_err(namespace_persistence_error)?
+            .map(|row| {
+                serde_json::from_value(
+                    row.try_get::<Value>("", "journal")
+                        .map_err(namespace_persistence_error)?,
+                )
+                .map_err(AppError::internal)
+            })
+            .transpose()
+    }
+    async fn queue_pm_resume(&self, old_run: Uuid) -> Result<(), AppError> {
+        let old = pm_execution::get(self, old_run).await?;
+        let checkpoint = self
+            .pm_checkpoint(old_run)
+            .await?
+            .ok_or_else(|| AppError::conflict("PM confirmed checkpoint missing"))?;
+        let journal = self
+            .pm_resume(old_run)
+            .await?
+            .ok_or_else(|| AppError::conflict("PM original resume missing"))?;
+        journal.intent.verify_receipt(
+            &old,
+            &checkpoint,
+            &json!({"ok":true,"result":journal.receipt.as_ref()
+            .ok_or_else(|| AppError::conflict("PM resume acknowledgement missing"))?}),
+        )?;
+        let agent = old.reservation.identity.agent_id()?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
+        let row = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT a.kind,a.sdlc_role,a.status FROM agents a WHERE a.id=$1 FOR NO KEY UPDATE",
+                [agent.into()],
+            ))
+            .await
+            .map_err(namespace_persistence_error)?
+            .ok_or_else(|| AppError::conflict("PM resume agent missing"))?;
+        if row
+            .try_get::<String>("", "kind")
+            .map_err(namespace_persistence_error)?
+            != "hermes"
+            || row
+                .try_get::<Option<String>>("", "sdlc_role")
+                .map_err(namespace_persistence_error)?
+                .as_deref()
+                != Some("project_manager")
+            || row
+                .try_get::<String>("", "status")
+                .map_err(namespace_persistence_error)?
+                != "running"
+        {
+            return Err(AppError::conflict("PM resume requires its running agent"));
+        }
+        let owner=txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT s.user_id FROM agent_sessions s JOIN task_chat_bindings b ON b.session_id=s.id
+             JOIN users u ON u.id=s.user_id WHERE s.id=$1 AND b.agent_id=$2 AND u.is_active
+               AND u.central_sub=b.owner_subject FOR NO KEY UPDATE OF s",
+            [old.reservation.session_id.into(),agent.into()])).await.map_err(namespace_persistence_error)?
+            .ok_or(AppError::Forbidden)?;
+        let _owner: Uuid = owner
+            .try_get("", "user_id")
+            .map_err(namespace_persistence_error)?;
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO session_agent_runs(id,session_id,agent_id,run_role,state,model_options,created_at,updated_at)
+             VALUES($1,$2,$3,'primary','pending','{}'::jsonb,now(),now()) ON CONFLICT(id) DO NOTHING",
+            [journal.intent.new_session_run_id.into(),old.reservation.session_id.into(),agent.into()])).await.map_err(namespace_persistence_error)?;
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO session_messages(id,session_id,author_type,body,message_kind,idempotency_key,delivery_state,created_at)
+             VALUES($1,$2,'system',$3,'control',$4,'pending',now()) ON CONFLICT(id) DO NOTHING",
+            [journal.intent.message_id.into(),old.reservation.session_id.into(),journal.intent.prompt.clone().into(),
+                format!("fleet-pm-answer:{}",journal.intent.source_event_id).into()])).await.map_err(namespace_persistence_error)?;
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO message_dispatch_outbox(message_id,agent_id,state,created_at,updated_at)
+             VALUES($1,$2,'pending',now(),now()) ON CONFLICT(message_id) DO NOTHING",
+            [journal.intent.message_id.into(), agent.into()],
+        ))
+        .await
+        .map_err(namespace_persistence_error)?;
+        let matching=txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT EXISTS(SELECT 1 FROM session_messages m JOIN session_agent_runs r ON r.id=$1
+                JOIN message_dispatch_outbox o ON o.message_id=m.id WHERE m.id=$2 AND m.session_id=$3 AND r.session_id=$3
+                AND r.agent_id=$4 AND o.agent_id=$4 AND m.author_type='system' AND m.message_kind='control' AND m.body=$5) AS matching",
+            [journal.intent.new_session_run_id.into(),journal.intent.message_id.into(),old.reservation.session_id.into(),agent.into(),journal.intent.prompt.into()]))
+            .await.map_err(namespace_persistence_error)?.ok_or_else(|| AppError::conflict("PM resume queue missing"))?;
+        if !matching
+            .try_get::<bool>("", "matching")
+            .map_err(namespace_persistence_error)?
+        {
+            return Err(AppError::conflict("PM resume queue identity conflict"));
+        }
+        txn.commit().await.map_err(namespace_persistence_error)?;
+        Ok(())
+    }
+    async fn pm_resume(&self, old_run: Uuid) -> Result<Option<domain::PmResumeJournal>, AppError> {
+        self.db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT journal FROM pm_run_resumes WHERE old_run_id=$1",
+                [old_run.into()],
+            ))
+            .await
+            .map_err(namespace_persistence_error)?
+            .map(|row| {
+                serde_json::from_value(
+                    row.try_get::<Value>("", "journal")
+                        .map_err(namespace_persistence_error)?,
+                )
+                .map_err(AppError::internal)
+            })
+            .transpose()
+    }
+    async fn save_pm_resume(
+        &self,
+        old: &domain::PmRunRecord,
+        checkpoint: &domain::PmCheckpointJournal,
+        journal: domain::PmResumeJournal,
+    ) -> Result<domain::PmResumeJournal, AppError> {
+        journal.intent.validate(old, checkpoint)?;
+        if let Some(receipt) = &journal.receipt {
+            journal
+                .intent
+                .verify_receipt(old, checkpoint, &json!({"ok":true,"result":receipt}))?;
+        }
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
+        let current = pm_execution::locked(&txn, old.reservation.session_run_id)
+            .await?
+            .ok_or_else(|| AppError::conflict("PM original resume run missing"))?;
+        if serde_json::to_value(&current).map_err(AppError::internal)?
+            != serde_json::to_value(old).map_err(AppError::internal)?
+            || !current
+                .terminal_status
+                .is_some_and(|status| status.terminal())
+        {
+            return Err(AppError::conflict(
+                "PM original resume run changed or is not terminal",
+            ));
+        }
+        let persisted_checkpoint=txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT jsonb_build_object('command',command,'request_sha256',request_sha256,'receipt',receipt) AS journal
+             FROM pm_run_checkpoints WHERE session_run_id=$1",[old.reservation.session_run_id.into()])).await.map_err(namespace_persistence_error)?
+             .ok_or_else(|| AppError::conflict("PM confirmed checkpoint missing"))?;
+        if persisted_checkpoint
+            .try_get::<Value>("", "journal")
+            .map_err(namespace_persistence_error)?
+            != serde_json::to_value(checkpoint).map_err(AppError::internal)?
+        {
+            return Err(AppError::conflict("PM confirmed checkpoint changed"));
+        }
+        let mut intent_only = journal.clone();
+        intent_only.receipt = None;
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO pm_run_resumes(old_run_id,new_run_id,message_id,journal) VALUES($1,$2,$3,$4)
+             ON CONFLICT(old_run_id) DO NOTHING",[journal.intent.old_session_run_id.into(),journal.intent.new_session_run_id.into(),
+                journal.intent.message_id.into(),serde_json::to_value(intent_only).map_err(AppError::internal)?.into()])).await.map_err(namespace_persistence_error)?;
+        let row = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT journal FROM pm_run_resumes WHERE old_run_id=$1 FOR UPDATE",
+                [old.reservation.session_run_id.into()],
+            ))
+            .await
+            .map_err(namespace_persistence_error)?
+            .ok_or_else(|| AppError::conflict("PM original resume journal missing"))?;
+        let mut saved: domain::PmResumeJournal = serde_json::from_value(
+            row.try_get("", "journal")
+                .map_err(namespace_persistence_error)?,
+        )
+        .map_err(AppError::internal)?;
+        if serde_json::to_value(&saved.intent).map_err(AppError::internal)?
+            != serde_json::to_value(&journal.intent).map_err(AppError::internal)?
+            || saved
+                .receipt
+                .as_ref()
+                .zip(journal.receipt.as_ref())
+                .is_some_and(|(a, b)| a != b)
+        {
+            return Err(AppError::conflict("PM resume original command conflict"));
+        }
+        if saved.receipt.is_none() && journal.receipt.is_some() {
+            saved.receipt = journal.receipt;
+            txn.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE pm_run_resumes SET journal=$2 WHERE old_run_id=$1",
+                [
+                    old.reservation.session_run_id.into(),
+                    serde_json::to_value(&saved)
+                        .map_err(AppError::internal)?
+                        .into(),
+                ],
+            ))
+            .await
+            .map_err(namespace_persistence_error)?;
+        }
+        txn.commit().await.map_err(namespace_persistence_error)?;
+        Ok(saved)
+    }
+    async fn active_pm_runs(&self, session: Uuid) -> Result<Vec<domain::PmRunRecord>, AppError> {
+        let ids = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT session_run_id FROM pm_run_bindings WHERE session_id=$1 AND terminal_status IS NULL",
+            [session.into()])).await.map_err(namespace_persistence_error)?;
+        let mut records = Vec::new();
+        for row in ids {
+            records.push(
+                pm_execution::get(
+                    self,
+                    row.try_get("", "session_run_id")
+                        .map_err(namespace_persistence_error)?,
+                )
+                .await?,
+            );
+        }
+        Ok(records)
+    }
+    async fn pending_pm_checkpoints(&self, session: Uuid) -> Result<Vec<Uuid>, AppError> {
+        self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT c.session_run_id FROM pm_run_checkpoints c JOIN pm_run_bindings p USING(session_run_id)
+             WHERE p.session_id=$1 AND c.receipt IS NULL ORDER BY c.created_at", [session.into()]))
+            .await.map_err(namespace_persistence_error)?.into_iter().map(|row| row.try_get("", "session_run_id").map_err(namespace_persistence_error)).collect()
+    }
+    async fn pm_checkpoint(
+        &self,
+        run: Uuid,
+    ) -> Result<Option<domain::PmCheckpointJournal>, AppError> {
+        self.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT jsonb_build_object('command',command,'request_sha256',request_sha256,'receipt',receipt) AS journal
+             FROM pm_run_checkpoints WHERE session_run_id=$1", [run.into()])).await.map_err(namespace_persistence_error)?
+            .map(|row| serde_json::from_value(row.try_get::<Value>("", "journal").map_err(namespace_persistence_error)?).map_err(AppError::internal)).transpose()
+    }
+    async fn save_pm_checkpoint(
+        &self,
+        record: &domain::PmRunRecord,
+        journal: domain::PmCheckpointJournal,
+    ) -> Result<domain::PmCheckpointJournal, AppError> {
+        journal.validate(record)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
+        let current = pm_execution::locked(&txn, record.reservation.session_run_id)
+            .await?
+            .ok_or_else(|| AppError::conflict("PM original run missing"))?;
+        if current.reservation != record.reservation
+            || current.hermes_run_ref != record.hermes_run_ref
+            || current.hermes_session_ref != record.hermes_session_ref
+        {
+            return Err(AppError::conflict("PM checkpoint run changed"));
+        }
+        let r = &record.reservation;
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO pm_run_checkpoints(session_run_id,command,request_sha256) VALUES($1,$2,$3)
+             ON CONFLICT(session_run_id) DO NOTHING",
+            [
+                r.session_run_id.into(),
+                journal.command.clone().into(),
+                journal.request_sha256.clone().into(),
+            ],
+        ))
+        .await
+        .map_err(namespace_persistence_error)?;
+        let row = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT command,request_sha256,receipt FROM pm_run_checkpoints WHERE session_run_id=$1 FOR UPDATE",
+            [r.session_run_id.into()])).await.map_err(namespace_persistence_error)?.ok_or_else(|| AppError::conflict("PM checkpoint missing"))?;
+        let command: Value = row
+            .try_get("", "command")
+            .map_err(namespace_persistence_error)?;
+        let hash: String = row
+            .try_get("", "request_sha256")
+            .map_err(namespace_persistence_error)?;
+        let mut receipt: Option<Value> = row
+            .try_get("", "receipt")
+            .map_err(namespace_persistence_error)?;
+        if command != journal.command
+            || hash != journal.request_sha256
+            || receipt
+                .as_ref()
+                .zip(journal.receipt.as_ref())
+                .is_some_and(|(a, b)| a != b)
+        {
+            return Err(AppError::conflict(
+                "PM checkpoint original command conflict",
+            ));
+        }
+        if receipt.is_none() && journal.receipt.is_some() {
+            txn.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE pm_run_checkpoints SET receipt=$2 WHERE session_run_id=$1",
+                [r.session_run_id.into(), journal.receipt.clone().into()],
+            ))
+            .await
+            .map_err(namespace_persistence_error)?;
+            receipt = journal.receipt;
+        }
+        txn.commit().await.map_err(namespace_persistence_error)?;
+        Ok(domain::PmCheckpointJournal {
+            command,
+            request_sha256: hash,
+            receipt,
+        })
+    }
+    async fn list_pm_lease_operations(&self) -> Result<Vec<domain::PmDraftOperation>, AppError> {
+        let rows = self
+            .db
+            .query_all(Statement::from_string(
+                DatabaseBackend::Postgres,
+                "SELECT o.operation FROM pm_draft_creation_operations o
+             JOIN agents a ON a.id::text=o.operation->'request'->>'agent_id'
+             WHERE o.operation->'execution_lease'->'receipt' IS NOT NULL
+               AND o.operation->'execution_lease'->'receipt' <> 'null'::jsonb
+               AND a.status IN ('running','starting','degraded')"
+                    .to_string(),
+            ))
+            .await
+            .map_err(namespace_persistence_error)?;
+        rows.into_iter()
+            .map(|row| {
+                serde_json::from_value(
+                    row.try_get::<Value>("", "operation")
+                        .map_err(namespace_persistence_error)?,
+                )
+                .map_err(AppError::internal)
+            })
+            .collect()
+    }
+    async fn find_pm_creation_for_session(
+        &self,
+        session: Uuid,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        let rows = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT id,owner_user_id FROM pm_draft_creation_operations WHERE operation->>'session_id'=$1 LIMIT 2",
+            [session.to_string().into()])).await.map_err(namespace_persistence_error)?;
+        if rows.len() != 1 {
+            return Err(AppError::Unavailable(
+                "PM original creation cannot be resolved uniquely".into(),
+            ));
+        }
+        self.read_pm_creation(
+            rows[0]
+                .try_get("", "id")
+                .map_err(namespace_persistence_error)?,
+            rows[0]
+                .try_get("", "owner_user_id")
+                .map_err(namespace_persistence_error)?,
+        )
+        .await
+    }
     async fn accept_pm_run(
         &self,
         id: Uuid,
@@ -695,8 +1320,9 @@ impl FleetRepository for PostgresFleetRepository {
     async fn has_pending_session_dispatch(&self, id: Uuid) -> Result<bool, AppError> {
         let row=self.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "SELECT EXISTS(SELECT 1 FROM message_dispatch_outbox o JOIN session_messages m ON m.id=o.message_id WHERE m.session_id=$1 AND o.state IN ('pending','dispatching','uncertain')) AS pending",[id.into()]))
-            .await.map_err(AppError::database)?.ok_or_else(|| AppError::internal("missing dispatch observation"))?;
-        row.try_get("", "pending").map_err(AppError::database)
+            .await.map_err(namespace_persistence_error)?.ok_or_else(|| AppError::internal("missing dispatch observation"))?;
+        row.try_get("", "pending")
+            .map_err(namespace_persistence_error)
     }
     async fn get_task_chat_binding(
         &self,
@@ -790,12 +1416,27 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<domain::MessageHistoryPage, AppError> {
         self.paged_message_history(session_id, before, limit).await
     }
+
+    async fn session_execution_context(
+        &self,
+        session: Uuid,
+    ) -> Result<Option<domain::execution_context::SessionExecutionContext>, AppError> {
+        execution_context::read(&self.db, session).await
+    }
+    async fn bind_session_execution_context(
+        &self,
+        session: Uuid,
+        actor: Uuid,
+        context: domain::execution_context::ExecutionContextV2,
+    ) -> Result<domain::execution_context::SessionExecutionContext, AppError> {
+        execution_context::bind(&self.db, session, actor, context).await
+    }
     async fn list_runtime_templates(&self) -> Result<Vec<RuntimeTemplate>, AppError> {
         runtime_template::Entity::find()
             .order_by_asc(runtime_template::Column::Kind)
             .all(&self.db)
             .await
-            .map_err(AppError::database)
+            .map_err(namespace_persistence_error)
             .map(|rows| {
                 rows.into_iter()
                     .map(|row| RuntimeTemplate {
@@ -856,7 +1497,7 @@ impl FleetRepository for PostgresFleetRepository {
             if runtime_template::Entity::find_by_id(template.kind.as_str().to_string())
                 .one(&self.db)
                 .await
-                .map_err(AppError::database)?
+                .map_err(namespace_persistence_error)?
                 .is_some()
             {
                 // Keep the seeded catalog in sync with code (implemented
@@ -872,7 +1513,7 @@ impl FleetRepository for PostgresFleetRepository {
                 })
                 .exec(&self.db)
                 .await
-                .map_err(AppError::database)?;
+                .map_err(namespace_persistence_error)?;
                 continue;
             }
             runtime_template::Entity::insert(runtime_template::ActiveModel {
@@ -886,7 +1527,7 @@ impl FleetRepository for PostgresFleetRepository {
             })
             .exec(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         }
         Ok(())
     }
@@ -897,7 +1538,7 @@ impl FleetRepository for PostgresFleetRepository {
             .order_by_asc(agent::Column::Ordinal)
             .all(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let mut result = Vec::with_capacity(agents.len());
         for row in agents {
             result.push(load_agent(&self.db, row.id).await?);
@@ -910,7 +1551,7 @@ impl FleetRepository for PostgresFleetRepository {
             .order_by_asc(agent::Column::Ordinal)
             .all(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let mut result = Vec::with_capacity(rows.len());
         for row in rows {
             result.push(agent_directory_item(&load_agent(&self.db, row.id).await?));
@@ -928,7 +1569,7 @@ impl FleetRepository for PostgresFleetRepository {
             .order_by_asc(agent::Column::Ordinal)
             .all(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let mut result = Vec::with_capacity(agents.len());
         for row in agents {
             result.push(load_agent(&self.db, row.id).await?);
@@ -950,7 +1591,7 @@ impl FleetRepository for PostgresFleetRepository {
         let template = runtime_template::Entity::find_by_id(req.kind.as_str().to_string())
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::validation("unknown runtime template"))?;
         if !template.implemented {
             return Err(AppError::validation(
@@ -958,17 +1599,17 @@ impl FleetRepository for PostgresFleetRepository {
             ));
         }
 
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         let ordinal = txn
             .query_one(Statement::from_string(
                 DatabaseBackend::Postgres,
                 "SELECT nextval('agent_ordinal_seq')::int AS ordinal".to_string(),
             ))
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::internal("agent ordinal sequence returned no value"))?
             .try_get::<i32>("", "ordinal")
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let id = Uuid::new_v4();
         let name = format!("agent{ordinal}");
         let paths = runtime_paths(&config.fleet.agents_root, ordinal);
@@ -1035,7 +1676,7 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
 
         agent_runtime::Entity::insert(agent_runtime::ActiveModel {
             agent_id: Set(id),
@@ -1053,7 +1694,7 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
 
         agent_config::Entity::insert(agent_config::ActiveModel {
             agent_id: Set(id),
@@ -1074,7 +1715,7 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
 
         workflow_binding::Entity::insert(workflow_binding::ActiveModel {
             id: Set(Uuid::new_v4()),
@@ -1089,7 +1730,7 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
 
         for (name, title) in default_skills(req.role) {
             agent_skill::Entity::insert(agent_skill::ActiveModel {
@@ -1104,7 +1745,7 @@ impl FleetRepository for PostgresFleetRepository {
             })
             .exec(&txn)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         }
 
         if product_role == AgentProductRole::Leader {
@@ -1124,25 +1765,25 @@ impl FleetRepository for PostgresFleetRepository {
                 })
                 .exec(&txn)
                 .await
-                .map_err(AppError::database)?;
+                .map_err(namespace_persistence_error)?;
             }
         }
 
-        txn.commit().await.map_err(AppError::database)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         self.get_agent(id).await
     }
 
     async fn update_agent(&self, id: Uuid, req: UpdateAgentRequest) -> Result<Agent, AppError> {
         let next_product_role = req.product_role;
         let next_executor_ids = req.executor_ids.clone();
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         txn.query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT id FROM agents WHERE id = $1 FOR UPDATE",
             [id.into()],
         ))
         .await
-        .map_err(AppError::database)?
+        .map_err(namespace_persistence_error)?
         .ok_or_else(|| AppError::not_found("agent", id))?;
         let draining = txn
             .query_one(Statement::from_sql_and_values(
@@ -1151,10 +1792,10 @@ impl FleetRepository for PostgresFleetRepository {
                 [id.into()],
             ))
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .map(|row| {
                 row.try_get::<bool>("", "draining")
-                    .map_err(AppError::database)
+                    .map_err(namespace_persistence_error)
             })
             .transpose()?
             .unwrap_or(false);
@@ -1164,7 +1805,7 @@ impl FleetRepository for PostgresFleetRepository {
         let current = agent::Entity::find_by_id(id)
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent", id))?;
         if req
             .product_role
@@ -1207,8 +1848,11 @@ impl FleetRepository for PostgresFleetRepository {
             model.workflow_id = Set(Some(workflow_id));
         }
         model.updated_at = Set(now());
-        model.update(&txn).await.map_err(AppError::database)?;
-        txn.commit().await.map_err(AppError::database)?;
+        model
+            .update(&txn)
+            .await
+            .map_err(namespace_persistence_error)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         if let Some(executor_ids) = next_executor_ids {
             self.replace_leader_executors(
                 id,
@@ -1221,7 +1865,7 @@ impl FleetRepository for PostgresFleetRepository {
                 .filter(leader_executor::Column::LeaderAgentId.eq(id))
                 .exec(&self.db)
                 .await
-                .map_err(AppError::database)?;
+                .map_err(namespace_persistence_error)?;
         }
         self.get_agent(id).await
     }
@@ -1230,12 +1874,15 @@ impl FleetRepository for PostgresFleetRepository {
         let mut model = agent::Entity::find_by_id(id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent", id))?
             .into_active_model();
         model.status = Set(status.as_str().to_string());
         model.updated_at = Set(now());
-        model.update(&self.db).await.map_err(AppError::database)?;
+        model
+            .update(&self.db)
+            .await
+            .map_err(namespace_persistence_error)?;
         self.get_agent(id).await
     }
 
@@ -1244,24 +1891,27 @@ impl FleetRepository for PostgresFleetRepository {
         id: Uuid,
         patch: RuntimeStatePatch,
     ) -> Result<Agent, AppError> {
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         let ts = now();
         let mut agent_model = agent::Entity::find_by_id(id)
             .lock_exclusive()
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent", id))?
             .into_active_model();
         runtime_launches::guard_runtime_patch(&txn, id, &patch).await?;
         agent_model.status = Set(patch.status.as_str().to_string());
         agent_model.updated_at = Set(ts);
-        agent_model.update(&txn).await.map_err(AppError::database)?;
+        agent_model
+            .update(&txn)
+            .await
+            .map_err(namespace_persistence_error)?;
 
         let mut runtime_model = agent_runtime::Entity::find_by_id(id)
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent_runtime", id))?
             .into_active_model();
         runtime_model.desired_state = Set(patch.desired_state.as_str().to_string());
@@ -1280,8 +1930,8 @@ impl FleetRepository for PostgresFleetRepository {
         runtime_model
             .update(&txn)
             .await
-            .map_err(AppError::database)?;
-        txn.commit().await.map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         self.get_agent(id).await
     }
 
@@ -1289,14 +1939,17 @@ impl FleetRepository for PostgresFleetRepository {
         let mut model = agent::Entity::find_by_id(id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent", id))?
             .into_active_model();
         let ts = now();
         model.status = Set(AgentStatus::Archived.as_str().to_string());
         model.updated_at = Set(ts);
         model.archived_at = Set(Some(ts));
-        model.update(&self.db).await.map_err(AppError::database)?;
+        model
+            .update(&self.db)
+            .await
+            .map_err(namespace_persistence_error)?;
         self.get_agent(id).await
     }
 
@@ -1316,7 +1969,7 @@ impl FleetRepository for PostgresFleetRepository {
             .order_by_asc(leader_executor::Column::CreatedAt)
             .all(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let mut result = Vec::with_capacity(rows.len());
         for row in rows {
             let executor = load_agent_row(&self.db, row.executor_agent_id).await?;
@@ -1341,7 +1994,7 @@ impl FleetRepository for PostgresFleetRepository {
         req: UpdateLeaderExecutorsRequest,
         actor_user_id: Uuid,
     ) -> Result<Vec<LeaderExecutor>, AppError> {
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         ensure_agent_product_role(&txn, leader_agent_id, AgentProductRole::Leader, "leader")
             .await?;
         for executor_id in &req.executor_ids {
@@ -1360,7 +2013,7 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(leader_executor::Column::LeaderAgentId.eq(leader_agent_id))
             .exec(&txn)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let ts = now();
         for executor_id in req.executor_ids {
             leader_executor::Entity::insert(leader_executor::ActiveModel {
@@ -1371,9 +2024,9 @@ impl FleetRepository for PostgresFleetRepository {
             })
             .exec(&txn)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         }
-        txn.commit().await.map_err(AppError::database)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         self.list_leader_executors(leader_agent_id).await
     }
 
@@ -1381,7 +2034,7 @@ impl FleetRepository for PostgresFleetRepository {
         agent_config::Entity::find_by_id(agent_id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .map(|row| AgentConfig {
                 agent_id: row.agent_id,
                 config_json: redact_configuration_json(row.config_json),
@@ -1400,14 +2053,17 @@ impl FleetRepository for PostgresFleetRepository {
         let mut model = agent_config::Entity::find_by_id(agent_id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent_config", agent_id))?
             .into_active_model();
         model.config_json = Set(req.config_json);
         model.soul_md = Set(req.soul_md);
         model.env_json = Set(req.env_json);
         model.updated_at = Set(now());
-        model.update(&self.db).await.map_err(AppError::database)?;
+        model
+            .update(&self.db)
+            .await
+            .map_err(namespace_persistence_error)?;
         self.get_agent_config(agent_id).await
     }
 
@@ -1688,7 +2344,7 @@ impl FleetRepository for PostgresFleetRepository {
             .order_by_asc(agent_skill::Column::Name)
             .all(&self.db)
             .await
-            .map_err(AppError::database)
+            .map_err(namespace_persistence_error)
             .map(|rows| {
                 rows.into_iter()
                     .map(|row| domain::AgentSkill {
@@ -1716,7 +2372,7 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(agent_skill::Column::Name.eq(name.clone()))
             .one(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let updated_at = now();
         match existing {
             Some(row) => {
@@ -1724,7 +2380,10 @@ impl FleetRepository for PostgresFleetRepository {
                 model.state = Set(req.state.as_str().to_string());
                 model.content = Set(req.content);
                 model.updated_at = Set(updated_at);
-                model.update(&self.db).await.map_err(AppError::database)?;
+                model
+                    .update(&self.db)
+                    .await
+                    .map_err(namespace_persistence_error)?;
             }
             None => {
                 agent_skill::Entity::insert(agent_skill::ActiveModel {
@@ -1739,7 +2398,7 @@ impl FleetRepository for PostgresFleetRepository {
                 })
                 .exec(&self.db)
                 .await
-                .map_err(AppError::database)?;
+                .map_err(namespace_persistence_error)?;
             }
         }
         self.list_agent_skills(agent_id)
@@ -1783,29 +2442,39 @@ impl FleetRepository for PostgresFleetRepository {
         } else if !filter.include_all_users {
             return Ok(Vec::new());
         }
+        if let Some(owner) = filter.private_user_id {
+            query = query.filter(
+                sea_orm::Condition::any()
+                    .add(
+                        agent_session::Column::Visibility
+                            .eq(SessionVisibility::LeaderScoped.as_str()),
+                    )
+                    .add(agent_session::Column::UserId.eq(owner)),
+            );
+        }
         let sessions = query
             .limit(200)
             .all(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let mut result = Vec::with_capacity(sessions.len());
         for row in sessions {
             let agent = agent::Entity::find_by_id(row.agent_id)
                 .one(&self.db)
                 .await
-                .map_err(AppError::database)?
+                .map_err(namespace_persistence_error)?
                 .ok_or_else(|| AppError::not_found("agent", row.agent_id))?;
             let leader = match row.leader_agent_id {
                 Some(leader_agent_id) => agent::Entity::find_by_id(leader_agent_id)
                     .one(&self.db)
                     .await
-                    .map_err(AppError::database)?,
+                    .map_err(namespace_persistence_error)?,
                 None => None,
             };
             let user = user::Entity::find_by_id(row.user_id)
                 .one(&self.db)
                 .await
-                .map_err(AppError::database)?
+                .map_err(namespace_persistence_error)?
                 .ok_or_else(|| AppError::not_found("user", row.user_id))?;
             result.push(session_from_model(row, agent, leader, user));
         }
@@ -1816,24 +2485,24 @@ impl FleetRepository for PostgresFleetRepository {
         let row = agent_session::Entity::find_by_id(id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent_session", id))?;
         let agent = agent::Entity::find_by_id(row.agent_id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent", row.agent_id))?;
         let leader = match row.leader_agent_id {
             Some(leader_agent_id) => agent::Entity::find_by_id(leader_agent_id)
                 .one(&self.db)
                 .await
-                .map_err(AppError::database)?,
+                .map_err(namespace_persistence_error)?,
             None => None,
         };
         let user = user::Entity::find_by_id(row.user_id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("user", row.user_id))?;
         Ok(session_from_model(row, agent, leader, user))
     }
@@ -1846,14 +2515,14 @@ impl FleetRepository for PostgresFleetRepository {
         let agent = agent::Entity::find_by_id(agent_id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent", agent_id))?;
         // Service user that owns runtime-imported sessions.
         let system_user = user::Entity::find()
             .filter(user::Column::Email.eq("runtime@fleet-control.local"))
             .one(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let system_user_id = match system_user {
             Some(u) => u.id,
             None => {
@@ -1874,7 +2543,7 @@ impl FleetRepository for PostgresFleetRepository {
                 })
                 .exec(&self.db)
                 .await
-                .map_err(AppError::database)?;
+                .map_err(namespace_persistence_error)?;
                 id
             }
         };
@@ -1884,7 +2553,7 @@ impl FleetRepository for PostgresFleetRepository {
                 .filter(agent_session::Column::ExternalSessionId.eq(&snapshot.external_id))
                 .one(&self.db)
                 .await
-                .map_err(AppError::database)?;
+                .map_err(namespace_persistence_error)?;
             match existing {
                 Some(model) => {
                     let mut patch = agent_session::ActiveModel {
@@ -1897,7 +2566,10 @@ impl FleetRepository for PostgresFleetRepository {
                     if let Some(updated) = snapshot.updated_at {
                         patch.updated_at = Set(updated);
                     }
-                    patch.update(&self.db).await.map_err(AppError::database)?;
+                    patch
+                        .update(&self.db)
+                        .await
+                        .map_err(namespace_persistence_error)?;
                 }
                 None => {
                     agent_session::Entity::insert(agent_session::ActiveModel {
@@ -1926,7 +2598,7 @@ impl FleetRepository for PostgresFleetRepository {
                     })
                     .exec(&self.db)
                     .await
-                    .map_err(AppError::database)?;
+                    .map_err(namespace_persistence_error)?;
                 }
             }
             applied += 1;
@@ -1939,204 +2611,51 @@ impl FleetRepository for PostgresFleetRepository {
         req: CreateSessionRequest,
         user_id: Uuid,
     ) -> Result<AgentSession, AppError> {
-        let txn = self.db.begin().await.map_err(AppError::database)?;
-        let idempotency_key = req
+        if req
             .idempotency_key
-            .as_ref()
-            .map(|key| key.trim().to_string())
-            .filter(|key| !key.is_empty());
-        let idempotency_payload_hash = match idempotency_key.as_ref() {
-            Some(_) => Some(payload_hash(
-                &serde_json::to_value(&req).map_err(AppError::internal)?,
-            )?),
-            None => None,
-        };
-        if let Some(key) = idempotency_key.as_ref() {
-            txn.execute(Statement::from_sql_and_values(
-                DatabaseBackend::Postgres,
-                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-                [format!("session:{user_id}:{key}").into()],
-            ))
-            .await
-            .map_err(AppError::database)?;
-        }
-        if let Some(key) = idempotency_key.as_ref()
-            && let Some(existing) = agent_session::Entity::find()
-                .filter(agent_session::Column::UserId.eq(user_id))
-                .filter(agent_session::Column::IdempotencyKey.eq(key))
-                .one(&txn)
-                .await
-                .map_err(AppError::database)?
+            .as_deref()
+            .is_some_and(|key| key.trim().starts_with("namespace-v2:"))
         {
-            if existing.idempotency_payload_hash == idempotency_payload_hash {
-                txn.commit().await.map_err(AppError::database)?;
-                return self.get_session(existing.id).await;
-            }
-            return Err(AppError::conflict(
-                "idempotency_key was already used with a different session payload",
-            ));
+            return Err(AppError::validation("reserved_context_operation_domain"));
         }
-        let primary_agent_id = selected_primary_agent_id(&req)?;
-        let agent = load_agent_row(&txn, primary_agent_id).await?;
-        if agent.status == AgentStatus::Archived.as_str() {
-            return Err(AppError::conflict(
-                "cannot create a chat with an archived agent",
-            ));
-        }
-        user::Entity::find_by_id(user_id)
-            .one(&txn)
-            .await
-            .map_err(AppError::database)?
-            .ok_or_else(|| AppError::not_found("user", user_id))?;
-        let parent = match req.parent_session_id {
-            Some(parent_session_id) => Some(
-                agent_session::Entity::find_by_id(parent_session_id)
-                    .one(&txn)
-                    .await
-                    .map_err(AppError::database)?
-                    .ok_or_else(|| AppError::not_found("parent_session", parent_session_id))?,
-            ),
-            None => None,
-        };
-        let primary_product_role = parse_product_role(&agent.product_role);
-        if parent
-            .as_ref()
-            .is_some_and(|parent| parent.user_id != user_id)
+        self.create_session_mode(req, user_id, true).await
+    }
+
+    async fn create_context_session(
+        &self,
+        request: domain::execution_context::CreateContextSessionRequest,
+        actor: Uuid,
+    ) -> Result<domain::execution_context::ContextSessionReceipt, AppError> {
+        if !request.context.valid()
+            || request.primary_agent_id.is_nil()
+            || request.title.trim().is_empty()
         {
-            return Err(AppError::Forbidden);
+            return Err(AppError::validation("invalid_context_session_request"));
         }
-        let leader_agent_id = req
-            .leader_agent_id
-            .or_else(|| parent.as_ref().and_then(|session| session.leader_agent_id))
-            .or_else(|| {
-                (primary_product_role == AgentProductRole::Leader).then_some(primary_agent_id)
-            });
-
-        if let Some(leader_id) = leader_agent_id {
-            ensure_agent_product_role(&txn, leader_id, AgentProductRole::Leader, "leader").await?;
-            if primary_product_role == AgentProductRole::Leader && leader_id != primary_agent_id {
-                return Err(AppError::validation(
-                    "leader chat must use the same primary and leader agent",
-                ));
-            }
-            if primary_product_role == AgentProductRole::Executor {
-                let allowed = leader_executor::Entity::find_by_id((leader_id, primary_agent_id))
-                    .one(&txn)
-                    .await
-                    .map_err(AppError::database)?
-                    .is_some();
-                if !allowed {
-                    return Err(AppError::validation(
-                        "selected leader does not manage this executor",
-                    ));
-                }
-            }
-        }
-
-        let session_id = Uuid::new_v4();
-        let ts = now();
-        let visibility = if leader_agent_id.is_some() {
-            SessionVisibility::LeaderScoped
-        } else {
-            SessionVisibility::Private
-        };
-        agent_session::Entity::insert(agent_session::ActiveModel {
-            id: Set(session_id),
-            agent_id: Set(primary_agent_id),
-            user_id: Set(user_id),
-            leader_agent_id: Set(leader_agent_id),
-            parent_session_id: Set(req.parent_session_id),
-            created_by_leader_agent_id: Set(parent
-                .as_ref()
-                .and_then(|session| session.leader_agent_id)),
-            visibility: Set(visibility.as_str().to_string()),
-            title: Set(req.title),
-            task_key: Set(req.task_key),
-            state: Set(SessionState::Draft.as_str().to_string()),
-            namespace_id: Set(req.namespace_id.or(agent.namespace_id.clone())),
-            external_session_id: Set(None),
-            last_message_preview: Set(Some("Session created in Fleet Control".to_string())),
-            idempotency_key: Set(idempotency_key.clone()),
-            idempotency_payload_hash: Set(idempotency_payload_hash.clone()),
-            created_at: Set(ts),
-            updated_at: Set(ts),
+        // A separate operation-key domain cannot replay a legacy queued chat.
+        let session = self
+            .create_session_mode(
+                CreateSessionRequest {
+                    primary_agent_id: Some(request.primary_agent_id),
+                    agent_id: None,
+                    title: request.title,
+                    task_key: None,
+                    leader_agent_id: None,
+                    parent_session_id: None,
+                    namespace_id: Some(request.context.namespace.namespace_id.to_string()),
+                    idempotency_key: Some(format!("namespace-v2:{}", request.context.operation_id)),
+                },
+                actor,
+                false,
+            )
+            .await?;
+        // An unknown owner outcome retains this inert draft. Original-key replay
+        // returns the same ID and finishes the binding; no cleanup creates data loss.
+        let context = execution_context::bind(&self.db, session.id, actor, request.context).await?;
+        Ok(domain::execution_context::ContextSessionReceipt {
+            session,
+            execution_context: context,
         })
-        .exec(&txn)
-        .await
-        .map_err(AppError::database)?;
-        session_participant::Entity::insert(session_participant::ActiveModel {
-            id: Set(Uuid::new_v4()),
-            session_id: Set(session_id),
-            participant_type: Set(SessionParticipantType::User.as_str().to_string()),
-            user_id: Set(Some(user_id)),
-            agent_id: Set(None),
-            session_role: Set(SessionRole::Owner.as_str().to_string()),
-            created_at: Set(ts),
-        })
-        .exec(&txn)
-        .await
-        .map_err(AppError::database)?;
-        session_participant::Entity::insert(session_participant::ActiveModel {
-            id: Set(Uuid::new_v4()),
-            session_id: Set(session_id),
-            participant_type: Set(SessionParticipantType::Agent.as_str().to_string()),
-            user_id: Set(None),
-            agent_id: Set(Some(primary_agent_id)),
-            session_role: Set(SessionRole::Primary.as_str().to_string()),
-            created_at: Set(ts),
-        })
-        .exec(&txn)
-        .await
-        .map_err(AppError::database)?;
-        if let Some(leader_id) = leader_agent_id {
-            session_participant::Entity::insert(session_participant::ActiveModel {
-                id: Set(Uuid::new_v4()),
-                session_id: Set(session_id),
-                participant_type: Set(SessionParticipantType::Agent.as_str().to_string()),
-                user_id: Set(None),
-                agent_id: Set(Some(leader_id)),
-                session_role: Set(SessionRole::Leader.as_str().to_string()),
-                created_at: Set(ts),
-            })
-            .exec(&txn)
-            .await
-            .map_err(AppError::database)?;
-        }
-        let primary_run_role = if primary_product_role == AgentProductRole::Leader {
-            SessionRunRole::Leader
-        } else {
-            SessionRunRole::Primary
-        };
-        session_agent_run::Entity::insert(pending_session_run(
-            session_id,
-            primary_agent_id,
-            primary_run_role,
-            ts,
-        ))
-        .exec(&txn)
-        .await
-        .map_err(AppError::database)?;
-        session_message::Entity::insert(session_message::ActiveModel {
-            id: Set(Uuid::new_v4()),
-            session_id: Set(session_id),
-            author_type: Set(MessageAuthorType::System.as_str().to_string()),
-            author_user_id: Set(None),
-            author_agent_id: Set(None),
-            body: Set("Session created in Fleet Control".to_string()),
-            message_kind: Set(MessageKind::SystemEvent.as_str().to_string()),
-            runtime_message_id: Set(None),
-            idempotency_key: Set(None),
-            idempotency_payload_hash: Set(None),
-            created_by_user_id: Set(Some(user_id)),
-            delivery_state: Set(MessageDeliveryState::Mirrored.as_str().to_string()),
-            delivery_error: Set(None),
-            created_at: Set(ts),
-        })
-        .exec(&txn)
-        .await
-        .map_err(AppError::database)?;
-        txn.commit().await.map_err(AppError::database)?;
-        self.get_session(session_id).await
     }
 
     async fn create_session_delegation(
@@ -2167,7 +2686,7 @@ impl FleetRepository for PostgresFleetRepository {
         let allowed = leader_executor::Entity::find_by_id((leader_agent_id, req.executor_agent_id))
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .is_some();
         if !allowed {
             return Err(AppError::validation(
@@ -2228,7 +2747,7 @@ impl FleetRepository for PostgresFleetRepository {
         let session = agent_session::Entity::find_by_id(id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent_session", id))?;
         let primary = load_agent_row(&self.db, session.agent_id).await?;
         let primary_product_role = parse_product_role(&primary.product_role);
@@ -2244,7 +2763,7 @@ impl FleetRepository for PostgresFleetRepository {
                 let allowed = leader_executor::Entity::find_by_id((leader_id, primary.id))
                     .one(&self.db)
                     .await
-                    .map_err(AppError::database)?
+                    .map_err(namespace_persistence_error)?
                     .is_some();
                 if !allowed {
                     return Err(AppError::validation(
@@ -2254,7 +2773,7 @@ impl FleetRepository for PostgresFleetRepository {
             }
         }
 
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         let ts = now();
         let mut model = session.into_active_model();
         model.leader_agent_id = Set(req.leader_agent_id);
@@ -2269,20 +2788,23 @@ impl FleetRepository for PostgresFleetRepository {
             None => "Leader removed; session is private".to_string(),
         }));
         model.updated_at = Set(ts);
-        model.update(&txn).await.map_err(AppError::database)?;
+        model
+            .update(&txn)
+            .await
+            .map_err(namespace_persistence_error)?;
 
         session_participant::Entity::delete_many()
             .filter(session_participant::Column::SessionId.eq(id))
             .filter(session_participant::Column::SessionRole.eq(SessionRole::Leader.as_str()))
             .exec(&txn)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         session_agent_run::Entity::delete_many()
             .filter(session_agent_run::Column::SessionId.eq(id))
             .filter(session_agent_run::Column::RunRole.eq(SessionRunRole::Leader.as_str()))
             .exec(&txn)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
 
         if let Some(leader_id) = req.leader_agent_id {
             session_participant::Entity::insert(session_participant::ActiveModel {
@@ -2296,7 +2818,7 @@ impl FleetRepository for PostgresFleetRepository {
             })
             .exec(&txn)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
             session_agent_run::Entity::insert(pending_session_run(
                 id,
                 leader_id,
@@ -2305,7 +2827,7 @@ impl FleetRepository for PostgresFleetRepository {
             ))
             .exec(&txn)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         }
 
         session_message::Entity::insert(session_message::ActiveModel {
@@ -2329,9 +2851,9 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
 
-        txn.commit().await.map_err(AppError::database)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         self.get_session(id).await
     }
 
@@ -2344,7 +2866,7 @@ impl FleetRepository for PostgresFleetRepository {
         let session = agent_session::Entity::find_by_id(id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent_session", id))?;
         if let Some(leader_id) = session.leader_agent_id {
             let target_product_role = parse_product_role(&target.product_role);
@@ -2352,7 +2874,7 @@ impl FleetRepository for PostgresFleetRepository {
                 let allowed = leader_executor::Entity::find_by_id((leader_id, target.id))
                     .one(&self.db)
                     .await
-                    .map_err(AppError::database)?
+                    .map_err(namespace_persistence_error)?
                     .is_some();
                 if !allowed {
                     return Err(AppError::validation(
@@ -2362,21 +2884,24 @@ impl FleetRepository for PostgresFleetRepository {
             }
         }
         let ts = now();
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         let mut model = session.into_active_model();
         model.agent_id = Set(req.target_agent_id);
         model.state = Set(SessionState::HandoffRequested.as_str().to_string());
         model.namespace_id = Set(target.namespace_id);
         model.last_message_preview = Set(Some(format!("Handoff requested to {}", target.name)));
         model.updated_at = Set(ts);
-        model.update(&txn).await.map_err(AppError::database)?;
+        model
+            .update(&txn)
+            .await
+            .map_err(namespace_persistence_error)?;
 
         session_participant::Entity::delete_many()
             .filter(session_participant::Column::SessionId.eq(id))
             .filter(session_participant::Column::SessionRole.eq(SessionRole::Primary.as_str()))
             .exec(&txn)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         session_participant::Entity::insert(session_participant::ActiveModel {
             id: Set(Uuid::new_v4()),
             session_id: Set(id),
@@ -2388,7 +2913,7 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
         let id = Uuid::new_v4();
         session_agent_run::Entity::insert(session_agent_run::ActiveModel {
             id: Set(id),
@@ -2408,7 +2933,7 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
         session_message::Entity::insert(session_message::ActiveModel {
             id: Set(Uuid::new_v4()),
             session_id: Set(id),
@@ -2427,8 +2952,8 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&txn)
         .await
-        .map_err(AppError::database)?;
-        txn.commit().await.map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         self.get_session(id).await
     }
 
@@ -2446,15 +2971,26 @@ impl FleetRepository for PostgresFleetRepository {
                 [id.into(), after.into()],
             ))
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         rows.into_iter()
             .map(|row| {
                 Ok(domain::SessionEvent {
-                    session_id: row.try_get("", "session_id").map_err(AppError::database)?,
-                    sequence: row.try_get("", "sequence").map_err(AppError::database)?,
-                    event_type: row.try_get("", "event_type").map_err(AppError::database)?,
-                    payload: row.try_get("", "payload").map_err(AppError::database)?,
-                    created_at: api_ts(row.try_get("", "created_at").map_err(AppError::database)?),
+                    session_id: row
+                        .try_get("", "session_id")
+                        .map_err(namespace_persistence_error)?,
+                    sequence: row
+                        .try_get("", "sequence")
+                        .map_err(namespace_persistence_error)?,
+                    event_type: row
+                        .try_get("", "event_type")
+                        .map_err(namespace_persistence_error)?,
+                    payload: row
+                        .try_get("", "payload")
+                        .map_err(namespace_persistence_error)?,
+                    created_at: api_ts(
+                        row.try_get("", "created_at")
+                            .map_err(namespace_persistence_error)?,
+                    ),
                 })
             })
             .collect()
@@ -2486,20 +3022,20 @@ impl FleetRepository for PostgresFleetRepository {
                 .and_then(Value::as_str)
                 .and_then(|value| Uuid::parse_str(value).ok())
                 .ok_or_else(|| AppError::validation("delta requires a concrete run"))?;
-            let txn = self.db.begin().await.map_err(AppError::database)?;
+            let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
             txn.query_one(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
                 "SELECT id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
                 [id.into()],
             ))
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent_session", id))?;
             let run = session_agent_run::Entity::find_by_id(run_id)
                 .lock_exclusive()
                 .one(&txn)
                 .await
-                .map_err(AppError::database)?
+                .map_err(namespace_persistence_error)?
                 .ok_or_else(|| AppError::not_found("session_agent_run", run_id))?;
             if run.session_id != id
                 || payload.get("session_id").and_then(Value::as_str)
@@ -2516,13 +3052,15 @@ impl FleetRepository for PostgresFleetRepository {
             if !matches!(run.state.as_str(), "running" | "waiting" | "stopping") {
                 return Err(AppError::conflict("delta requires a pinned active run"));
             }
-            txn.execute(statement).await.map_err(AppError::database)?;
-            txn.commit().await.map_err(AppError::database)?;
+            txn.execute(statement)
+                .await
+                .map_err(namespace_persistence_error)?;
+            txn.commit().await.map_err(namespace_persistence_error)?;
         } else {
             self.db
                 .execute(statement)
                 .await
-                .map_err(AppError::database)?;
+                .map_err(namespace_persistence_error)?;
         }
         Ok(())
     }
@@ -2536,10 +3074,13 @@ impl FleetRepository for PostgresFleetRepository {
                 [id.into()],
             ))
             .await
-            .map_err(AppError::database)?;
-        row.map(|row| row.try_get("", "sequence").map_err(AppError::database))
-            .transpose()
-            .map(|value| value.unwrap_or(0))
+            .map_err(namespace_persistence_error)?;
+        row.map(|row| {
+            row.try_get("", "sequence")
+                .map_err(namespace_persistence_error)
+        })
+        .transpose()
+        .map(|value| value.unwrap_or(0))
     }
 
     async fn list_session_messages(&self, id: Uuid) -> Result<Vec<SessionMessage>, AppError> {
@@ -2551,43 +3092,10 @@ impl FleetRepository for PostgresFleetRepository {
             .limit(500)
             .all(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let mut result = Vec::with_capacity(rows.len());
         for row in rows {
-            let author_type = parse_message_author_type(&row.author_type);
-            let author_user = match row.author_user_id {
-                Some(user_id) => user::Entity::find_by_id(user_id)
-                    .one(&self.db)
-                    .await
-                    .map_err(AppError::database)?,
-                None => None,
-            };
-            let author_agent = match row.author_agent_id {
-                Some(agent_id) => agent::Entity::find_by_id(agent_id)
-                    .one(&self.db)
-                    .await
-                    .map_err(AppError::database)?,
-                None => None,
-            };
-            result.push(SessionMessage {
-                id: row.id,
-                session_id: row.session_id,
-                author_type,
-                author_user_id: row.author_user_id,
-                author_agent_id: row.author_agent_id,
-                author_display_name: message_author_display_name(
-                    author_type,
-                    author_user.as_ref(),
-                    author_agent.as_ref(),
-                ),
-                body: redact_text(&row.body),
-                message_kind: parse_message_kind(&row.message_kind),
-                runtime_message_id: row.runtime_message_id,
-                delivery_state: parse_message_delivery_state(&row.delivery_state),
-                delivery_error: row.delivery_error,
-                replayed: false,
-                created_at: api_ts(row.created_at),
-            });
+            result.push(session_message_from_model(&self.db, row).await?);
         }
         Ok(result)
     }
@@ -2619,7 +3127,7 @@ impl FleetRepository for PostgresFleetRepository {
         self.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "UPDATE message_dispatch_outbox SET state = $2, last_error = $3, updated_at = now() WHERE message_id = $1 AND state = 'dispatching'",
             [message_id.into(), state.into(), error.map(|error| redact_text(&error)).into()]))
-            .await.map_err(AppError::database)?;
+            .await.map_err(namespace_persistence_error)?;
         Ok(())
     }
 
@@ -2632,7 +3140,7 @@ impl FleetRepository for PostgresFleetRepository {
             .order_by_asc(session_participant::Column::CreatedAt)
             .all(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let mut result = Vec::with_capacity(rows.len());
         for row in rows {
             let participant_type = parse_participant_type(&row.participant_type);
@@ -2640,14 +3148,14 @@ impl FleetRepository for PostgresFleetRepository {
                 Some(user_id) => user::Entity::find_by_id(user_id)
                     .one(&self.db)
                     .await
-                    .map_err(AppError::database)?,
+                    .map_err(namespace_persistence_error)?,
                 None => None,
             };
             let participant_agent = match row.agent_id {
                 Some(agent_id) => agent::Entity::find_by_id(agent_id)
                     .one(&self.db)
                     .await
-                    .map_err(AppError::database)?,
+                    .map_err(namespace_persistence_error)?,
                 None => None,
             };
             result.push(SessionParticipant {
@@ -2689,12 +3197,12 @@ impl FleetRepository for PostgresFleetRepository {
             )?),
             None => None,
         };
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         let session = agent_session::Entity::find_by_id(id)
             .lock_exclusive()
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent_session", id))?;
         let binding = txn
             .query_one(Statement::from_sql_and_values(
@@ -2703,22 +3211,51 @@ impl FleetRepository for PostgresFleetRepository {
                 [id.into()],
             ))
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         if binding.is_some() {
-            return Err(AppError::conflict(
-                "task-bound messages require a verified workflow assignment",
-            ));
+            // Only the exact original intake can enter the PM owner lane. Free
+            // task prompts remain forbidden until the scoped continuation path.
+            let row = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                "SELECT operation FROM pm_draft_creation_operations WHERE operation->>'session_id'=$1 AND owner_user_id=$2",
+                [id.to_string().into(),actor_user_id.into()])).await.map_err(namespace_persistence_error)?
+                .ok_or_else(|| AppError::conflict("task-bound messages require verified PM preparation"))?;
+            let op: domain::PmDraftOperation = serde_json::from_value(
+                row.try_get("", "operation")
+                    .map_err(namespace_persistence_error)?,
+            )
+            .map_err(AppError::internal)?;
+            if req.author_agent_id.is_some()
+                || req.runtime_message_id.is_some()
+                || req.message_kind != Some(MessageKind::UserPrompt)
+                || idempotency_key.as_deref() != Some(format!("fleet-pm-intake:{}", op.id).as_str())
+                || op.input.as_ref().map(|v| v.input.description.trim()) != Some(body.as_str())
+                || op
+                    .workflow_assignment
+                    .as_ref()
+                    .and_then(|v| v.receipt.as_ref())
+                    .is_none()
+                || op
+                    .execution_lease
+                    .as_ref()
+                    .and_then(|v| v.receipt.as_ref())
+                    .is_none()
+            {
+                return Err(AppError::conflict(
+                    "task-bound message is not the original prepared PM intake",
+                ));
+            }
         }
         let actor = user::Entity::find_by_id(actor_user_id)
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or(AppError::Unauthorized)?;
-        if !actor.is_active
-            || (actor_user_id != session.user_id
-                && !parse_system_role(&actor.system_role, actor.is_system_admin)
-                    .can_operate_fleet())
-        {
+        let can_write_other = if actor.central_sub.is_some() {
+            session.visibility == SessionVisibility::LeaderScoped.as_str()
+        } else {
+            parse_system_role(&actor.system_role, actor.is_system_admin).can_operate_fleet()
+        };
+        if !actor.is_active || (actor_user_id != session.user_id && !can_write_other) {
             return Err(AppError::Forbidden);
         }
         if let Some(key) = idempotency_key.as_ref()
@@ -2728,11 +3265,11 @@ impl FleetRepository for PostgresFleetRepository {
                 .filter(session_message::Column::IdempotencyKey.eq(key))
                 .one(&txn)
                 .await
-                .map_err(AppError::database)?
+                .map_err(namespace_persistence_error)?
         {
             if existing.idempotency_payload_hash == idempotency_payload_hash {
-                txn.commit().await.map_err(AppError::database)?;
-                let mut message = self.message_by_id(existing.id).await?;
+                txn.commit().await.map_err(namespace_persistence_error)?;
+                let mut message = session_message_receipt(&self.db, existing).await?;
                 message.replayed = true;
                 return Ok(message);
             }
@@ -2764,7 +3301,7 @@ impl FleetRepository for PostgresFleetRepository {
             };
         let message_id = Uuid::new_v4();
         let ts = now();
-        session_message::Entity::insert(session_message::ActiveModel {
+        let row = session_message::Entity::insert(session_message::ActiveModel {
             id: Set(message_id),
             session_id: Set(id),
             author_type: Set(author_type.as_str().to_string()),
@@ -2785,9 +3322,9 @@ impl FleetRepository for PostgresFleetRepository {
             delivery_error: Set(None),
             created_at: Set(ts),
         })
-        .exec(&txn)
+        .exec_with_returning(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
         let mut session_model = session.into_active_model();
         session_model.last_message_preview = Set(Some(body.chars().take(180).collect()));
         session_model.updated_at = Set(ts);
@@ -2797,9 +3334,9 @@ impl FleetRepository for PostgresFleetRepository {
         session_model
             .update(&txn)
             .await
-            .map_err(AppError::database)?;
-        txn.commit().await.map_err(AppError::database)?;
-        self.message_by_id(message_id).await
+            .map_err(namespace_persistence_error)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
+        session_message_receipt(&self.db, row).await
     }
 
     async fn list_session_agent_runs(&self, id: Uuid) -> Result<Vec<SessionAgentRun>, AppError> {
@@ -2808,7 +3345,7 @@ impl FleetRepository for PostgresFleetRepository {
             .order_by_asc(session_agent_run::Column::CreatedAt)
             .all(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let mut result = Vec::with_capacity(rows.len());
         for row in rows {
             result.push(session_run_from_model(&self.db, row).await?);
@@ -2820,7 +3357,7 @@ impl FleetRepository for PostgresFleetRepository {
         let row = session_agent_run::Entity::find_by_id(id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("session_agent_run", id))?;
         session_run_from_model(&self.db, row).await
     }
@@ -2832,12 +3369,12 @@ impl FleetRepository for PostgresFleetRepository {
         run_role: SessionRunRole,
         runtime_session_id: String,
     ) -> Result<SessionAgentRun, AppError> {
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         let agent = agent::Entity::find_by_id(agent_id)
             .lock_exclusive()
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent", agent_id))?;
         if agent.status != AgentStatus::Running.as_str() {
             return Err(AppError::conflict("agent runtime is not running"));
@@ -2851,7 +3388,7 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(session_agent_run::Column::RuntimeSessionId.is_not_null())
             .one(&txn)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         if active.is_some() {
             return Err(AppError::conflict(
                 "agent already has an active or unresolved run; use steer or reconcile it",
@@ -2867,14 +3404,17 @@ impl FleetRepository for PostgresFleetRepository {
             .order_by_asc(session_agent_run::Column::CreatedAt)
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
         {
             let mut model = row.into_active_model();
             model.runtime_session_id = Set(Some(runtime_session_id));
             model.run_role = Set(run_role.as_str().to_string());
             model.updated_at = Set(ts);
-            let updated = model.update(&txn).await.map_err(AppError::database)?;
-            txn.commit().await.map_err(AppError::database)?;
+            let updated = model
+                .update(&txn)
+                .await
+                .map_err(namespace_persistence_error)?;
+            txn.commit().await.map_err(namespace_persistence_error)?;
             return session_run_from_model(&self.db, updated).await;
         }
 
@@ -2897,14 +3437,14 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
 
         let row = session_agent_run::Entity::find_by_id(id)
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::internal("session run insert returned no row"))?;
-        txn.commit().await.map_err(AppError::database)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         session_run_from_model(&self.db, row).await
     }
 
@@ -3037,10 +3577,12 @@ impl FleetRepository for PostgresFleetRepository {
                AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=s.id)
                AND NOT EXISTS(SELECT 1 FROM pm_run_bindings p WHERE p.session_id=s.id OR p.session_run_id=r.id)
                AND ($1::uuid IS NULL OR r.id>$1)
-             ORDER BY r.id LIMIT 20", [after.into()])).await.map_err(AppError::database)?;
+             ORDER BY r.id LIMIT 20", [after.into()])).await.map_err(namespace_persistence_error)?;
         let mut result = Vec::with_capacity(rows.len());
         for row in rows {
-            let id = row.try_get("", "message_id").map_err(AppError::database)?;
+            let id = row
+                .try_get("", "message_id")
+                .map_err(namespace_persistence_error)?;
             if let Some(intent) = hermes_dispatch_journal::get(self, id).await? {
                 result.push((self.message_by_id(id).await?, intent));
             }
@@ -3055,11 +3597,11 @@ impl FleetRepository for PostgresFleetRepository {
         state: SessionRunState,
         last_error: Option<String>,
     ) -> Result<SessionAgentRun, AppError> {
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         let seed = session_agent_run::Entity::find_by_id(id)
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("session_agent_run", id))?;
         // A run update appends a session event. Match journal session-before-run locking.
         txn.query_one(Statement::from_sql_and_values(
@@ -3068,7 +3610,7 @@ impl FleetRepository for PostgresFleetRepository {
             [seed.session_id.into()],
         ))
         .await
-        .map_err(AppError::database)?
+        .map_err(namespace_persistence_error)?
         .ok_or_else(|| AppError::not_found("agent_session", seed.session_id))?;
         // Match readback's lock order; late SSE/error updates cannot regress verified PM proof.
         let pm = pm_execution::locked(&txn, id).await?;
@@ -3076,7 +3618,7 @@ impl FleetRepository for PostgresFleetRepository {
             .lock_exclusive()
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("session_agent_run", id))?;
         if row.session_id != seed.session_id || row.agent_id != seed.agent_id {
             return Err(AppError::conflict(
@@ -3091,7 +3633,7 @@ impl FleetRepository for PostgresFleetRepository {
             return Err(AppError::conflict("runtime run identity is immutable"));
         }
         if pm.is_none() && matches!(row.state.as_str(), "completed" | "failed" | "cancelled") {
-            txn.commit().await.map_err(AppError::database)?;
+            txn.commit().await.map_err(namespace_persistence_error)?;
             return session_run_from_model(&self.db, row).await;
         }
         let mut model = row.into_active_model();
@@ -3127,8 +3669,11 @@ impl FleetRepository for PostgresFleetRepository {
         }
         model.last_event_at = Set(Some(now()));
         model.updated_at = Set(now());
-        let updated = model.update(&txn).await.map_err(AppError::database)?;
-        txn.commit().await.map_err(AppError::database)?;
+        let updated = model
+            .update(&txn)
+            .await
+            .map_err(namespace_persistence_error)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         session_run_from_model(&self.db, updated).await
     }
 
@@ -3199,15 +3744,26 @@ impl FleetRepository for PostgresFleetRepository {
                  OR (r.runtime_run_id IS NULL AND r.state='pending' AND m.runtime_message_id IS NULL
                      AND m.delivery_state='pending' AND j.state='submitted'
                      AND jsonb_typeof(j.capabilities->'fleet_recovery')='object'))
-               AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=r.session_id)
-               AND NOT EXISTS(SELECT 1 FROM pm_run_bindings p WHERE p.session_run_id=r.id OR p.session_id=r.session_id)
+               AND ((NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=r.session_id)
+                 AND NOT EXISTS(SELECT 1 FROM pm_run_bindings p WHERE p.session_run_id=r.id OR p.session_id=r.session_id))
+                 OR EXISTS(SELECT 1 FROM pm_run_bindings p JOIN pm_draft_creation_operations o
+                    ON o.id::text=j.capabilities->'fleet_pm'->>'operation_id'
+                    WHERE p.session_run_id=r.id AND p.session_id=r.session_id AND p.agent_id=r.agent_id
+                      AND p.reservation->'identity'=j.capabilities->'fleet_pm'->'identity'
+                      AND o.operation->>'session_id'=r.session_id::text
+                      AND jsonb_typeof(o.operation->'execution_lease'->'receipt')='object'
+                      AND jsonb_typeof(o.operation->'workflow_assignment'->'receipt')='object'))
                AND ($1::uuid IS NULL OR r.id>$1)
              ORDER BY r.id LIMIT 20", [after.into()]))
-            .await.map_err(AppError::database)?;
+            .await.map_err(namespace_persistence_error)?;
         let mut result = Vec::with_capacity(rows.len());
         for row in rows {
-            let message_id: Uuid = row.try_get("", "message_id").map_err(AppError::database)?;
-            let run_id: Uuid = row.try_get("", "run_id").map_err(AppError::database)?;
+            let message_id: Uuid = row
+                .try_get("", "message_id")
+                .map_err(namespace_persistence_error)?;
+            let run_id: Uuid = row
+                .try_get("", "run_id")
+                .map_err(namespace_persistence_error)?;
             result.push((
                 self.message_by_id(message_id).await?,
                 self.get_session_agent_run(run_id).await?,
@@ -3235,14 +3791,14 @@ impl FleetRepository for PostgresFleetRepository {
         } else {
             MessageAuthorType::System
         };
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         txn.query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
             [session_id.into()],
         ))
         .await
-        .map_err(AppError::database)?
+        .map_err(namespace_persistence_error)?
         .ok_or_else(|| AppError::not_found("agent_session", session_id))?;
         if message_kind == MessageKind::ToolEvent
             && let (Some(agent_id), Some(native_id)) =
@@ -3255,7 +3811,7 @@ impl FleetRepository for PostgresFleetRepository {
                 .lock_exclusive()
                 .all(&txn)
                 .await
-                .map_err(AppError::database)?;
+                .map_err(namespace_persistence_error)?;
             if terminal
                 .iter()
                 .any(|run| matches!(run.state.as_str(), "completed" | "failed" | "cancelled"))
@@ -3278,12 +3834,16 @@ impl FleetRepository for PostgresFleetRepository {
                 Some(id) => existing.filter(session_message::Column::AuthorAgentId.eq(id)),
                 None => existing.filter(session_message::Column::AuthorAgentId.is_null()),
             };
-            if let Some(row) = existing.one(&txn).await.map_err(AppError::database)? {
-                txn.commit().await.map_err(AppError::database)?;
+            if let Some(row) = existing
+                .one(&txn)
+                .await
+                .map_err(namespace_persistence_error)?
+            {
+                txn.commit().await.map_err(namespace_persistence_error)?;
                 return self.message_by_id(row.id).await;
             }
         }
-        session_message::Entity::insert(session_message::ActiveModel {
+        let _row = session_message::Entity::insert(session_message::ActiveModel {
             id: Set(id),
             session_id: Set(session_id),
             author_type: Set(author_type.as_str().to_string()),
@@ -3299,19 +3859,22 @@ impl FleetRepository for PostgresFleetRepository {
             delivery_error: Set(None),
             created_at: Set(ts),
         })
-        .exec(&txn)
+        .exec_with_returning(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
         let mut session = agent_session::Entity::find_by_id(session_id)
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("agent_session", session_id))?
             .into_active_model();
         session.last_message_preview = Set(Some(body.chars().take(180).collect()));
         session.updated_at = Set(ts);
-        session.update(&txn).await.map_err(AppError::database)?;
-        txn.commit().await.map_err(AppError::database)?;
+        session
+            .update(&txn)
+            .await
+            .map_err(namespace_persistence_error)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         self.message_by_id(id).await
     }
 
@@ -3322,7 +3885,7 @@ impl FleetRepository for PostgresFleetRepository {
         runtime_message_id: Option<String>,
         delivery_error: Option<String>,
     ) -> Result<(), AppError> {
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         // Delivery's event trigger takes the session cursor/FK locks. Serialize
         // with dispatch/terminal writers before locking their child message.
         let session_id: Uuid = txn
@@ -3334,15 +3897,15 @@ impl FleetRepository for PostgresFleetRepository {
                 [id.into()],
             ))
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("session_message", id))?
             .try_get("", "id")
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let row = session_message::Entity::find_by_id(id)
             .lock_exclusive()
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("session_message", id))?;
         if row.session_id != session_id {
             return Err(AppError::conflict("message session identity changed"));
@@ -3358,7 +3921,7 @@ impl FleetRepository for PostgresFleetRepository {
             if runtime_message_id.is_none()
                 || matches!(row.delivery_state.as_str(), "completed" | "failed")
             {
-                txn.commit().await.map_err(AppError::database)?;
+                txn.commit().await.map_err(namespace_persistence_error)?;
                 return Ok(());
             }
             if delivery_state == MessageDeliveryState::Pending {
@@ -3403,8 +3966,11 @@ impl FleetRepository for PostgresFleetRepository {
             model.runtime_message_id = Set(runtime_message_id);
         }
         model.delivery_error = Set(delivery_error.map(|error| redact_text(&error)));
-        model.update(&txn).await.map_err(AppError::database)?;
-        txn.commit().await.map_err(AppError::database)?;
+        model
+            .update(&txn)
+            .await
+            .map_err(namespace_persistence_error)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         Ok(())
     }
 
@@ -3413,20 +3979,20 @@ impl FleetRepository for PostgresFleetRepository {
         req: RuntimeApprovalCreate,
     ) -> Result<RuntimeApprovalRequest, AppError> {
         let id = Uuid::new_v4();
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         txn.query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
             [req.session_id.into()],
         ))
         .await
-        .map_err(AppError::database)?
+        .map_err(namespace_persistence_error)?
         .ok_or_else(|| AppError::not_found("agent_session", req.session_id))?;
         let run = session_agent_run::Entity::find_by_id(req.session_run_id)
             .lock_exclusive()
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("session_agent_run", req.session_run_id))?;
         if run.session_id != req.session_id
             || run.agent_id != req.agent_id
@@ -3442,7 +4008,7 @@ impl FleetRepository for PostgresFleetRepository {
              VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',now())
              ON CONFLICT(session_run_id,runtime_approval_id) WHERE runtime_approval_id IS NOT NULL DO NOTHING",
             [id.into(),req.session_id.into(),req.session_run_id.into(),req.agent_id.into(),req.runtime_run_id.clone().into(),req.runtime_approval_id.clone().into(),redact_text(&req.prompt).into(),redact_json(req.detail).into()]))
-            .await.map_err(AppError::database)?;
+            .await.map_err(namespace_persistence_error)?;
         let query = match req.runtime_approval_id {
             Some(request_id) => runtime_approval_request::Entity::find()
                 .filter(runtime_approval_request::Column::SessionRunId.eq(req.session_run_id))
@@ -3452,7 +4018,7 @@ impl FleetRepository for PostgresFleetRepository {
         let row = query
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("runtime_approval_request", id))?;
         if row.session_id != req.session_id
             || row.agent_id != req.agent_id
@@ -3460,7 +4026,7 @@ impl FleetRepository for PostgresFleetRepository {
         {
             return Err(AppError::conflict("runtime approval identity changed"));
         }
-        txn.commit().await.map_err(AppError::database)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         Ok(runtime_approval_from_model(row))
     }
 
@@ -3496,13 +4062,16 @@ impl FleetRepository for PostgresFleetRepository {
         let mut model = runtime_approval_request::Entity::find_by_id(id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("runtime_approval_request", id))?
             .into_active_model();
         model.state = Set(state.as_str().to_string());
         model.resolved_by_user_id = Set(Some(actor_user_id));
         model.resolved_at = Set(Some(now()));
-        let updated = model.update(&self.db).await.map_err(AppError::database)?;
+        let updated = model
+            .update(&self.db)
+            .await
+            .map_err(namespace_persistence_error)?;
         Ok(runtime_approval_from_model(updated))
     }
 
@@ -3532,7 +4101,7 @@ impl FleetRepository for PostgresFleetRepository {
             )
             .exec(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         Ok(result.rows_affected)
     }
 
@@ -3544,7 +4113,7 @@ impl FleetRepository for PostgresFleetRepository {
         let bindings = workflow_binding::Entity::find()
             .all(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let mut updated = 0u64;
         for row in bindings {
             let target = workflow_binding_status(
@@ -3559,7 +4128,10 @@ impl FleetRepository for PostgresFleetRepository {
                 let mut model = row.into_active_model();
                 model.binding_status = Set(target.to_string());
                 model.updated_at = Set(chrono::Utc::now().into());
-                model.update(&self.db).await.map_err(AppError::database)?;
+                model
+                    .update(&self.db)
+                    .await
+                    .map_err(namespace_persistence_error)?;
                 updated += 1;
             }
         }
@@ -3572,7 +4144,7 @@ impl FleetRepository for PostgresFleetRepository {
         namespace: domain::WorkflowNamespaceCatalogEntry,
         workflow: domain::WorkflowCatalogEntry,
     ) -> Result<WorkflowBinding, AppError> {
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         let timestamp = now();
         txn.query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -3580,7 +4152,7 @@ impl FleetRepository for PostgresFleetRepository {
             [agent_id.into()],
         ))
         .await
-        .map_err(AppError::database)?
+        .map_err(namespace_persistence_error)?
         .ok_or_else(|| AppError::not_found("agent", agent_id))?;
         config_revisions::guard_identity_change(&txn, agent_id).await?;
         let updated_agents = agent::Entity::update_many()
@@ -3593,7 +4165,7 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(agent::Column::Id.eq(agent_id))
             .exec(&txn)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         if updated_agents.rows_affected != 1 {
             return Err(AppError::not_found("agent", agent_id));
         }
@@ -3601,7 +4173,7 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(workflow_binding::Column::AgentId.eq(agent_id))
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("workflow_binding", agent_id))?;
         let mut binding = binding.into_active_model();
         binding.namespace_id = Set(Some(namespace.id));
@@ -3610,11 +4182,14 @@ impl FleetRepository for PostgresFleetRepository {
         binding.workflow_name = Set(Some(workflow.name));
         binding.binding_status = Set("connected".to_string());
         binding.updated_at = Set(timestamp);
-        let binding = binding.update(&txn).await.map_err(AppError::database)?;
+        let binding = binding
+            .update(&txn)
+            .await
+            .map_err(namespace_persistence_error)?;
         if let Some(config_row) = agent_config::Entity::find_by_id(agent_id)
             .one(&txn)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
         {
             let mut config = config_row.into_active_model();
             config.config_json = Set(workflow_config_with_binding(
@@ -3623,9 +4198,12 @@ impl FleetRepository for PostgresFleetRepository {
                 binding.workflow_id.as_deref().unwrap_or_default(),
             ));
             config.updated_at = Set(timestamp);
-            config.update(&txn).await.map_err(AppError::database)?;
+            config
+                .update(&txn)
+                .await
+                .map_err(namespace_persistence_error)?;
         }
-        txn.commit().await.map_err(AppError::database)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         Ok(workflow_binding_from_row(binding))
     }
 
@@ -3634,7 +4212,7 @@ impl FleetRepository for PostgresFleetRepository {
             .order_by_asc(workflow_binding::Column::NamespaceId)
             .all(&self.db)
             .await
-            .map_err(AppError::database)
+            .map_err(namespace_persistence_error)
             .map(|rows| rows.into_iter().map(workflow_binding_from_row).collect())
     }
 
@@ -3644,7 +4222,7 @@ impl FleetRepository for PostgresFleetRepository {
             .limit(limit)
             .all(&self.db)
             .await
-            .map_err(AppError::database)
+            .map_err(namespace_persistence_error)
             .map(|rows| {
                 rows.into_iter()
                     .map(|row| AgentEvent {
@@ -3668,7 +4246,7 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<AgentEvent, AppError> {
         let id = Uuid::new_v4();
         let ts = now();
-        agent_event::Entity::insert(agent_event::ActiveModel {
+        let row = agent_event::Entity::insert(agent_event::ActiveModel {
             id: Set(id),
             agent_id: Set(agent_id),
             event_type: Set(event_type.to_string()),
@@ -3676,14 +4254,17 @@ impl FleetRepository for PostgresFleetRepository {
             payload: Set(payload),
             created_at: Set(ts),
         })
-        .exec(&self.db)
+        .exec_with_returning(&self.db)
         .await
-        .map_err(AppError::database)?;
-        self.list_events(1)
-            .await?
-            .into_iter()
-            .find(|event| event.id == id)
-            .ok_or_else(|| AppError::not_found("agent_event", id))
+        .map_err(namespace_persistence_error)?;
+        Ok(AgentEvent {
+            id: row.id,
+            agent_id: row.agent_id,
+            event_type: row.event_type,
+            message: row.message,
+            payload: row.payload,
+            created_at: api_ts(row.created_at),
+        })
     }
 
     async fn list_fleet_alerts(
@@ -3694,7 +4275,10 @@ impl FleetRepository for PostgresFleetRepository {
         if let Some(state) = state {
             query = query.filter(fleet_alerts::Column::State.eq(state));
         }
-        let rows = query.all(&self.db).await.map_err(AppError::database)?;
+        let rows = query
+            .all(&self.db)
+            .await
+            .map_err(namespace_persistence_error)?;
         Ok(rows.into_iter().map(fleet_alert_to_domain).collect())
     }
 
@@ -3720,7 +4304,7 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(fleet_alerts::Column::State.eq("open"))
             .exec(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         if updated.rows_affected == 0 {
             return Err(AppError::not_found("fleet_alert(open)", alert_id));
         }
@@ -3735,7 +4319,7 @@ impl FleetRepository for PostgresFleetRepository {
         &self,
         alert: domain::FleetAlert,
     ) -> Result<domain::FleetAlert, AppError> {
-        let transaction = self.db.begin().await.map_err(AppError::database)?;
+        let transaction = self.db.begin().await.map_err(namespace_persistence_error)?;
         if alert.kind == app::HEARTBEAT_STALE_ALERT_KIND {
             let agent_id = alert
                 .agent_id
@@ -3745,7 +4329,7 @@ impl FleetRepository for PostgresFleetRepository {
                 .lock_exclusive()
                 .one(&transaction)
                 .await
-                .map_err(AppError::database)?
+                .map_err(namespace_persistence_error)?
                 .ok_or_else(|| AppError::not_found("agent", agent_id))?;
             if let Some(existing) = fleet_alerts::Entity::find()
                 .filter(fleet_alerts::Column::AgentId.eq(agent_id))
@@ -3754,9 +4338,12 @@ impl FleetRepository for PostgresFleetRepository {
                 .order_by_desc(fleet_alerts::Column::OpenedAt)
                 .one(&transaction)
                 .await
-                .map_err(AppError::database)?
+                .map_err(namespace_persistence_error)?
             {
-                transaction.commit().await.map_err(AppError::database)?;
+                transaction
+                    .commit()
+                    .await
+                    .map_err(namespace_persistence_error)?;
                 return Ok(fleet_alert_to_domain(existing));
             }
         }
@@ -3774,8 +4361,11 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&transaction)
         .await
-        .map_err(AppError::database)?;
-        transaction.commit().await.map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
+        transaction
+            .commit()
+            .await
+            .map_err(namespace_persistence_error)?;
         Ok(alert)
     }
 
@@ -3805,7 +4395,7 @@ impl FleetRepository for PostgresFleetRepository {
         kind: &str,
         resolution_detail: Value,
     ) -> Result<u64, AppError> {
-        let transaction = self.db.begin().await.map_err(AppError::database)?;
+        let transaction = self.db.begin().await.map_err(namespace_persistence_error)?;
         let updated = fleet_alerts::Entity::update_many()
             .col_expr(
                 fleet_alerts::Column::State,
@@ -3820,7 +4410,7 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(fleet_alerts::Column::State.is_in(app::ACTIVE_ALERT_STATES))
             .exec(&transaction)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         if updated.rows_affected > 0 {
             audit_log::Entity::insert(audit_log::ActiveModel {
                 id: Set(Uuid::new_v4()),
@@ -3833,9 +4423,12 @@ impl FleetRepository for PostgresFleetRepository {
             })
             .exec(&transaction)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         }
-        transaction.commit().await.map_err(AppError::database)?;
+        transaction
+            .commit()
+            .await
+            .map_err(namespace_persistence_error)?;
         Ok(updated.rows_affected)
     }
 
@@ -3858,7 +4451,7 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&self.db)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
         Ok(())
     }
 
@@ -3886,7 +4479,7 @@ impl FleetRepository for PostgresFleetRepository {
             .limit(filter.limit.clamp(1, 500))
             .all(&self.db)
             .await
-            .map_err(AppError::database)
+            .map_err(namespace_persistence_error)
             .map(|rows| rows.into_iter().map(audit_entry).collect())
     }
 
@@ -3903,7 +4496,7 @@ impl FleetRepository for PostgresFleetRepository {
             .limit(limit)
             .all(&self.db)
             .await
-            .map_err(AppError::database)
+            .map_err(namespace_persistence_error)
             .map(|rows| {
                 rows.into_iter()
                     .map(|row| AgentLogEntry {
@@ -3934,7 +4527,7 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec_with_returning(&self.db)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
         Ok(AgentLogEntry {
             id: row.id,
             agent_id: row.agent_id,
@@ -3953,10 +4546,21 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(user::Column::CentralSub.is_null())
             .one(&self.db)
             .await
-            .map_err(AppError::database)
+            .map_err(namespace_persistence_error)
             .map(|row| row.map(user_record))
     }
 
+    async fn find_user_by_central_subject(
+        &self,
+        subject: &str,
+    ) -> Result<Option<app::auth::UserRecord>, AppError> {
+        user::Entity::find()
+            .filter(user::Column::CentralSub.eq(subject))
+            .one(&self.db)
+            .await
+            .map_err(namespace_persistence_error)
+            .map(|row| row.map(user_record))
+    }
     async fn find_or_create_central_user(
         &self,
         sub: &str,
@@ -3971,7 +4575,7 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(user::Column::CentralSub.eq(sub.trim()))
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             && model.is_active
             && model.display_name == display_name.trim()
         {
@@ -3996,12 +4600,12 @@ impl FleetRepository for PostgresFleetRepository {
                 ],
             ))
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let model = user::Entity::find()
             .filter(user::Column::CentralSub.eq(sub.trim()))
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or(AppError::Unauthorized)?;
         if !model.is_active {
             return Err(AppError::Unauthorized);
@@ -4013,7 +4617,7 @@ impl FleetRepository for PostgresFleetRepository {
         user::Entity::find_by_id(id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)
+            .map_err(namespace_persistence_error)
             .map(|row| row.map(user_record))
     }
 
@@ -4022,7 +4626,7 @@ impl FleetRepository for PostgresFleetRepository {
             .order_by_asc(user::Column::Email)
             .all(&self.db)
             .await
-            .map_err(AppError::database)
+            .map_err(namespace_persistence_error)
             .map(|rows| rows.into_iter().map(user_response).collect())
     }
 
@@ -4034,13 +4638,16 @@ impl FleetRepository for PostgresFleetRepository {
         let mut model = user::Entity::find_by_id(user_id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("user", user_id))?
             .into_active_model();
         model.system_role = Set(req.role.as_str().to_string());
         model.is_system_admin = Set(req.role.is_admin());
         model.updated_at = Set(now());
-        let updated = model.update(&self.db).await.map_err(AppError::database)?;
+        let updated = model
+            .update(&self.db)
+            .await
+            .map_err(namespace_persistence_error)?;
         Ok(user_response(updated))
     }
 
@@ -4072,7 +4679,7 @@ impl FleetRepository for PostgresFleetRepository {
         })
         .exec(&self.db)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
         self.find_user_by_id(id)
             .await?
             .ok_or_else(|| AppError::not_found("user", id))
@@ -4086,12 +4693,15 @@ impl FleetRepository for PostgresFleetRepository {
         let mut model = user::Entity::find_by_id(user_id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("user", user_id))?
             .into_active_model();
         model.refresh_token_hash = Set(refresh_hash);
         model.updated_at = Set(now());
-        model.update(&self.db).await.map_err(AppError::database)?;
+        model
+            .update(&self.db)
+            .await
+            .map_err(namespace_persistence_error)?;
         Ok(())
     }
 
@@ -4101,7 +4711,7 @@ impl FleetRepository for PostgresFleetRepository {
             .limit(limit.clamp(1, 500))
             .all(&self.db)
             .await
-            .map_err(AppError::database)
+            .map_err(namespace_persistence_error)
             .map(|rows| rows.into_iter().map(deployment_job_from_model).collect())
     }
 
@@ -4109,7 +4719,7 @@ impl FleetRepository for PostgresFleetRepository {
         deployment_job::Entity::find_by_id(id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .map(deployment_job_from_model)
             .ok_or_else(|| AppError::not_found("deployment_job", id))
     }
@@ -4181,7 +4791,7 @@ impl FleetRepository for PostgresFleetRepository {
                 .filter(deployment_job::Column::IdempotencyKey.eq(key))
                 .one(&self.db)
                 .await
-                .map_err(AppError::database)?
+                .map_err(namespace_persistence_error)?
         {
             if existing.job_kind != req.job_kind.as_str() || existing.detail != detail {
                 return Err(AppError::conflict(
@@ -4217,7 +4827,7 @@ impl FleetRepository for PostgresFleetRepository {
                     .filter(deployment_job::Column::IdempotencyKey.eq(key))
                     .one(&self.db)
                     .await
-                    .map_err(AppError::database)?
+                    .map_err(namespace_persistence_error)?
             {
                 if existing.job_kind == req.job_kind.as_str() && existing.detail == detail {
                     return Ok(deployment_job_from_model(existing));
@@ -4226,7 +4836,7 @@ impl FleetRepository for PostgresFleetRepository {
                     "idempotency key belongs to another request",
                 ));
             }
-            return Err(AppError::database(error));
+            return Err(namespace_persistence_error(error));
         }
         self.get_deployment_job(id).await
     }
@@ -4271,7 +4881,7 @@ impl FleetRepository for PostgresFleetRepository {
             })
             .exec(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
             jobs.push(self.get_deployment_job(id).await?);
         }
         let created = jobs.len();
@@ -4292,7 +4902,7 @@ impl FleetRepository for PostgresFleetRepository {
         let row = deployment_job::Entity::find_by_id(job_id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("deployment_job", job_id))?;
         if matches!(
             parse_deployment_job_kind(&row.job_kind),
@@ -4312,7 +4922,7 @@ impl FleetRepository for PostgresFleetRepository {
                     ],
                 ))
                 .await
-                .map_err(AppError::database)?;
+                .map_err(namespace_persistence_error)?;
             return self.get_deployment_job(job_id).await;
         }
         let detail_base = row.detail.clone();
@@ -4329,7 +4939,10 @@ impl FleetRepository for PostgresFleetRepository {
         }
         model.last_error = Set(last_error);
         model.updated_at = Set(now());
-        let updated = model.update(&self.db).await.map_err(AppError::database)?;
+        let updated = model
+            .update(&self.db)
+            .await
+            .map_err(namespace_persistence_error)?;
         Ok(deployment_job_from_model(updated))
     }
 
@@ -4341,7 +4954,7 @@ impl FleetRepository for PostgresFleetRepository {
         let row = deployment_job::Entity::find_by_id(id)
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("deployment_job", id))?;
         let state = parse_deployment_job_state(&row.state);
         if matches!(
@@ -4364,7 +4977,10 @@ impl FleetRepository for PostgresFleetRepository {
             model.state = Set(DeploymentJobState::Cancelled.as_str().to_string());
         }
         model.updated_at = Set(now());
-        let updated = model.update(&self.db).await.map_err(AppError::database)?;
+        let updated = model
+            .update(&self.db)
+            .await
+            .map_err(namespace_persistence_error)?;
         Ok(deployment_job_from_model(updated))
     }
 
@@ -4394,7 +5010,7 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(managed_settings_version::Column::IsActive.eq(true))
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .map(managed_settings_entry)
             .transpose()
     }
@@ -4407,7 +5023,7 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(managed_settings_version::Column::Version.eq(version))
             .one(&self.db)
             .await
-            .map_err(AppError::database)?
+            .map_err(namespace_persistence_error)?
             .ok_or_else(|| AppError::not_found("managed_settings_version", version))?;
         managed_settings_entry(row)
     }
@@ -4421,7 +5037,7 @@ impl FleetRepository for PostgresFleetRepository {
             .limit(limit.clamp(1, 100))
             .all(&self.db)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         rows.into_iter().map(managed_settings_entry).collect()
     }
 
@@ -4433,19 +5049,19 @@ impl FleetRepository for PostgresFleetRepository {
         rollback_of_version: Option<i64>,
         audit_action: &str,
     ) -> Result<ManagedSettingsVersion, AppError> {
-        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let txn = self.db.begin().await.map_err(namespace_persistence_error)?;
         txn.execute(Statement::from_string(
             DatabaseBackend::Postgres,
             "SELECT pg_advisory_xact_lock(238010008)".to_string(),
         ))
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
 
         let active = managed_settings_version::Entity::find()
             .filter(managed_settings_version::Column::IsActive.eq(true))
             .one(&txn)
             .await
-            .map_err(AppError::database)?;
+            .map_err(namespace_persistence_error)?;
         let actual_active_version = active.as_ref().map(|row| row.version);
         if actual_active_version != expected_active_version {
             return Err(AppError::conflict(format!(
@@ -4456,7 +5072,10 @@ impl FleetRepository for PostgresFleetRepository {
         if let Some(active) = active {
             let mut model = active.into_active_model();
             model.is_active = Set(false);
-            model.update(&txn).await.map_err(AppError::database)?;
+            model
+                .update(&txn)
+                .await
+                .map_err(namespace_persistence_error)?;
         }
 
         let row = managed_settings_version::ActiveModel {
@@ -4470,7 +5089,7 @@ impl FleetRepository for PostgresFleetRepository {
         }
         .insert(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
 
         audit_log::ActiveModel {
             id: Set(Uuid::new_v4()),
@@ -4488,9 +5107,9 @@ impl FleetRepository for PostgresFleetRepository {
         }
         .insert(&txn)
         .await
-        .map_err(AppError::database)?;
+        .map_err(namespace_persistence_error)?;
 
-        txn.commit().await.map_err(AppError::database)?;
+        txn.commit().await.map_err(namespace_persistence_error)?;
         managed_settings_entry(row)
     }
 }
@@ -4587,6 +5206,57 @@ fn message_author_display_name(
             .unwrap_or_else(|| "Unknown agent".to_string()),
         MessageAuthorType::System => "Fleet Control".to_string(),
     }
+}
+
+async fn session_message_from_model(
+    db: &DatabaseConnection,
+    row: session_message::Model,
+) -> Result<SessionMessage, AppError> {
+    let author_type = parse_message_author_type(&row.author_type);
+    let author_user = match row.author_user_id {
+        Some(user_id) => user::Entity::find_by_id(user_id)
+            .one(db)
+            .await
+            .map_err(namespace_persistence_error)?,
+        None => None,
+    };
+    let author_agent = match row.author_agent_id {
+        Some(agent_id) => agent::Entity::find_by_id(agent_id)
+            .one(db)
+            .await
+            .map_err(namespace_persistence_error)?,
+        None => None,
+    };
+    Ok(SessionMessage {
+        id: row.id,
+        session_id: row.session_id,
+        author_type,
+        author_user_id: row.author_user_id,
+        author_agent_id: row.author_agent_id,
+        author_display_name: message_author_display_name(
+            author_type,
+            author_user.as_ref(),
+            author_agent.as_ref(),
+        ),
+        body: redact_text(&row.body),
+        message_kind: parse_message_kind(&row.message_kind),
+        runtime_message_id: row.runtime_message_id,
+        delivery_state: parse_message_delivery_state(&row.delivery_state),
+        delivery_error: row.delivery_error,
+        replayed: false,
+        request_payload_hash: None,
+        created_at: api_ts(row.created_at),
+    })
+}
+
+async fn session_message_receipt(
+    db: &DatabaseConnection,
+    row: session_message::Model,
+) -> Result<SessionMessage, AppError> {
+    let request_payload_hash = row.idempotency_payload_hash.clone();
+    let mut message = session_message_from_model(db, row).await?;
+    message.request_payload_hash = request_payload_hash;
+    Ok(message)
 }
 
 async fn session_run_from_model(
@@ -5407,6 +6077,20 @@ pub(crate) async fn configuration_files(
             ));
         }
     }
+    let pm_native =
+        config.pm.workflow.enabled && agent.sdlc_role == Some(domain::SdlcRole::ProjectManager);
+    if pm_native {
+        if agent.kind != AgentKind::Hermes || renderer != 2 {
+            return Err(AppError::validation(
+                "PM native tools require the managed Hermes renderer",
+            ));
+        }
+        env.push_str(&configuration_renderer::pm_tools(
+            agent,
+            config,
+            &mut content,
+        )?);
+    }
     let mut files = vec![
         (
             expected.join("config.yaml"),
@@ -5436,6 +6120,18 @@ pub(crate) async fn configuration_files(
             };
             files.push((path, body));
         }
+    }
+    if pm_native {
+        files.extend([
+            (
+                expected.join("plugins/fleet-pm/__init__.py"),
+                include_str!("../../../runtime_plugins/fleet_pm/__init__.py").into(),
+            ),
+            (
+                expected.join("plugins/fleet-pm/plugin.yaml"),
+                include_str!("../../../runtime_plugins/fleet_pm/plugin.yaml").into(),
+            ),
+        ]);
     }
     for skill in &revision.snapshot.skills {
         if skill.name.is_empty()
@@ -5878,6 +6574,69 @@ mod tests {
                 .await
                 .unwrap(),
             env
+        );
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn pm_native_plugin_is_materialized_and_hash_verified_in_existing_config_lifecycle() {
+        let (root, mut agent, mut config, mut revision) = effective_config_fixture().await;
+        agent.sdlc_role = Some(domain::SdlcRole::ProjectManager);
+        config.pm.workflow.enabled = true;
+        config.pm.workflow.native_fleet_origin = "http://fleet.test/".into();
+        revision.snapshot.config.config_json["model"] =
+            json!({"default":"pm-model","max_tokens":8192});
+        revision.revision = 2;
+        revision.snapshot.renderer_version = 2;
+        revision
+            .snapshot
+            .config
+            .env_json
+            .as_object_mut()
+            .unwrap()
+            .remove("TEST_SECRET");
+        revision.snapshot.config.env_json["FLEET_PM_AGENT_ID"] = json!(Uuid::new_v4());
+        revision.snapshot.config.env_json["FLEET_PM_FLEET_ORIGIN"] = json!("http://foreign.test/");
+        let files = configuration_files(&agent, &config, &revision)
+            .await
+            .unwrap();
+        let env = &files
+            .iter()
+            .find(|(p, _)| p.file_name().is_some_and(|v| v == ".env"))
+            .unwrap()
+            .1;
+        assert!(env.contains(&format!("FLEET_PM_AGENT_ID=\"{}\"", agent.id)));
+        assert!(!env.contains("foreign.test"));
+        let plugin = files
+            .iter()
+            .find(|(p, _)| p.ends_with("plugins/fleet-pm/__init__.py"))
+            .unwrap();
+        assert!(plugin.1.contains("llm_execution"));
+        let content: Value = serde_json::from_str(
+            &files
+                .iter()
+                .find(|(p, _)| p.file_name().is_some_and(|v| v == "config.yaml"))
+                .unwrap()
+                .1,
+        )
+        .unwrap();
+        assert_eq!(
+            content["platform_toolsets"]["api_server"],
+            json!(["fleet_pm"])
+        );
+        assert_eq!(content["tools"]["tool_search"]["enabled"], "off");
+        assert!(content.get("tool_search").is_none());
+        install_effective_fixture(&agent, &config, &revision).await;
+        effective_configuration::verify(&agent, &config, &revision)
+            .await
+            .unwrap();
+        tokio::fs::write(&plugin.0, "unattested plugin")
+            .await
+            .unwrap();
+        assert!(
+            effective_configuration::verify(&agent, &config, &revision)
+                .await
+                .is_err()
         );
         tokio::fs::remove_dir_all(root).await.unwrap();
     }

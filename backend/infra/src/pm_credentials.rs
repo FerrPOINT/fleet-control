@@ -285,7 +285,7 @@ impl PmCredentialIssuer {
     }
 }
 
-fn configured_origin(raw: &str) -> Result<Url, AppError> {
+pub(crate) fn configured_origin(raw: &str) -> Result<Url, AppError> {
     let origin = Url::parse(raw).map_err(|_| AppError::validation("invalid credential origin"))?;
     if !matches!(origin.scheme(), "http" | "https")
         || origin.host_str().is_none()

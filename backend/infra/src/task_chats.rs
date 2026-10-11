@@ -185,6 +185,7 @@ impl PostgresFleetRepository {
             delivery_state: parse_message_delivery_state(&row.delivery_state),
             delivery_error: row.delivery_error.map(|error| redact_text(&error)),
             replayed: false,
+            request_payload_hash: None,
             created_at: api_ts(row.created_at),
         })
     }
@@ -362,6 +363,7 @@ impl PostgresFleetRepository {
                 delivery_state: parse_message_delivery_state(&row.delivery_state),
                 delivery_error: row.delivery_error.map(|error| redact_text(&error)),
                 replayed: false,
+                request_payload_hash: None,
                 created_at: api_ts(row.created_at),
             });
         }

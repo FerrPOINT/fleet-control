@@ -42,6 +42,8 @@ impl PostgresFleetRepository {
             || operation.reservation.is_some()
             || operation.session_id.is_some()
             || operation.credentials.is_some()
+            || operation.execution_lease.is_some()
+            || operation.workflow_assignment.is_some()
         {
             return Err(AppError::validation("invalid PM creation operation"));
         }
@@ -142,6 +144,36 @@ impl PostgresFleetRepository {
             }
         }
         let credential_event = match &proof {
+            PmDraftProof::WorkflowIntent(_) if operation.workflow_assignment.is_none() => Some((
+                "pm_workflow.intent",
+                serde_json::json!({"operation_id":operation.id}),
+            )),
+            PmDraftProof::WorkflowAcknowledged(receipt)
+                if operation
+                    .workflow_assignment
+                    .as_ref()
+                    .is_some_and(|v| v.receipt.is_none()) =>
+            {
+                Some((
+                    "pm_workflow.acknowledged",
+                    serde_json::json!({"workflow_id":receipt.workflow_id,"mode_id":receipt.mode_id}),
+                ))
+            }
+            PmDraftProof::LeaseIntent(_) if operation.execution_lease.is_none() => Some((
+                "pm_lease.intent",
+                serde_json::json!({"operation_id":operation.id}),
+            )),
+            PmDraftProof::LeaseAcknowledged(receipt)
+                if operation
+                    .execution_lease
+                    .as_ref()
+                    .is_some_and(|v| v.receipt.is_none()) =>
+            {
+                Some((
+                    "pm_lease.acknowledged",
+                    serde_json::json!({"lease_id":receipt.lease.lease_id}),
+                ))
+            }
             PmDraftProof::CredentialIntent(intent) if operation.credentials.is_none() => Some((
                 "pm_credentials.intent",
                 serde_json::json!({"request_sha256": intent.request_sha256}),

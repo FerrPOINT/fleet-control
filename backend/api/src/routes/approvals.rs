@@ -20,6 +20,7 @@ async fn access(
     if chat.user_id != user.id && !user.can_operate_fleet() {
         return Err(AppError::Forbidden);
     }
+    super::sessions::ensure_session_read_access(&chat, user)?;
     if ctx.repo.get_task_chat_binding(session).await?.is_some() {
         return Ok(
             super::task_chats::load_task_context(ctx, user, session, headers, false)
@@ -225,6 +226,8 @@ mod tests {
                 checkpoint_ref: None,
                 fence: 1,
                 runtime_binding: None,
+                native_session_key: None,
+                native_message_id: None,
             },
             hermes_run_ref: Some("run_one".into()),
             hermes_session_ref: Some("session_one".into()),

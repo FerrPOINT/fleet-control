@@ -21,6 +21,7 @@ COPY fleet-control/backend/migration ./migration
 COPY fleet-control/backend/api ./api
 COPY fleet-control/backend/server ./server
 COPY fleet-control/backend/cli ./cli
+COPY fleet-control/runtime_plugins /runtime_plugins
 
 RUN cargo build --locked --release --bin server
 

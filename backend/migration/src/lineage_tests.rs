@@ -2,7 +2,7 @@ use super::{LegacyMigrator, Migrator, MigratorTrait};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement,
 };
-use sea_orm_migration::MigrationStatus;
+use sea_orm_migration::{MigrationStatus, MigrationTrait};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -12,11 +12,11 @@ const CANONICAL_BASELINE: usize = 10;
 const SPLIT_BASELINE: usize = 13;
 
 fn canonical_count() -> usize {
-    CANONICAL_BASELINE + super::runtime_followups().len()
+    CANONICAL_BASELINE + super::runtime_followups().len() + 2
 }
 
 fn split_count() -> usize {
-    SPLIT_BASELINE + super::runtime_followups().len()
+    SPLIT_BASELINE + super::runtime_followups().len() + 2
 }
 
 #[test]
@@ -26,6 +26,10 @@ fn registered_versions_match_lineage_discriminators() {
     assert_eq!(canonical.len(), canonical_count());
     assert_eq!(legacy.len(), split_count());
     assert_eq!(canonical[CANONICAL_BASELINE - 1].name(), COMBINED);
+    assert_eq!(
+        canonical.last().unwrap().name(),
+        "m20261008_000091_context_drafts"
+    );
     assert_eq!(
         legacy
             .iter()
@@ -42,8 +46,13 @@ fn registered_versions_match_lineage_discriminators() {
             .collect::<Vec<_>>()
     };
     let followups = super::runtime_followups();
-    assert_eq!(names(&canonical[CANONICAL_BASELINE..]), names(&followups));
-    assert_eq!(names(&legacy[SPLIT_BASELINE..]), names(&followups));
+    let mut expected_followups = names(&followups);
+    expected_followups.extend([
+        "m20261008_000090_execution_context".to_owned(),
+        "m20261008_000091_context_drafts".to_owned(),
+    ]);
+    assert_eq!(names(&canonical[CANONICAL_BASELINE..]), expected_followups);
+    assert_eq!(names(&legacy[SPLIT_BASELINE..]), expected_followups);
     let unique = names(&legacy)
         .into_iter()
         .collect::<std::collections::HashSet<_>>();
@@ -165,8 +174,14 @@ async fn fresh_canonical_install_is_repeatable() {
             .unwrap()
             .is_empty()
     );
-    Migrator::down(&fixture.db, Some(1)).await.unwrap();
-    assert_eq!(ledger(&fixture.db).await.len(), canonical_count() - 1);
+    assert!(
+        Migrator::down(&fixture.db, Some(1))
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("compatible cohort")
+    );
+    assert_eq!(ledger(&fixture.db).await, before);
     Migrator::up(&fixture.db, None).await.unwrap();
     assert_eq!(ledger(&fixture.db).await.len(), canonical_count());
     fixture.close().await;
@@ -405,8 +420,25 @@ async fn both_accepted_foundations_upgrade_populated_runtime_history_without_bac
             assert_eq!(row.try_get::<i64>("", column).unwrap(), 0);
         }
         assert_eq!(row.try_get::<i64>("", "sequence").unwrap(), 1);
-        Migrator::down(&fixture.db, Some(1)).await.unwrap();
+        assert!(
+            Migrator::down(&fixture.db, Some(1))
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("compatible cohort")
+        );
+        assert_eq!(ledger(&fixture.db).await, upgraded);
+        let manager = sea_orm_migration::SchemaManager::new(&fixture.db);
+        super::m20261010_000027_pm_native_dispatch::Migration
+            .down(&manager)
+            .await
+            .unwrap();
+        super::m20261010_000027_pm_native_dispatch::Migration
+            .up(&manager)
+            .await
+            .unwrap();
         Migrator::up(&fixture.db, None).await.unwrap();
+        assert_eq!(ledger(&fixture.db).await, upgraded);
         assert_eq!(runtime_history(&fixture.db).await, data);
         assert_eq!(history(&fixture.db).await.len(), 2);
         fixture.close().await;

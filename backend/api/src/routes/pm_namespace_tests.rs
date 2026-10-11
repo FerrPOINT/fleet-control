@@ -28,6 +28,8 @@ fn fixture() -> (AppConfig, PmDraftOperation, Value) {
         reservation: None,
         session_id: None,
         credentials: None,
+        execution_lease: None,
+        workflow_assignment: None,
     };
     let value = json!({"ok":true,"result":{
         "contract_version":1,"ownership_ref":"11111111-1111-4111-8111-111111111111",

@@ -104,6 +104,29 @@ pub struct PmConfig {
     pub namespace_authority_issuer: String,
     pub namespace_provisioner_subject: String,
     pub credentials: PmCredentialsConfig,
+    pub workflow: PmWorkflowConfig,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PmWorkflowConfig {
+    pub enabled: bool,
+    pub native_fleet_origin: String,
+    #[serde(skip_serializing)]
+    pub assignment_token: String,
+    #[serde(skip_serializing)]
+    pub runtime_token: String,
+}
+
+impl std::fmt::Debug for PmWorkflowConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PmWorkflowConfig")
+            .field("enabled", &self.enabled)
+            .field("native_fleet_origin", &self.native_fleet_origin)
+            .field("assignment_token", &"[REDACTED]")
+            .field("runtime_token", &"[REDACTED]")
+            .finish()
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -155,6 +178,7 @@ impl std::fmt::Debug for PmConfig {
                 &self.namespace_provisioner_subject,
             )
             .field("credentials", &self.credentials)
+            .field("workflow", &self.workflow)
             .finish()
     }
 }

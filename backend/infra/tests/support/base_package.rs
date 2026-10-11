@@ -122,6 +122,7 @@ async fn base_package_workflow_mapping_requires_fresh_owner_readback_and_exact_f
             .layer(axum::Extension(api::middleware::CurrentUser {
                 id: owner,
                 role: domain::SystemRole::Operator,
+                central_write: None,
                 is_system_admin: false,
             }))
             .with_state(ctx);
@@ -623,6 +624,7 @@ async fn base_package_machine_readback_denies_database_only_effective_config_and
         .layer(axum::Extension(api::middleware::CurrentUser {
             id: owner,
             role: domain::SystemRole::Admin,
+            central_write: None,
             is_system_admin: true,
         }));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -948,6 +950,7 @@ async fn base_package_http_requires_operator_and_server_owned_checkout() {
                 .layer(axum::Extension(api::middleware::CurrentUser {
                     id: owner,
                     role: domain::SystemRole::Operator,
+                    central_write: None,
                     is_system_admin: false,
                 })),
         )
@@ -956,6 +959,7 @@ async fn base_package_http_requires_operator_and_server_owned_checkout() {
             endpoint.layer(axum::Extension(api::middleware::CurrentUser {
                 id: owner,
                 role: domain::SystemRole::User,
+                central_write: None,
                 is_system_admin: false,
             })),
         )

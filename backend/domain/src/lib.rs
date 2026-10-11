@@ -10,10 +10,18 @@ pub mod pm_draft;
 pub use pm_draft::*;
 pub mod pm_execution;
 pub use pm_execution::*;
+pub mod pm_checkpoint;
+pub use pm_checkpoint::*;
+pub mod pm_resume;
+pub use pm_resume::*;
 pub mod pm_execution_lease;
 pub use pm_execution_lease::*;
 pub mod pm_credentials;
 pub use pm_credentials::*;
+pub mod pm_workflow;
+pub use pm_workflow::*;
+pub mod pm_native;
+pub use pm_native::*;
 pub mod chats_directory;
 pub use chats_directory::*;
 pub mod approval_decisions;
@@ -1535,6 +1543,8 @@ pub struct SessionMessage {
     pub delivery_state: MessageDeliveryState,
     pub delivery_error: Option<String>,
     pub replayed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_payload_hash: Option<String>,
     pub created_at: Timestamp,
 }
 
@@ -1860,6 +1870,20 @@ mod config_input_tests {
         request.config_json = json!({"providers": [{"credentials": "private"}]});
         assert!(!request.input_errors().is_empty());
     }
+
+    #[test]
+    fn native_output_budgets_are_numeric_settings_while_credentials_stay_protected() {
+        for key in ["max_tokens", "max_output_tokens", "max_completion_tokens"] {
+            let mut request = draft(json!({}));
+            request.config_json = json!({"model":{key:8192}});
+            assert!(request.input_errors().is_empty());
+            request.config_json = json!({"model":{key:"private-token"}});
+            assert!(!request.input_errors().is_empty());
+        }
+        let mut request = draft(json!({}));
+        request.config_json = json!({"model":{"api_token":8192}});
+        assert!(!request.input_errors().is_empty());
+    }
 }
 
 pub fn is_configuration_secret_name(key: &str) -> bool {
@@ -1882,7 +1906,13 @@ fn inspect_config_secrets(value: &Value, errors: &mut Vec<String>) {
     match value {
         Value::Object(map) => {
             for (key, value) in map {
-                if is_configuration_secret_name(key) {
+                // Native token budgets are numeric settings, not transferable credentials.
+                // A numeric auth_token/API-key value remains forbidden.
+                let token_budget = matches!(
+                    key.as_str(),
+                    "max_tokens" | "max_output_tokens" | "max_completion_tokens"
+                ) && value.as_u64().is_some_and(|v| v > 0);
+                if is_configuration_secret_name(key) && !token_budget {
                     errors.push(format!(
                         "{key} must be configured through an environment secret_ref"
                     ));
@@ -2173,3 +2203,4 @@ fn default_jwt_audience() -> String {
 pub struct ListResponse<T> {
     pub items: Vec<T>,
 }
+pub mod execution_context;

@@ -1,5 +1,12 @@
 # API
 
+`GET /internal/runtime/v1/pm/executions/{execution_id}/admission` uses the separate
+PM readback credential and returns a fresh server-verified current run/configuration
+observation. It rechecks original intake, Workflow, native inventory/custody and
+lease; unknown, stopped or ambiguous runs are unavailable. The PM caller supplies
+no readiness flag. This source addition remains under integrated qualification.
+
+
 Managed request observation adds authenticated read-only
 `GET /api/v1/sessions/{session_id}/runs/{run_id}/request-observation` for the
 original accepted free-chat run. Owner/read-all access and fresh original native
@@ -11,10 +18,22 @@ generated TypeScript include the route; the frozen Linux compilation and actual
 Rust OpenAPI parity gate pass. The actual managed observer core scenario also
 passes; interrupted observer activation/Fleet-death, full readiness and current
 release-head CI remain open, not implied by these checks or earlier CI.
+Opt-in PM creation now prepares the current Tracker lease and the actual
+Workflow Draft assignment through internal owner HTTP contracts. Workflow intent
+is stored before POST; explicit replay keeps its original command/source/token
+fingerprint. The public creation response remains awaiting admission with dispatch
+disabled until native supervisor integration is complete.
 
-Machine-only PM lease GET is an internal outbound Tracker operation, not a new
-Fleet/browser endpoint. It requires the acknowledged delegated credential and
-original reservation; failure preserves awaiting-admission rather than dispatch.
+The Fleet-owned Hermes plugin registers six scoped PM tools and an LLM execution
+gate. Its native inventory endpoint reads the actual active run agent rather than
+YAML declarations. Fleet admission/tool endpoints and live native acceptance are
+still being integrated; the plugin is not enabled in the installed workspace.
+
+Machine-only PM lease GET and claim POST are internal outbound Tracker operations,
+not new Fleet/browser endpoints. They require the acknowledged delegated
+credential and original reservation; claim persists its original intent first
+and reconciles lost acknowledgements through keyed GET. Failure preserves
+awaiting-admission rather than dispatch.
 Fleet OpenAPI and public DTOs are unchanged. See
 [contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md).
 
@@ -464,6 +483,12 @@ RBAC:
 применяются только к legacy-режиму. Runtime/service credentials остаются
 отдельной машинной границей.
 
+`/users/me/permissions` возвращает центральные права независимо от сохранённых
+`system_role` и `is_system_admin`. Эти исторические поля не повышаются при входе.
+Для личного токена `fleet-control:read` write-controls не объявляются, а backend
+отклоняет мутации до выполнения handler. Назначение локальной роли всегда
+возвращает `403` в central mode; bootstrap subject больше не выдаёт роль.
+
 - `admin`: all users, settings, RBAC, sessions and runtime actions.
 - `operator`: agents, leaders, executors, runtime, config, skills, deployments,
   logs and all sessions.
@@ -506,8 +531,10 @@ agent authorship и различия central/legacy permissions; наличие 
 - `GET /sessions?agent_id={agent_id}&leader_agent_id={leader_id}&user_id={id1,id2}`
   lists sessions by primary agent, selected leader and user filter.
 - Omitting `user_id` returns only the current user's sessions.
-- `user_id=all` returns all users only for admin/operator; normal users are
-  forbidden from expanding beyond themselves.
+- Central users may select other users or `user_id=all` without local roles.
+  Private sessions remain owner-only in list, detail, messages and SSE; shared
+  leader-scoped sessions are accessible to all active central users. The private
+  filter is applied before the list limit. Legacy expansion requires admin/operator.
 - `POST /sessions` creates a session owned by the authenticated user. Use
   `primary_agent_id`; legacy `agent_id` is still accepted.
 - `POST /sessions` is idempotent by `idempotency_key`; replay returns the
@@ -516,6 +543,16 @@ agent authorship и различия central/legacy permissions; наличие 
 - `GET/POST /sessions/{session_id}/messages`
 - `POST /sessions/{session_id}/messages` is idempotent by request key and avoids
   duplicate runtime dispatch on replay.
+- A successful message POST acknowledges its specific persisted row, including
+  when it is beyond the first 500 messages returned by history. The authorized
+  POST receipt includes optional `request_payload_hash`, taken from the stored
+  idempotency payload hash. History, runtime dispatch and assistant mirrors do
+  not expose that digest. Requests without an idempotency key may omit it.
+- The digest is SHA-256 of the parsed request serialized as compact JSON with
+  sorted keys: `author_agent_id`, `body`, `idempotency_key`, `message_kind` and
+  `runtime_message_id`; missing optional fields serialize as `null`. Public body
+  redaction does not change this digest. A client requiring positive command
+  confirmation must retain the original key if the digest is missing or differs.
 - `GET /sessions/{session_id}/stream`
 - `GET /sessions/{session_id}/participants`
 - `PUT /sessions/{session_id}/leader`
@@ -561,6 +598,11 @@ Runtime:
   exact inserted row, even if another stream has already written a newer row;
   public response fields and ordering are unchanged.
 - `GET /events` as SSE
+- `GET /events` as SSE. The bearer token is revalidated before delivery and once
+  per second while idle. Revocation, expiry, disabled users or Auth unavailability
+  terminate the existing connection; the client must authenticate again.
+  Central private session events are owner-only. `fleet` event names and payload
+  shapes are unchanged; no token is accepted through URL query parameters.
 - `GET /events/recent`
 - `GET /audit-log`
 
@@ -600,12 +642,13 @@ rollback записываются в `audit_log` в одной PostgreSQL-тра
 
 `POST /deployments/jobs` также принимает отдельные продуктовые операции Service Pulse:
 
-| `job_kind` | Обязательные поля | Результат |
-|---|---|---|
-| `product_deploy` | `environment: "demo"`, точный 40-символьный `commit_sha`, UUID `idempotency_key`, `title` | Forge deployment для commit из защищённого `main` |
-| `product_rollback` | `environment: "demo"`, UUID успешного `previous_release_id`, UUID `idempotency_key`, `title` | Отдельный Forge rollback deployment |
+| `job_kind`         | Обязательные поля                                                                            | Результат                                         |
+| ------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `product_deploy`   | `environment: "demo"`, точный 40-символьный `commit_sha`, UUID `idempotency_key`, `title`    | Forge deployment для commit из защищённого `main` |
+| `product_rollback` | `environment: "demo"`, UUID успешного `previous_release_id`, UUID `idempotency_key`, `title` | Отдельный Forge rollback deployment               |
 
 Для этих видов `agent_id`, `runtime_kind` и произвольный `detail` не допускаются. Повтор с тем же ключом и тем же содержимым возвращает исходный job, изменение параметров даёт `409`. `detail` ответа содержит связанный Forge deployment/pipeline ID и `health_verified`; `completed` возможен только после успеха pipeline и самостоятельной HTTP-проверки Pulse API/UI. Ошибка Forge, отмена, 30-минутный таймаут или провал health завершают job как `failed` с `last_error`. Переходы и ключ идемпотентности хранятся в PostgreSQL и восстанавливаются после рестарта. Для локального стенда задаются `FLEET_CONTROL_FLEET__PULSE_HEALTH_URL` и `FLEET_CONTROL_FLEET__PULSE_UI_URL`.
+
 - `POST /settings/retention/review` — запустить проход stale-folder review сейчас (operator, audited): возвращает `stale_agent_ids` archived-агентов старше `fleet.retention.stale_archived_days`, порог и время прохода
 
 Управляемая версия накладывается на deployment/env baseline при следующем
@@ -719,3 +762,35 @@ existing owner decision endpoint remains exact once/deny only. Resolved requests
 are not reopened. Native status contains only the current waiting request;
 historical replay and unknown decision outcome lookup remain unimplemented.
 See [runtime recovery boundaries](RUNTIME.md#current-approval-snapshot-recovery).
+
+## Opt-in native PM v1 owner coordination
+
+`pm.workflow.enabled` uses the server-only Workflow assignment credential to
+prepare an initial Draft from the actual Tracker reservation. The existing
+Hermes dispatch journal and outbox submit the original intake once. Native
+`/internal/runtime/v1/pm/agents/{agent_id}/admit` admits only the real accepted
+run, effective configuration, physical package and original active lease.
+The managed native credential identifies the agent; duplicate Authorization
+headers, an unknown run or unsupported inventory are denied.
+
+The fixed `/tools/{operation}` route exposes context, question, requirements,
+workflow, skills and checkpoint. Tracker mutation fences and Workflow execution
+fields are supplied by Fleet. The model cannot select their authority or obtain
+service credentials. Workflow reports include an explicit observed phase/status
+cursor; skills require the current phase allowlist and verified Base content.
+A checkpoint takes only an operation key and structured question UUID; Fleet
+reads its checkpoint/request/revision references from Tracker and journals the
+exact command before forwarding it. A confirmed wait cooperatively interrupts
+the original conversation. Native terminal readback additionally requires its
+real finalizer, rather than treating `/stop` cancellation as executor completion.
+
+Lease renewal retains the original lease UUID and uses its version as CAS.
+Concurrent renewal and a lost HTTP reply reconcile the same derived operation
+key. Expired, foreign or unavailable ownership stops the owned original runtime;
+an unconfirmed stop is not terminal proof. Assignment or heartbeat alone never
+authorizes a provider call. Human answer/resume delivery and final live PM
+acceptance remain unfinished; this candidate must not be marked merge-ready.
+
+## Сквозной Namespace
+
+Версионированные API, данные, ownership и совместимость описаны в [Namespace](NAMESPACE.md).

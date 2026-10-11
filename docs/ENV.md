@@ -150,6 +150,21 @@ transcripts remain independent. These variables do not enable autonomous PM exec
 
 ## PM Draft Creation
 
+Workflow preparation is separately opt-in via
+`FLEET_CONTROL_PM__WORKFLOW__ENABLED`. It uses the existing
+`FLEET_CONTROL_FLEET__PROJECT_WORKFLOW_URL` and dedicated server-only
+`FLEET_CONTROL_PM__WORKFLOW__ASSIGNMENT_TOKEN` / `RUNTIME_TOKEN`.
+The tokens must differ from each other and the PM callback credential.
+`FLEET_CONTROL_PM__WORKFLOW__NATIVE_FLEET_ORIGIN` is the fixed root origin
+reachable from the managed native gateway. None of these changes installed flags.
+
+Managed renderer v2 materializes the Fleet-owned `fleet-pm` plugin for a concrete
+PM only, includes its hashes in configuration readback and supplies the agent ID
+and Fleet origin through reserved environment fields. It selects the scoped PM
+toolset and disables dynamic tool search. Native admission/tool routes and the
+complete supervised dispatch/resume milestone remain required before enabling
+this feature in a saved installation.
+
 Disabled by default. `FLEET_CONTROL_TRACKER__PM_DRAFT_CREATION_ENABLED=true`
 enables only the creation endpoint, not runtime dispatch. Also configure the
 explicit compatible test-project allowlist in the Fleet TOML configuration:
@@ -233,10 +248,10 @@ No automatic PM credential issuance, business transition or dispatch is enabled.
 
 October additions: `FLEET_CONTROL_SECRET__<REFERENCE>` supplies secret refs used
 by config revisions; values are resolved only into per-agent managed `.env`.
-`FLEET_CONTROL_AUTH__BOOTSTRAP_ADMIN_SUB` optionally names an exact verified
-central subject for initial admin provisioning, only while no active local admin
-exists. Remove it after bootstrap; other central users retain stored local roles,
-never implicit admin. Existing runtime derivation key:
+`FLEET_CONTROL_AUTH__BOOTSTRAP_ADMIN_SUB` is retired and ignored. Central users
+have equal control-plane permissions without local role grants; service scopes
+and private ownership still apply. Historical roles are not overwritten.
+Existing runtime derivation key:
 `FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET`.
 
 Required production values:
@@ -263,8 +278,8 @@ Important runtime values:
 - `FLEET_CONTROL_FLEET__JAVA_AGENT_COMMAND`
 - `FLEET_CONTROL_FLEET__AGENT_PORT_BASE`
 - `FLEET_CONTROL_FLEET__AGENT_PORT_STRIDE`
-| `FLEET_CONTROL_FLEET__RETENTION__STALE_ARCHIVED_DAYS` | 30 | Stale threshold (days) for archived agent folders |
-| `FLEET_CONTROL_FLEET__RETENTION__REVIEW_INTERVAL_SECS` | 3600 | Scheduled stale-folder review period (seconds) |
+  | `FLEET_CONTROL_FLEET__RETENTION__STALE_ARCHIVED_DAYS` | 30 | Stale threshold (days) for archived agent folders |
+  | `FLEET_CONTROL_FLEET__RETENTION__REVIEW_INTERVAL_SECS` | 3600 | Scheduled stale-folder review period (seconds) |
 
 ## SDLC Configuration Observation
 

@@ -19,6 +19,7 @@ COPY backend/migration ./migration
 COPY backend/api ./api
 COPY backend/server ./server
 COPY backend/cli ./cli
+COPY runtime_plugins /runtime_plugins
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --locked --release --bin server

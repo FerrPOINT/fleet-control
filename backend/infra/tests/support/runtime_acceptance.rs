@@ -695,6 +695,7 @@ async fn acceptance_postcommit_agent_read_failure_keeps_ack_recoverable_without_
              GRANT SELECT,INSERT,UPDATE,DELETE ON agent_sessions,session_agent_runs,session_messages,
                 message_dispatch_outbox,hermes_dispatch_journal,task_chat_bindings,pm_run_bindings,
                 session_event_cursors,session_events TO {role};
+             GRANT SELECT ON session_execution_contexts TO {role};
              GRANT SELECT(id,kind),UPDATE(kind) ON agents TO {role}"
         )).await.unwrap();
         let mut url = reqwest::Url::parse(&std::env::var("FLEET_TEST_DATABASE_URL").unwrap()).unwrap();

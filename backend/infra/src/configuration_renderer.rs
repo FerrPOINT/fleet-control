@@ -45,6 +45,40 @@ fn object<'a>(
         })
 }
 
+pub(crate) fn pm_tools(
+    agent: &Agent,
+    config: &AppConfig,
+    content: &mut Value,
+) -> Result<String, AppError> {
+    let origin = crate::pm_credentials::configured_origin(&config.pm.workflow.native_fleet_origin)?;
+    let root = content
+        .as_object_mut()
+        .ok_or_else(|| AppError::validation("Hermes configuration must be an object"))?;
+    object(root, "platform_toolsets")?.insert("api_server".into(), json!(["fleet_pm"]));
+    object(root, "plugins")?.insert("enabled".into(), json!(["fleet-pm"]));
+    object(object(root, "tools")?, "tool_search")?.insert("enabled".into(), json!("off"));
+    let memory = object(root, "memory")?;
+    memory.insert("memory_enabled".into(), json!(false));
+    memory.insert("user_profile_enabled".into(), json!(false));
+    object(object(root, "auxiliary")?, "title_generation")?.insert("enabled".into(), json!(false));
+    let output_limit = content["model"]["max_tokens"]
+        .as_i64()
+        .filter(|v| (1..=1_000_000).contains(v))
+        .ok_or_else(|| AppError::validation("explicit PM model.max_tokens required"))?;
+    let mut env = String::new();
+    for (key, value) in [
+        ("FLEET_PM_AGENT_ID", agent.id.to_string()),
+        ("FLEET_PM_FLEET_ORIGIN", origin.as_str().to_string()),
+        ("FLEET_PM_OUTPUT_LIMIT", output_limit.to_string()),
+    ] {
+        env.push_str(&format!(
+            "{key}={}\n",
+            serde_json::to_string(&value).map_err(AppError::internal)?
+        ));
+    }
+    Ok(env)
+}
+
 pub(crate) fn managed_env_key(key: &str) -> bool {
     matches!(
         key,
@@ -55,6 +89,9 @@ pub(crate) fn managed_env_key(key: &str) -> bool {
             | "API_SERVER_HOST"
             | "API_SERVER_PORT"
             | "API_SERVER_CORS_ORIGINS"
+            | "FLEET_PM_AGENT_ID"
+            | "FLEET_PM_FLEET_ORIGIN"
+            | "FLEET_PM_OUTPUT_LIMIT"
     )
 }
 

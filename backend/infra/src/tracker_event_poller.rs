@@ -37,6 +37,8 @@ struct Introspection {
     sub: String,
     email: String,
     scopes: Vec<String>,
+    #[serde(default, rename = "display_name")]
+    _display_name: String,
 }
 
 impl Introspection {
@@ -192,12 +194,25 @@ impl TrackerEventPoller {
 
     async fn project(&self, target: TrackerProjectionTarget) -> Result<usize, AppError> {
         let after = self.repo.tracker_metadata_cursor(target.session_id).await?;
+        let page = self.read_page(&target.binding, after).await?;
+        Ok(self
+            .repo
+            .project_tracker_metadata(target.session_id, target.binding, after, page)
+            .await?
+            .projected)
+    }
+
+    async fn read_page(
+        &self,
+        binding: &domain::TaskChatBinding,
+        after: i64,
+    ) -> Result<TrackerMetadataPage, AppError> {
         let mut url = self.tracker.clone();
         url.path_segments_mut().map_err(|_| unavailable())?.extend([
             "api",
             "v1",
             "issues",
-            &target.binding.task_id.to_string(),
+            &binding.task_id.to_string(),
             "sdlc",
             "events",
         ]);
@@ -207,12 +222,46 @@ impl TrackerEventPoller {
             .append_pair("limit", "100")
             .append_pair("max_bytes", &TRACKER_METADATA_BUDGET.to_string());
         let bytes = self.get(url, TRACKER_METADATA_BUDGET).await?;
-        let page = TrackerMetadataPage::decode(&bytes, &target.binding, after)?;
-        Ok(self
-            .repo
-            .project_tracker_metadata(target.session_id, target.binding, after, page)
-            .await?
-            .projected)
+        TrackerMetadataPage::decode(&bytes, binding, after)
+    }
+
+    pub(crate) async fn answer_event(
+        &self,
+        binding: &domain::TaskChatBinding,
+        question: &domain::TrackerQuestion,
+    ) -> Result<Option<domain::TrackerMetadataEvent>, AppError> {
+        let read = async {
+            if binding.tracker_instance_id != self.instance
+                || !self.projects().await?.contains(&binding.project_id)
+            {
+                return Err(AppError::Forbidden);
+            }
+            let mut after = 0;
+            let mut found = None;
+            for _ in 0..10 {
+                let page = self.read_page(binding, after).await?;
+                for event in page.events {
+                    if event.matches_pm_answer(question)? {
+                        if found.is_some() {
+                            return Err(AppError::conflict(
+                                "PM answer has ambiguous source events",
+                            ));
+                        }
+                        found = Some(event);
+                    }
+                }
+                if !page.has_more {
+                    return Ok(found);
+                }
+                after = domain::tracker_metadata_cursor(&page.next_after)?;
+            }
+            Err(AppError::Unavailable(
+                "PM answer event exceeds bounded source scan".into(),
+            ))
+        };
+        tokio::time::timeout(Duration::from_secs(8), read)
+            .await
+            .map_err(|_| AppError::Unavailable("PM answer event deadline elapsed".into()))?
     }
 
     pub async fn poll_once(&mut self) -> Result<PollReport, AppError> {
@@ -286,6 +335,7 @@ mod tests {
             vec![],
         ] {
             let identity = Introspection {
+                _display_name: String::new(),
                 sub: subject.clone(),
                 email: "machine@example.test".into(),
                 scopes: scopes.into_iter().map(str::to_string).collect(),
@@ -293,6 +343,7 @@ mod tests {
             assert!(identity.require_read_only(&subject).is_err());
         }
         let valid = Introspection {
+            _display_name: String::new(),
             sub: subject.clone(),
             email: "machine@example.test".into(),
             scopes: vec!["task-tracker:read".into()],

@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+- Prepare Workflow PM Draft assignment through its actual reservation/input
+  contract, journaling the original command before HTTP and retaining its ACK
+  through current-state failures. Add migration 000024 and an opt-in native PM
+  plugin through the existing configuration lifecycle. Wire original intake
+  dispatch, actual native admission, same-generation lease renewal and scoped
+  owner tools. Migration 000025 journals the original clarification checkpoint.
+  Separate native sessions and real conversation-finalizer proof fence late
+  calls and cancellation. Answer/resume delivery and live acceptance remain open.
+
+- Journal the original Tracker PM execution-lease claim before mutation and
+  reconcile lost acknowledgements by its original key. Guard immutable claim/ACK
+  metadata with additive migration 000023; preserve existing operations and the
+  awaiting-admission creation response. Accept Auth's additive display-name field
+  while keeping exact subject/scope verification.
+
 - Preserve a confirmed recovered namespace exit during subsequent health checks;
   do not replace stopped metadata with an unhealthy TCP probe or adopt its old
   port. Add repeated stale-snapshot health regression coverage.
@@ -15,6 +30,24 @@
   and settle only validated original exit with runtime metadata and redacted audit.
   Lost replies use read-only observation, never a second kill. Session/workflow
   completion, unknown Hermes acceptance and interrupted activation stay separate.
+- Base обновлён для удержания focus в `ConfirmDialog` во время pending.
+
+- Активный Base pin обновлён до согласованного кандидата SDK/UI/workspace;
+  документация standalone build использует тот же порядок выбора pin, что CI.
+
+- Chats подтверждает сохранённую команду по hash исходного запроса, сохраняя
+  redacted-текст ответа. Message receipts, replay, dispatch и assistant mirror
+  используют конкретную сохранённую строку за пределами первых 500 сообщений.
+  История остаётся ограниченной; hash возвращается в авторизованном POST receipt.
+- Запись события агента возвращает собственную сохранённую строку атомарно,
+  даже если параллельный writer уже добавил более новое событие. PostgreSQL
+  регрессии проверяют детерминированное пересечение и 64 конкурентных записи.
+
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
+- После ошибки readiness refresh страница конфигурации показывает «Неизвестно»
+  для runtime и SDLC, сохраняя действующую редакцию; успешный повтор возвращает
+  свежие статусы, включая легитимные stopped/blocked состояния.
 
 - Process-log inserts return their own persisted redacted row atomically, even
   when another stdout/stderr writer has already inserted a newer log. PostgreSQL
@@ -233,6 +266,18 @@
 - Integrate exact-request human tool approvals with immutable command replay,
   stale-assignment protection and no automatic redispatch after an unknown outcome.
   PM structured dispatch/resume and live clarification acceptance remain incomplete.
+- Диалоги apply/rollback настроек возвращают фокус на кнопку preview; новое подтверждение очищает ошибку предыдущей операции. Pending и product-owned preview/retry сохранены. Base закреплён на проверенный SHA для воспроизводимой общей поставки.
+
+- Active Central Auth users can operate Fleet without local role grants.
+  Personal token scopes remain enforced, private sessions remain owner-only,
+  shared sessions permit central users, and bootstrap/role mutation cannot
+  promote historical profiles. Standalone legacy RBAC is preserved.
+- Session SSE remains bound to the original validated user during replay and
+  idle checks; a still-active token rebound to another subject closes the stream.
+- Global Fleet SSE revalidates the original bearer identity, activity and read
+  scope during idle and before every delivery. Revocation and Auth failure close
+  held streams; central private session events remain owner-only, and standalone
+  streams recheck current local roles.
 
 - Central profiles use the confirmed current name from the same JWT/PAT
   activity check. Same-sub ID, local roles and historical same-email users are
@@ -259,6 +304,7 @@
 - Выход направляет браузер в Central Auth до изменения локального auth-state.
 
 ### Added
+
 - Versioned managed Fleet settings API with validated preview, optimistic
   concurrency, explicit restart confirmation, immutable history, atomic audit
   records and rollback-as-a-new-version. The active snapshot is applied on
@@ -268,7 +314,9 @@
   version history and rollback. Failed mutations keep the draft and
   confirmation context available for retry.
 - Streamlined настройки Fleet (#13); локализованный/компактный dashboard (#12).
+
 ### Fixed
+
 - Fleet shell adopts the full-width shared PlatformHeader with a nav-only
   sidebar, one bounded account menu and unchanged central logout ordering.
   Mobile navigation is 44 px, closes after navigation/desktop resize and
@@ -293,6 +341,7 @@
 - Frontend Docker build снова воспроизводим с `pnpm --frozen-lockfile`:
   security overrides синхронизированы между `package.json` и lockfile.
 - Семантика сохранения настроек (#14); метки полей редактора (#11); аудит dev-зависимостей (#15).
+
 ### Security
 
 - HMAC access-token validation now delegates to the shared `sdlc-auth-core::Validator` (`hmac_with_audience` with the configured issuer/audience); the duplicated local decode/validate path is retired. Legacy pre-fleet token fallback and OIDC mode are unchanged.
@@ -311,23 +360,38 @@
 
 ## [Unreleased]
 
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
+
 ### Added
 
 - Fleet monitoring alerts: миграция 6 (`fleet_alerts`), авто-алерты переходов здоровья агентов (agent_down / agent_recovered авто-resolve), `GET /api/v1/fleet-alerts` + acknowledge (Operator+, аудит), нед блокирующая запись переходов из start/stop/health.
 
 ## [Unreleased]
 
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
+
 ### Added
+
 - OIDC/JWKS validation mode: `auth.mode=oidc` — RS256 против JWKS провайдера (кэш + refresh + kid-miss retry), строгие `iss`/`aud`, role-клейм маппинг, HMAC/local login отключены fail-closed.
 
 ## [Unreleased]
 
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
+
 ### Added
+
 - Bulk runtime updates/rollback: `POST /api/v1/deployments/jobs/bulk` — один deployment job на агента (≤100), пропуск archived, `rollback` для runtime_update (IMPLEMENTATION_PLAN Phase 3).
 
 ## [Unreleased]
 
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
+
 ### Added
+
 - Operator retention policy thresholds + scheduled stale-folder review (IMPLEMENTATION_PLAN Phase 3): `fleet.retention.stale_archived_days` (default 30) / `fleet.retention.review_interval_secs` (default 3600); storage report помечает `stale` + `archived_days`; фоновый review-воркер логирует stale-агентов; `POST /api/v1/settings/retention/review` (operator, audited).
 
 ## 0.2.0 - 2026-09-01

@@ -1,5 +1,14 @@
 # Data Model
 
+Migration `m20261010_000027_pm_native_dispatch` extends the existing Hermes
+dispatch journal to task-bound PM runs. It verifies the original creation,
+assignment, credential/lease and Workflow receipt, and accepts the frozen
+`fleet-pm` session key for the initial message or acknowledged continuation.
+Free-chat journal rules remain in force. Downgrade refuses retained PM history.
+The private execution/admission readback derives its observation from existing
+run/configuration records; it does not add an admission table to Fleet.
+
+
 Managed observer adds no schema/migration. Explicit renderer-3 drafts store exact
 Base repository/revision/four-file raw hashes in existing
 `config_json.fleet_request_observer`; legacy snapshot serialization is unchanged.
@@ -8,11 +17,22 @@ observer incarnation with the original launch and optional recovery facts.
 Signed activation backups now cover exact observer file bytes/absence on install,
 remove and rollback. No observation is backfilled or persisted as readiness.
 See [contract and pending gates](contracts/MANAGED_REQUEST_OBSERVER_V1.md).
+The optional `workflow_assignment` journal in the existing PM creation operation
+stores the server-derived reservation/input command, canonical hash, fixed origin
+and assignment-token fingerprint, then an immutable Workflow/mode/initial-phase
+receipt. Migration 000024 guards this monotonic progress after 000023 without
+rewriting historical migrations or backfilling operations. Tokens are never stored;
+reconciliation is required before downgrade. This receipt is preparation metadata,
+not native execution permission.
 
-PM execution lease readback is ephemeral typed Tracker evidence, not a new Fleet
-lease table or durable dispatch permission. The existing credential journal's
-intent/ACK remains unchanged after readback failure; no backfill, migration or
-run is created. See [contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md).
+PM execution lease readback is typed Tracker evidence, not Fleet-owned lease
+authority or dispatch permission. The internal claim coordinator stores its
+original command/hash and immutable acknowledgement in the existing creation
+operation's optional `execution_lease` journal. Additive migration
+`m20261009_000023_pm_execution_lease` guards its assignment binding, closed shape
+and monotonic progress. Earlier migration bytes and operations without the field
+are preserved; no backfill or run is created. Downgrade refuses retained claim
+recovery material. See [contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md).
 
 Original preparation readback verifies the existing
 `runtime_container_preparations` row under the same agent/runtime/configuration/
@@ -530,7 +550,8 @@ Questions, answers, immutable requirements revisions and confirmations live only
 Tracker. Fleet reads them through an authorized gateway and an opt-in authenticated
 metadata projection worker. Neither projection nor this migration performs a PM
 resume saga or dispatches prompts. The owner-issued initial Draft reservation is
-coordinated separately by the creation ledger; runtime admission remains unwired.
+coordinated separately by the creation ledger. The opt-in PM v1 native path
+adds assignment preparation and admission; answer/resume delivery is still pending.
 The requirements response is a closed, flat Tracker projection, not a local aggregate:
 all document fields remain required, additional fields are rejected, and its revision
 must be an integer in `1..9007199254740991`. This hardening changes deserialization
@@ -596,6 +617,10 @@ Important constraints:
 - `users.system_role` is `admin`, `operator` or `user`; `is_system_admin` is a
   derived legacy alias for `admin`. Verified Central Auth establishes identity;
   the stored active user and system role still determine Fleet permissions.
+  derived legacy alias for `admin`. В центральном режиме эти поля не
+  ограничивают людей и сохраняются только для совместимости.
+- Central authentication never promotes these fields. Central role mutations
+  are disabled; private session ownership is independent of historical role.
 - `agents.ordinal` and `agents.name` are unique.
 - `agent_skills` is unique by `(agent_id, name)`.
 - `agents.product_role` is `leader` or `executor`.
@@ -613,7 +638,7 @@ Important constraints:
 - `agent_sessions.visibility` is `private` or `leader_scoped`.
 - `session_messages` requires exactly one author shape: user, agent or system.
 - `(session_messages.session_id, session_messages.created_by_user_id,
-  session_messages.idempotency_key)` is unique when a user idempotency key is
+session_messages.idempotency_key)` is unique when a user idempotency key is
   supplied.
 - `session_agent_runs` tracks each runtime participant independently.
 - `workflow_bindings` is unique by `agent_id`.
@@ -711,3 +736,41 @@ together. Existing content must match on replay; prior decisions are retained.
 Existing database triggers create durable approval/run events. No transcript
 message is fabricated from the snapshot and repeat reads do not advance cursors.
 The native GET is evidence for its current request, not a historical event inbox.
+
+## PM v1 native checkpoint journal
+
+Migration `000025_pm_checkpoints` adds `pm_run_checkpoints`, one immutable command
+and request digest per actual Fleet run. The original intent is committed before
+Workflow's checkpoint POST. A verified waiting receipt may be added once; command
+replacement, receipt removal, deletion and a populated downgrade are rejected.
+Unknown responses are reconciled through Workflow's original-operation readback.
+The runtime callback returns the confirmed checkpoint reference from this journal.
+
+New PM dispatch reservations additionally freeze `native_session_key`, derived
+from the Fleet chat, concrete agent and original message UUID. Separate runs use
+distinct Hermes sessions while retaining their Task and execution identity.
+Historical reservations omit the new field and preserve their existing alias.
+Native terminal status does not release a new PM reservation until the owned
+plugin observes the real conversation finalizer for that unique native session.
+This is independent of coroutine cancellation, cached state or an SSE EOF.
+
+## PM v1 answer and resume journal
+
+Migration `000026_pm_resumes` retains one original resume intent per old run,
+including its actual Tracker event/answer UUIDs, the reserved next Fleet run UUID,
+message UUID, exact command/digest and source-derived prompt. An acknowledgement
+may be added once; replacement, deletion, receipt removal and populated downgrade
+are refused. Both the confirmed checkpoint and original terminal run are checked
+under the existing repository boundary before writing.
+
+The PM coordinator reads the structured answer with its assignment-scoped child
+credential and matches it to the read-only Tracker metadata event. It retains
+the same Task, execution, assignment and concrete agent. Original-operation
+Workflow readback reconciles a lost response without allocating different IDs.
+A resume-pending receipt is a reservation, not native dispatch admission. Wiring
+the reserved next run into the existing native outbox and final rebind remains
+in progress; the live roundtrip is not yet qualified.
+
+## Сквозной Namespace
+
+Версионированные API, данные, ownership и совместимость описаны в [Namespace](NAMESPACE.md).

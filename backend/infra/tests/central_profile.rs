@@ -174,3 +174,52 @@ async fn inactive_central_profile_is_not_reactivated_or_overwritten() {
     assert_eq!(inactive.display_name, initial.display_name);
     assert_eq!(timestamps(&db, initial.id).await, before);
 }
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
+async fn older_pat_profile_lookup_is_exact_and_does_not_mutate_identity_or_role() {
+    let (repo, db) = fixture().await;
+    let subject = Uuid::new_v4().to_string();
+    assert!(
+        repo.find_user_by_central_subject(&subject)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let user = repo
+        .find_or_create_central_user(&subject, "pat-lookup@example.test", "Verified name")
+        .await
+        .unwrap();
+    let before = timestamps(&db, user.id).await;
+    let other = Uuid::new_v4().to_string();
+    assert!(
+        repo.find_user_by_central_subject(&other)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let read = repo
+        .find_user_by_central_subject(&subject)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(read.id, user.id);
+    assert_eq!(read.display_name, user.display_name);
+    assert_eq!(read.system_role, user.system_role);
+    assert_eq!(before, timestamps(&db, user.id).await);
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE users SET is_active=false WHERE id=$1",
+        [user.id.into()],
+    ))
+    .await
+    .unwrap();
+    assert!(
+        !repo
+            .find_user_by_central_subject(&subject)
+            .await
+            .unwrap()
+            .unwrap()
+            .is_active
+    );
+}

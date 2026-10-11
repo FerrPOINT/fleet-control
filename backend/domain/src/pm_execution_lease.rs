@@ -140,6 +140,45 @@ pub struct PmExecutionLeaseOperation {
     pub result: PmExecutionLeaseReceipt,
 }
 
+/// Original server-owned claim and its immutable acknowledgement; never dispatch authority.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PmExecutionLeaseJournal {
+    pub claim: PmExecutionLeaseClaim,
+    pub request_sha256: String,
+    pub receipt: Option<PmExecutionLeaseReceipt>,
+}
+
+impl PmExecutionLeaseReceipt {
+    pub fn verify_claim(
+        &self,
+        reservation: &TrackerPmDraftReservation,
+        claim: &PmExecutionLeaseClaim,
+    ) -> Result<(), AppError> {
+        let fence = PmExecutionLeaseFence {
+            assignment_id: reservation.assignment.assignment_id,
+            execution_id: reservation.assignment.execution_id,
+            agent_id: reservation.assignment.agent_id,
+            assignment_version: reservation.assignment.version,
+        };
+        PmExecutionLeaseCommand::Claim(claim.clone())
+            .validate(reservation.owner_cas.version, &fence)?;
+        validate_lease(&self.lease, reservation, self.lease.heartbeat_at)?;
+        if self.contract_version != 1
+            || self.binding != reservation.binding
+            || self.owner_version != reservation.owner_cas.version
+            || self.fence != fence
+            || self.lease.version != 1
+            || self.ttl_seconds != TTL_SECONDS
+            || self.heartbeat_seconds != HEARTBEAT_SECONDS
+            || self.dispatch_allowed
+        {
+            return Err(inconsistent());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PmExecutionLeaseReadback {

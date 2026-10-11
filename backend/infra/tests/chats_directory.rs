@@ -26,6 +26,7 @@ fn query(owner: Uuid, agent: Option<Uuid>, search: &str) -> ChatsDirectoryFilter
         before: None,
         limit: 50,
         task_project_access: None,
+        private_user_id: None,
     }
 }
 fn count(page: &ChatsDirectoryPage, agent: Uuid) -> u64 {
@@ -393,6 +394,7 @@ async fn postgres_directory_scope_search_counts_cursor_and_stable_order() {
         .layer(axum::Extension(api::middleware::CurrentUser {
             id: owner,
             role: domain::SystemRole::Operator,
+            central_write: None,
             is_system_admin: true,
         }))
         .with_state(ctx);

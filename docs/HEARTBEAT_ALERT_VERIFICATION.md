@@ -92,6 +92,8 @@ autonomous SDLC transition.
 
 The original local source gates, Rust OpenAPI export/comparison, owned cleanup
 and all five exact-head GitHub checks now pass for PR58. A
+The local source gates, Rust OpenAPI export/comparison and owned cleanup pass;
+exact-head GitHub checks must still finish before this task is marked merge-ready. A
 successful component test is not proof of the entire product goal. Permanent
 runtime images, secrets, volumes and settings have not been promoted by this
 task.

@@ -31,7 +31,7 @@ pub async fn get_permissions(
         user_id: current.id,
         role: current.role,
         is_system_admin: current.is_system_admin,
-        permissions: current.role.permissions(),
+        permissions: current.permissions(),
     }))
 }
 
@@ -133,6 +133,11 @@ pub async fn update_user_role(
     Path(user_id): Path<Uuid>,
     Json(req): Json<UpdateUserRoleRequest>,
 ) -> Result<Json<UserResponse>, AppError> {
+    if current.central_write.is_some()
+        || std::env::var_os("FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI").is_some()
+    {
+        return Err(AppError::Forbidden);
+    }
     require_admin(&current)?;
     let audit_payload = serde_json::to_value(&req).map_err(AppError::internal)?;
     let user = ctx.repo.update_user_role(user_id, req).await?;

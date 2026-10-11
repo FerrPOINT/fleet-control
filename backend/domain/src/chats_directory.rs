@@ -20,6 +20,7 @@ pub struct ChatsDirectoryFilter {
     pub limit: u64,
     // Server-derived scope only; absent proof never authorizes a task-bound chat.
     pub task_project_access: Option<TaskProjectAccess>,
+    pub private_user_id: Option<Uuid>,
 }
 
 impl ChatsDirectoryFilter {
@@ -69,6 +70,7 @@ mod tests {
             before: None,
             limit: 50,
             task_project_access: None,
+            private_user_id: None,
         }
     }
 

@@ -9,6 +9,7 @@ pub struct PmCredentialCoordinator {
     issuer: PmCredentialIssuer,
     subject: String,
     ttl_seconds: i64,
+    workflow: Option<crate::pm_workflow::PmWorkflowClient>,
 }
 
 #[derive(Deserialize)]
@@ -17,6 +18,9 @@ struct Principal {
     sub: String,
     email: String,
     scopes: Vec<String>,
+    // Auth's additive display field is not assignment or scope authority.
+    #[serde(default, rename = "display_name")]
+    _display_name: String,
 }
 
 fn unavailable() -> AppError {
@@ -45,6 +49,7 @@ impl PmCredentialCoordinator {
             )?,
             subject: credentials.machine_subject.clone(),
             ttl_seconds: credentials.ttl_seconds,
+            workflow: crate::pm_workflow::PmWorkflowClient::configured(config)?,
         }))
     }
 
@@ -91,6 +96,7 @@ impl PmCredentialCoordinator {
         request: reqwest::Request,
         limit: usize,
     ) -> Result<serde_json::Value, AppError> {
+        let allows_created = request.method() == reqwest::Method::POST;
         let mut response = self
             .issuer
             .client
@@ -99,6 +105,7 @@ impl PmCredentialCoordinator {
             .map_err(|_| unavailable())?;
         match response.status() {
             StatusCode::OK => (),
+            StatusCode::CREATED if allows_created => (),
             StatusCode::UNAUTHORIZED => return Err(AppError::Unauthorized),
             StatusCode::FORBIDDEN => return Err(AppError::Forbidden),
             StatusCode::CONFLICT => {
@@ -194,6 +201,151 @@ impl PmCredentialCoordinator {
             operation.reservation.as_ref().ok_or_else(unavailable)?,
             original,
         )
+    }
+
+    /// Persist the original claim before mutation; unknown replies recover by keyed readback.
+    /// An active lease is only a prerequisite and never authorizes a model/run by itself.
+    pub async fn claim_execution_lease(
+        &self,
+        repo: &dyn FleetRepository,
+        operation: &PmDraftOperation,
+        credential: &PmDelegatedCredential,
+    ) -> Result<domain::PmExecutionLeaseReadback, AppError> {
+        let claim = operation.lease_claim()?;
+        let saved = repo
+            .record_pm_draft_proof(
+                operation.id,
+                operation.owner_user_id,
+                PmDraftProof::LeaseIntent(claim.clone()),
+            )
+            .await?;
+        let original = domain::PmExecutionLeaseCommand::Claim(claim.clone());
+        let before = self
+            .read_execution_lease(&saved, credential, Some(&original))
+            .await?;
+        let mut posted_receipt = None;
+        if before.operation.is_none() {
+            if before.state != domain::PmExecutionLeaseState::Unclaimed {
+                return Err(AppError::conflict(
+                    "PM lease claim requires original-key reconciliation",
+                ));
+            }
+            let identity = saved.identity()?;
+            let mut url = self.issuer.tracker_origin.clone();
+            url.set_path(&format!(
+                "/api/v1/issues/{}/sdlc/pm-draft-execution-lease",
+                identity.task_id
+            ));
+            let request = credential.authorize(
+                self.issuer
+                    .client
+                    .post(url)
+                    .timeout(Duration::from_secs(5))
+                    .header(header::ACCEPT_ENCODING, "identity")
+                    .json(&claim),
+            )?;
+            let receipt: domain::PmExecutionLeaseReceipt =
+                canonical(self.read_json(request, MAX_RESPONSE_BYTES).await?)?;
+            receipt.verify_claim(saved.reservation.as_ref().ok_or_else(unavailable)?, &claim)?;
+            posted_receipt = Some(receipt);
+        }
+        let current = self
+            .read_execution_lease(&saved, credential, Some(&original))
+            .await?;
+        if current.state != domain::PmExecutionLeaseState::Active {
+            return Err(AppError::conflict(
+                "PM execution lease is not active; quiescence recovery required",
+            ));
+        }
+        let receipt = current
+            .operation
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .result
+            .clone();
+        if posted_receipt
+            .as_ref()
+            .is_some_and(|posted| posted != &receipt)
+        {
+            return Err(AppError::conflict(
+                "PM lease acknowledgement differs from original-key readback",
+            ));
+        }
+        repo.record_pm_draft_proof(
+            saved.id,
+            saved.owner_user_id,
+            PmDraftProof::LeaseAcknowledged(receipt),
+        )
+        .await?;
+        Ok(current)
+    }
+
+    /// Renew the same server-issued generation. The key is derived from its CAS
+    /// cursor, so concurrent workers and a lost reply cannot extend it twice.
+    pub async fn renew_execution_lease(
+        &self,
+        operation: &PmDraftOperation,
+        credential: &PmDelegatedCredential,
+    ) -> Result<domain::PmExecutionLeaseReadback, AppError> {
+        let journal = operation.execution_lease.as_ref().ok_or_else(unavailable)?;
+        let receipt = journal.receipt.as_ref().ok_or_else(unavailable)?;
+        let original = domain::PmExecutionLeaseCommand::Claim(journal.claim.clone());
+        let before = self
+            .read_execution_lease(operation, credential, Some(&original))
+            .await?;
+        let lease = before.current.as_ref().ok_or_else(unavailable)?;
+        if before.state != domain::PmExecutionLeaseState::Active
+            || before.operation.is_none()
+            || lease.lease_id != receipt.lease.lease_id
+        {
+            return Err(AppError::conflict("PM original lease is not active"));
+        }
+        if lease.expires_at - before.observed_at > ChronoDuration::seconds(20) {
+            return Ok(before);
+        }
+        let command =
+            domain::PmExecutionLeaseCommand::Heartbeat(domain::PmExecutionLeaseHeartbeat {
+                expected_owner_version: journal.claim.expected_owner_version,
+                fence: journal.claim.fence.clone(),
+                lease_id: lease.lease_id,
+                expected_lease_version: lease.version,
+                idempotency_key: format!("fleet-pm-heartbeat:{}:{}", lease.lease_id, lease.version),
+            });
+        let mut url = self.issuer.tracker_origin.clone();
+        url.set_path(&format!(
+            "/api/v1/issues/{}/sdlc/pm-draft-execution-lease/heartbeat",
+            operation.identity()?.task_id
+        ));
+        let request = credential.authorize(
+            self.issuer
+                .client
+                .post(url)
+                .timeout(Duration::from_secs(5))
+                .header(header::ACCEPT_ENCODING, "identity")
+                .json(&command.payload()),
+        )?;
+        // A transport error or concurrent CAS conflict is resolved only through
+        // the original keyed read. Auth denials must remain denials.
+        let posted = match self.read_json(request, MAX_RESPONSE_BYTES).await {
+            Ok(value) => Some(canonical::<domain::PmExecutionLeaseReceipt>(value)?),
+            Err(AppError::Unauthorized) => return Err(AppError::Unauthorized),
+            Err(AppError::Forbidden) => return Err(AppError::Forbidden),
+            Err(_) => None,
+        };
+        let current = self
+            .read_execution_lease(operation, credential, Some(&command))
+            .await?;
+        let acknowledgement = current.operation.as_ref().ok_or_else(unavailable)?;
+        if current.state != domain::PmExecutionLeaseState::Active
+            || posted
+                .as_ref()
+                .is_some_and(|v| v != &acknowledgement.result)
+        {
+            return Err(AppError::conflict(
+                "PM heartbeat acknowledgement is not current",
+            ));
+        }
+        Ok(current)
     }
 
     async fn principal(
@@ -310,10 +462,19 @@ impl PmCredentialCoordinator {
                 PmDraftProof::CredentialAcknowledged(receipt),
             )
             .await?;
-        // Creation owns no execution lease yet. A retained/expired claim cannot be
-        // adopted from readback or repaired by issuing another lease command.
-        let lease = self.read_execution_lease(&saved, &credential, None).await?;
-        if lease.state != domain::PmExecutionLeaseState::Unclaimed {
+        // Only a previously journaled original claim may be reconciled. Another
+        // active or expired lease is never adopted by credential preparation.
+        let original = saved
+            .execution_lease
+            .as_ref()
+            .map(|journal| domain::PmExecutionLeaseCommand::Claim(journal.claim.clone()));
+        let lease = self
+            .read_execution_lease(&saved, &credential, original.as_ref())
+            .await?;
+        let known_active = original.is_some()
+            && lease.state == domain::PmExecutionLeaseState::Active
+            && lease.operation.is_some();
+        if lease.state != domain::PmExecutionLeaseState::Unclaimed && !known_active {
             return Err(AppError::conflict(
                 "PM execution lease requires original-key reconciliation",
             ));
@@ -337,13 +498,62 @@ impl PmDraftCredentials for PmCredentialCoordinator {
         repo: &dyn FleetRepository,
         operation: &PmDraftOperation,
     ) -> Result<(), AppError> {
-        self.prepare_credential(repo, operation).await.map(|_| ())
+        let credential = self.prepare_credential(repo, operation).await?;
+        if let Some(workflow) = &self.workflow {
+            let saved = repo
+                .read_pm_draft_operation(operation.id, operation.owner_user_id)
+                .await?;
+            self.claim_execution_lease(repo, &saved, &credential)
+                .await?;
+            let saved = repo
+                .read_pm_draft_operation(operation.id, operation.owner_user_id)
+                .await?;
+            workflow
+                .prepare_assignment(repo, &saved, self, &credential)
+                .await?;
+            let session = saved.session_id.ok_or_else(unavailable)?;
+            repo.create_session_message(
+                session,
+                domain::CreateSessionMessageRequest {
+                    body: saved
+                        .input
+                        .as_ref()
+                        .ok_or_else(unavailable)?
+                        .input
+                        .description
+                        .clone(),
+                    author_agent_id: None,
+                    message_kind: Some(domain::MessageKind::UserPrompt),
+                    runtime_message_id: None,
+                    idempotency_key: Some(format!("fleet-pm-intake:{}", saved.id)),
+                },
+                saved.owner_user_id,
+            )
+            .await?;
+        }
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn current_auth_display_name_is_compatible_without_becoming_authority() {
+        for display in [None, Some(serde_json::json!("PM service"))] {
+            let mut value = serde_json::json!({"sub":"subject","email":"pm@example.test","scopes":["task-tracker:read"]});
+            if let Some(display) = display {
+                value["display_name"] = display;
+            }
+            let principal: Principal = serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(principal.sub, "subject");
+            assert_eq!(principal.scopes, ["task-tracker:read"]);
+            value["dispatch_allowed"] = serde_json::json!(true);
+            assert!(serde_json::from_value::<Principal>(value).is_err());
+        }
+        assert!(serde_json::from_value::<Principal>(serde_json::json!({"sub":"subject","email":"pm@example.test","scopes":[],"display_name":true})).is_err());
+    }
 
     #[test]
     fn configuration_is_opt_in_and_requires_canonical_subject_and_fixed_origins() {

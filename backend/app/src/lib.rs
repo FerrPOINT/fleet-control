@@ -3,6 +3,20 @@ pub mod pm_draft;
 pub mod runtime_launch;
 pub mod sdlc_workflow;
 
+/// The native agent and its Fleet broker share this scoped credential derivation.
+pub fn agent_runtime_credential(
+    config: &shared::AppConfig,
+    agent_id: uuid::Uuid,
+) -> Result<String, shared::AppError> {
+    use hmac::{Hmac, Mac};
+    let mut mac =
+        Hmac::<sha2::Sha256>::new_from_slice(config.fleet.runtime_token_secret.as_bytes())
+            .map_err(shared::AppError::internal)?;
+    mac.update(b"fleet-control/hermes-api-key/v1/");
+    mac.update(agent_id.to_string().as_bytes());
+    Ok(format!("fc_{}", hex::encode(mac.finalize().into_bytes())))
+}
+
 use async_trait::async_trait;
 use domain::{
     Agent, AgentConfig, AgentDirectoryItem, AgentEvent, AgentKind, AgentLogEntry, AgentSession,
@@ -44,6 +58,7 @@ pub struct SessionListFilter {
     pub leader_agent_id: Option<Uuid>,
     pub include_all_users: bool,
     pub task_project_access: Option<domain::TaskProjectAccess>,
+    pub private_user_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone)]
@@ -318,6 +333,69 @@ pub trait FleetRepository: Send + Sync {
             "PM Draft creation is unavailable".into(),
         ))
     }
+    async fn waiting_pm_runs(&self, _session: Uuid) -> Result<Vec<Uuid>, AppError> {
+        Err(AppError::Unavailable(
+            "PM waiting run inventory unavailable".into(),
+        ))
+    }
+    async fn pm_resume_by_message(
+        &self,
+        _message: Uuid,
+    ) -> Result<Option<domain::PmResumeJournal>, AppError> {
+        Err(AppError::Unavailable(
+            "PM resume message lookup unavailable".into(),
+        ))
+    }
+    async fn queue_pm_resume(&self, _old_run: Uuid) -> Result<(), AppError> {
+        Err(AppError::Unavailable("PM resume outbox unavailable".into()))
+    }
+    async fn pm_resume(&self, _old_run: Uuid) -> Result<Option<domain::PmResumeJournal>, AppError> {
+        Err(AppError::Unavailable(
+            "PM resume journal unavailable".into(),
+        ))
+    }
+    async fn save_pm_resume(
+        &self,
+        _old: &domain::PmRunRecord,
+        _checkpoint: &domain::PmCheckpointJournal,
+        _journal: domain::PmResumeJournal,
+    ) -> Result<domain::PmResumeJournal, AppError> {
+        Err(AppError::Unavailable(
+            "PM resume journal unavailable".into(),
+        ))
+    }
+    async fn active_pm_runs(&self, _session: Uuid) -> Result<Vec<domain::PmRunRecord>, AppError> {
+        Err(AppError::Unavailable(
+            "PM original active run inventory unavailable".into(),
+        ))
+    }
+    async fn pending_pm_checkpoints(&self, _session: Uuid) -> Result<Vec<Uuid>, AppError> {
+        Err(AppError::Unavailable(
+            "PM checkpoint recovery unavailable".into(),
+        ))
+    }
+    async fn pm_checkpoint(
+        &self,
+        _run: Uuid,
+    ) -> Result<Option<domain::PmCheckpointJournal>, AppError> {
+        Err(AppError::Unavailable(
+            "PM checkpoint journal unavailable".into(),
+        ))
+    }
+    async fn save_pm_checkpoint(
+        &self,
+        _record: &domain::PmRunRecord,
+        _journal: domain::PmCheckpointJournal,
+    ) -> Result<domain::PmCheckpointJournal, AppError> {
+        Err(AppError::Unavailable(
+            "PM checkpoint journal unavailable".into(),
+        ))
+    }
+    async fn list_pm_lease_operations(&self) -> Result<Vec<domain::PmDraftOperation>, AppError> {
+        Err(AppError::Unavailable(
+            "PM lease maintenance unavailable".into(),
+        ))
+    }
     async fn record_pm_draft_proof(
         &self,
         _id: Uuid,
@@ -438,6 +516,31 @@ pub trait FleetRepository: Send + Sync {
             "PM run repository is not available".into(),
         ))
     }
+    async fn find_pm_native_run(
+        &self,
+        _agent: Uuid,
+        _native_session: &str,
+    ) -> Result<Option<domain::PmRunRecord>, AppError> {
+        Err(AppError::Unavailable(
+            "PM native run lookup is unavailable".into(),
+        ))
+    }
+    async fn current_pm_execution_run(
+        &self,
+        _execution: Uuid,
+    ) -> Result<domain::PmRunRecord, AppError> {
+        Err(AppError::Unavailable(
+            "PM execution lookup is unavailable".into(),
+        ))
+    }
+    async fn find_pm_creation_for_session(
+        &self,
+        _session: Uuid,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        Err(AppError::Unavailable(
+            "PM creation lookup is unavailable".into(),
+        ))
+    }
     async fn accept_pm_run(
         &self,
         _id: Uuid,
@@ -538,6 +641,34 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<domain::MessageHistoryPage, AppError> {
         Err(AppError::Unavailable(
             "message history is not available".into(),
+        ))
+    }
+
+    async fn create_context_session(
+        &self,
+        _request: domain::execution_context::CreateContextSessionRequest,
+        _actor: Uuid,
+    ) -> Result<domain::execution_context::ContextSessionReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "namespace_context_creation_not_configured".into(),
+        ))
+    }
+    async fn session_execution_context(
+        &self,
+        _session: Uuid,
+    ) -> Result<Option<domain::execution_context::SessionExecutionContext>, AppError> {
+        Err(AppError::Unavailable(
+            "execution_context_store_unavailable".into(),
+        ))
+    }
+    async fn bind_session_execution_context(
+        &self,
+        _session: Uuid,
+        _actor: Uuid,
+        _context: domain::execution_context::ExecutionContextV2,
+    ) -> Result<domain::execution_context::SessionExecutionContext, AppError> {
+        Err(AppError::Unavailable(
+            "execution_context_store_unavailable".into(),
         ))
     }
     async fn list_runtime_templates(&self) -> Result<Vec<RuntimeTemplate>, AppError>;
@@ -1094,6 +1225,12 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<AgentLogEntry, AppError>;
 
     async fn find_user_by_email(&self, email: &str) -> Result<Option<auth::UserRecord>, AppError>;
+    async fn find_user_by_central_subject(
+        &self,
+        _subject: &str,
+    ) -> Result<Option<auth::UserRecord>, AppError> {
+        Ok(None)
+    }
     async fn find_or_create_central_user(
         &self,
         _sub: &str,
@@ -1263,6 +1400,36 @@ pub trait RuntimeSupervisor: Send + Sync {
     ) -> Result<domain::PmRuntimeBinding, AppError> {
         Err(AppError::Unavailable(
             "PM runtime binding is not available".into(),
+        ))
+    }
+    async fn admit_pm_native_configuration(
+        &self,
+        _agent: &Agent,
+        _record: &domain::PmRunRecord,
+        _configuration: &domain::PmNativeConfiguration,
+    ) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "PM native admission is unavailable".into(),
+        ))
+    }
+    async fn observe_pm_native_admission(
+        &self,
+        _agent: &Agent,
+        _record: &domain::PmRunRecord,
+    ) -> Result<domain::PmNativeAdmissionObservation, AppError> {
+        Err(AppError::Unavailable(
+            "PM native admission observation is unavailable".into(),
+        ))
+    }
+    async fn pm_native_tool(
+        &self,
+        _agent: &Agent,
+        _record: &domain::PmRunRecord,
+        _operation: &str,
+        _command: &serde_json::Value,
+    ) -> Result<serde_json::Value, AppError> {
+        Err(AppError::Unavailable(
+            "PM native tools are unavailable".into(),
         ))
     }
     async fn probe_pm_run(

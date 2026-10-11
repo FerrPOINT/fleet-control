@@ -84,6 +84,11 @@ import {
   isUnresolvedControl,
   useRuntimeControls,
 } from '../runtime-control-history'
+import {
+  ExecutionContextPanel,
+  namespaceContextEnabled,
+  type Context,
+} from '../session-detail/execution-context'
 import './chat.css'
 
 function requestKey() {
@@ -231,6 +236,8 @@ function ChatWorkspace({ id }: { id: string }) {
     refetchInterval: 10000,
   })
   const [contextOpen, setContextOpen] = useState(false)
+  const [namespaceBlocked, setNamespaceBlocked] = useState(namespaceContextEnabled)
+  const [storedContext, setStoredContext] = useState<Context | null>(null)
   const contextTrigger = useRef<HTMLButtonElement>(null)
   const [drafts, setDrafts] = useState<Record<string, AnswerDraft>>({})
   const [body, setBody] = useState('')
@@ -804,6 +811,7 @@ function ChatWorkspace({ id }: { id: string }) {
     !controlHeld
   const uncertainSteer = messageUncertain && message.variables?.kind === 'steer'
   const canSubmitMessage =
+    !namespaceBlocked &&
     owner &&
     controlsFresh &&
     !message.isPending &&
@@ -878,11 +886,12 @@ function ChatWorkspace({ id }: { id: string }) {
         <div>
           <dt>Задача</dt>
           <dd>
-            {task.isPending
-              ? 'Загрузка контекста'
-              : task.isError
-                ? 'Контекст не обновлён'
-                : (task.data?.binding?.task_id ?? 'Свободный чат')}
+            {storedContext?.task.task_id ??
+              (task.isPending
+                ? 'Загрузка контекста'
+                : task.isError
+                  ? 'Контекст не обновлён'
+                  : (task.data?.binding?.task_id ?? 'Свободный чат'))}
           </dd>
         </div>
         <div>
@@ -964,12 +973,17 @@ function ChatWorkspace({ id }: { id: string }) {
   )
   return (
     <section className="fc-chat-workbench">
+      <ExecutionContextPanel
+        sessionId={id}
+        onBlocked={setNamespaceBlocked}
+        onContext={setStoredContext}
+      />
       <header className="fc-chat-header">
         <div>
           <Link to={backTo} aria-label="Вернуться к чатам">
             <ArrowLeft size={18} />
           </Link>
-          <span>{session.data.task_key}</span>
+          <span>{storedContext?.task.task_id ?? session.data.task_key}</span>
           <h1>{session.data.title}</h1>
           <StatusBadge
             value={session.data.visibility === 'private' ? 'private' : 'leader_scoped'}
@@ -996,7 +1010,7 @@ function ChatWorkspace({ id }: { id: string }) {
         <strong>{agent?.display_name ?? session.data.primary_agent_name}</strong>
         <span>{agent?.kind ?? 'Runtime неизвестен'}</span>
         <StatusBadge value={agent?.status} />
-        {controls.data?.blocked_reason && (
+        {!namespaceBlocked && controls.data?.blocked_reason && (
           <span>{blockedLabels[controls.data.blocked_reason] ?? controls.data.blocked_reason}</span>
         )}
       </div>

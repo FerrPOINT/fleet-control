@@ -17,11 +17,17 @@ pub mod routes;
     paths(
         routes::health::health,
         routes::pm_runtime::readback,
+        routes::pm_runtime::execution_admission,
+        routes::pm_runtime::admit,
+        routes::pm_runtime::tool,
         routes::sdlc_configuration::readback,
         routes::chats_directory::directory,
         routes::approvals::list,
         routes::approvals::read,
         routes::approvals::decide,
+        routes::execution_context::get,
+        routes::execution_context::bind,
+        routes::execution_context::create,
         routes::auth::register,
         routes::auth::login,
         routes::auth::refresh_openapi,
@@ -221,6 +227,8 @@ pub mod routes;
         domain::UpdateAgentConfigRequest,
         domain::UpdateSkillRequest,
         domain::CreateSessionRequest,
+        domain::execution_context::CreateContextSessionRequest,
+        domain::execution_context::ContextSessionReceipt,
         domain::CreateSessionDelegationRequest,
         domain::HandoffSessionRequest,
         domain::AssignSessionLeaderRequest,
@@ -280,6 +288,11 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             patch(routes::users::update_user_role),
         )
         .route("/api/v1/dashboard", get(routes::dashboard::get_dashboard))
+        .route("/api/v2/sessions", post(routes::execution_context::create))
+        .route(
+            "/api/v2/sessions/{session_id}/execution-context",
+            get(routes::execution_context::get).put(routes::execution_context::bind),
+        )
         .route(
             "/api/v1/agent-directory",
             get(routes::agents::list_agent_directory),
@@ -597,6 +610,18 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/internal/runtime/v1/pm/runs/{session_run_id}",
             get(routes::pm_runtime::readback),
+        )
+        .route(
+            "/internal/runtime/v1/pm/executions/{execution_id}/admission",
+            get(routes::pm_runtime::execution_admission),
+        )
+        .route(
+            "/internal/runtime/v1/pm/agents/{agent_id}/admit",
+            post(routes::pm_runtime::admit),
+        )
+        .route(
+            "/internal/runtime/v1/pm/agents/{agent_id}/tools/{operation}",
+            post(routes::pm_runtime::tool),
         )
         .route(
             "/internal/runtime/v1/agents/{agent_id}/configuration",

@@ -441,6 +441,7 @@ pub(super) async fn terminal(
             delivery_state: MessageDeliveryState::Mirrored,
             delivery_error: None,
             replayed: replay,
+            request_payload_hash: None,
             created_at: api_ts(row.created_at),
         }),
         !replay,
@@ -535,9 +536,23 @@ async fn locked_run(
         .try_get::<bool>("", "scoped")
         .map_err(AppError::database)?
     {
-        return Err(AppError::conflict(
-            "task-bound and PM runs require their own acceptance authority",
-        ));
+        let permitted = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT EXISTS(SELECT 1 FROM pm_run_bindings p JOIN hermes_dispatch_journal j ON j.run_id=p.session_run_id
+                JOIN pm_draft_creation_operations o ON o.id::text=j.capabilities->'fleet_pm'->>'operation_id'
+                WHERE p.session_run_id=$1 AND p.session_id=$2 AND p.agent_id=$3
+                  AND p.reservation->'identity'=j.capabilities->'fleet_pm'->'identity'
+                  AND o.operation->>'session_id'=p.session_id::text
+                  AND jsonb_typeof(o.operation->'workflow_assignment'->'receipt')='object') AS permitted",
+            [run.id.into(),run.session_id.into(),run.agent_id.into()])).await.map_err(AppError::database)?
+            .ok_or_else(|| AppError::internal("missing PM acceptance authority"))?;
+        if !permitted
+            .try_get::<bool>("", "permitted")
+            .map_err(AppError::database)?
+        {
+            return Err(AppError::conflict(
+                "task-bound and PM runs require their own acceptance authority",
+            ));
+        }
     }
     Ok(run)
 }
