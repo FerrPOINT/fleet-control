@@ -3765,10 +3765,7 @@ async fn config_revision_drains_runs_and_failed_rollback_stays_blocked() {
 }
 
 #[tokio::test]
-#[cfg_attr(
-    not(target_os = "linux"),
-    ignore = "requires private Linux controller storage"
-)]
+#[cfg_attr(not(target_os = "linux"), ignore = "Linux private controller storage")]
 async fn managed_unstarted_stop_and_api_archive_preserve_unknown_custody() {
     use app::RuntimeSupervisor;
 

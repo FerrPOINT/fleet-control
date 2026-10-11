@@ -97,6 +97,10 @@ but fails credentials_pg10/84 at
 readback verifies artifact11689882691; both scoped cleanups passed. The receipt
 does not retain the error reason or identify the matrix case. No diagnosis or
 successful qualification of the later foundation/PM gates follows from it.
+The test-only successor maps continuation errors to distinct static panic sites,
+so the existing safe frame report can identify a closed refusal category without
+retaining error messages, SQL or private payloads. It does not identify a matrix
+case, diagnose the previous failure or weaken any scenario/outcome assertion.
 Source inspection found that a shared DB does not guarantee a fixture is in the
 first20-item page. The test-only candidate6c5c89c uses keyset membership checks
 and a22-fixture page-boundary case; product query/timeouts are unchanged.
