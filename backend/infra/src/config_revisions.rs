@@ -297,6 +297,25 @@ pub(super) async fn activate(
         .try_get("", "snapshot")
         .map_err(AppError::database)?;
     verify_package_identity(&agent, &snapshot["config"]["config_json"])?;
+    let pending_pm = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT EXISTS(SELECT 1 FROM session_agent_runs run
+             JOIN pm_run_bindings b ON b.session_run_id=run.id
+             WHERE run.agent_id=$1 AND b.agent_id=$1 AND run.state='pending') AS pending_pm",
+            [id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::internal("missing PM reservation check"))?;
+    if pending_pm
+        .try_get::<bool>("", "pending_pm")
+        .map_err(AppError::database)?
+    {
+        return Err(AppError::conflict(
+            "PM runtime acceptance must be resolved before config activation",
+        ));
+    }
     let changed = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "UPDATE agent_config_heads SET draining = true
          WHERE agent_id = $1 AND desired_revision = $2 AND NOT draining

@@ -19,6 +19,11 @@ counts and cursors even with expanded user filters. The seven clarification DTOs
 are validated against nested wire constraints; source parity is not admission.
 See the [verification ledger](docs/CHAT_CLARIFICATION_VERIFICATION.md)
 for PostgreSQL evidence and the remaining live-integration gates.
+The corrected production-controller fixture packet passes 461 unit tests and
+47 browser tests in each engine, with nine explicit live-only skips per engine.
+Current [PM chat views](docs/assets/design/chat-controller-2026-10-10/manifest.json)
+and the [page catalogue](docs/assets/screens/manifest.md) are imported from the
+authenticated CI artifact, not from a live PM acceptance run.
 Creation recovery now includes owner/key lookup, persisted-operation continuation
 and strict Tracker project choices. The new [creation form proposal](docs/design/PM_DRAFT_CREATION_PREVIEW.md)
 is isolated and awaiting approval, not production UI or runtime admission.
@@ -100,6 +105,7 @@ ID/роль и не объединяет исторических пользов
 | Storage review | Fleet-wide и per-agent size reports, marker state и purge eligibility. |
 | OIDC / JWKS | Central auth mode: RS256 access tokens, cached JWKS, строгие `iss`/`aud`. |
 | Наблюдаемость | Request id, audit/events, rate controls, health и Prometheus metrics. |
+
 ## Стек
 
 | Zone | Tech | Роль |
@@ -126,6 +132,7 @@ ID/роль и не объединяет исторических пользов
 | Agent naming      | Agent ordinals come from database allocation and materialize `agentN` folders.                                        |
 | Deletion model    | Agent delete means archive/stop by default; physical purge is a separate explicit operation.                          |
 | Purge preview     | Storage reports are read-only and recomputed from `agents_root/agentN` before deletion.                               |
+
 <a name="quick-start"></a>
 
 ## Быстрый старт
@@ -190,6 +197,8 @@ cargo run -p server
 | `/agents/:agentId/sessions` | Agent-local sessions |
 | `/sessions` | Cross-agent task sessions с user и leader фильтрами |
 | `/sessions/:sessionId` | Transcript mirror, leader selector, runtime runs и handoff |
+| `/chats` | Агенты → отдельные задачи/сессии, own-user filter и поиск |
+| `/chats/:sessionId` | Private либо task-bound чат; dialogue/clarification/requirements по серверной привязке |
 | `/workflows` | Namespace/workflow bindings |
 | `/deployments` | Runtime templates и deployment surface |
 | `/logs` | Global logs и event stream |
@@ -208,11 +217,27 @@ cargo run -p server
 
 ![Fleet Header, 1920 px](docs/assets/screens/2026-10-01-platform-header/agents-dark-1920.png)
 
-Следующая трёхрежимная галерея является историческим снимком до нового Header.
-Представительные страницы были сняты на детерминированной fixture при
-`1920x1080` в default theme. Полный маршрутный набор, включая responsive QA и
-параметры пересъёмки, хранится в
-[manifest](docs/assets/screens/manifest.md).
+### Чат и Уточнения (10 октября 2026)
+
+Production-компоненты с fixture API, не живой PM: диалог, выбор ответа и
+подтверждение конкретной редакции требований. После подтверждения controls
+отключены; противоречивое предупреждение о недоступности исправлено.
+[Манифест девяти видов](docs/assets/design/chat-controller-2026-10-10/manifest.json)
+связывает route, viewport, source и SHA256 с
+[CI38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687).
+Старые изображения остаются историческими evidence, не заменяются новой датой.
+
+![PM чат](docs/assets/design/chat-controller-2026-10-10/pm-chat-dialogue-1920.png)
+
+![PM уточнения](docs/assets/design/chat-controller-2026-10-10/pm-chat-clarification-1920.png)
+
+![PM требования](docs/assets/design/chat-controller-2026-10-10/pm-chat-requirements-1920.png)
+
+Следующие страницы пересняты тем же hosted fixture gate при `1920x1080`.
+Полный каталог: 45 views на `375x812`, `1920x1080`, `2560x1440` — 135 PNG.
+[Манифест](docs/assets/screens/manifest.md) содержит маршруты и происхождение;
+[import receipt](docs/assets/screens/qualified-import-38072655687.json) —
+хэши всех 144 импортированных PNG. Это не проверка live runtime или Central Auth.
 
 ### Дашборд (`wide`)
 

@@ -12,9 +12,38 @@ async fn journal(
     origin: String,
     config: &AppConfig,
 ) -> (PostgresFleetRepository, PmRunReservation) {
-    let (repo, reservation) = pm_fixture()
+    let (repo, mut reservation) = pm_fixture()
         .await
         .expect("isolated PostgreSQL required for PM stream tests");
+    let original = repo.get_session(reservation.session_id).await.unwrap();
+    let mut binding = repo
+        .get_task_chat_binding(original.id)
+        .await
+        .unwrap()
+        .unwrap();
+    binding.task_id = Uuid::new_v4();
+    binding.root_task_id = binding.task_id;
+    let session = repo
+        .create_pm_draft_chat(
+            domain::CreatePmDraftChat {
+                binding: binding.clone(),
+                title: "PM stream".into(),
+                task_key: reservation.identity.task.clone(),
+                idempotency_key: "pm-stream-chat".into(),
+            },
+            original.user_id,
+        )
+        .await
+        .unwrap();
+    reservation.session_id = session.id;
+    reservation.identity.task_ref = binding.task_id.to_string();
+    reservation.identity.root_ref = binding.root_task_id.to_string();
+    assert!(
+        repo.list_session_agent_runs(session.id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
     let agent = reservation.identity.agent_id().unwrap();
     let port = reqwest::Url::parse(&origin).unwrap().port().unwrap();
     let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
@@ -28,6 +57,9 @@ async fn journal(
     .await
     .unwrap();
     repo.reserve_pm_run(reservation.clone()).await.unwrap();
+    let runs = repo.list_session_agent_runs(session.id).await.unwrap();
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0].id, reservation.session_run_id);
     let mut hash = Sha256::new();
     hash.update(b"fleet-hermes-default-profile-v1\0");
     hash.update(
@@ -80,6 +112,29 @@ async fn accepted() -> (PostgresFleetRepository, PmRunReservation) {
         .await
         .unwrap();
     (repo, reservation)
+}
+
+async fn pm_recovery_queue_contains(repo: &PostgresFleetRepository, id: Uuid) -> bool {
+    let mut after = None;
+    loop {
+        let page = repo.list_recoverable_pm_streams(after).await.unwrap();
+        assert!(page.len() <= 20);
+        assert!(page.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(
+            page.first()
+                .is_none_or(|first| after.is_none_or(|previous| *first > previous))
+        );
+        if page.contains(&id) {
+            return true;
+        }
+        let Some(&last) = page.last() else {
+            return false;
+        };
+        if last > id {
+            return false;
+        }
+        after = Some(last);
+    }
 }
 
 #[tokio::test]
@@ -175,13 +230,7 @@ async fn pm_terminal_packet_concurrent_replay_is_once_and_keeps_ordinary_guard()
         cursor
     );
     assert!(repo.pm_stream_context(id).await.unwrap().1);
-    assert!(
-        !repo
-            .list_recoverable_pm_streams(None)
-            .await
-            .unwrap()
-            .contains(&id)
-    );
+    assert!(!pm_recovery_queue_contains(&repo, id).await);
     let mut changed = packet(id);
     changed.body = Some("Contradiction".into());
     assert!(
@@ -256,17 +305,20 @@ async fn pm_terminal_pin_owner_and_atomic_rollback_are_enforced() {
 
 #[tokio::test]
 async fn pm_observed_terminal_remains_recoverable_until_mirrored_and_marker_is_monotonic() {
+    let mut fixtures = Vec::new();
+    for _ in 0..22 {
+        fixtures.push(accepted().await);
+    }
+    fixtures.sort_by_key(|(_, reservation)| reservation.session_run_id);
     for status in [PmRuntimeStatus::Completed, PmRuntimeStatus::Stopped] {
-        let (repo, reservation) = accepted().await;
+        let (repo, reservation) = fixtures.pop().unwrap();
         let id = reservation.session_run_id;
         repo.observe_pm_run(id, status).await.unwrap();
         assert!(!repo.pm_stream_context(id).await.unwrap().1);
-        assert!(
-            repo.list_recoverable_pm_streams(None)
-                .await
-                .unwrap()
-                .contains(&id)
-        );
+        let first_page = repo.list_recoverable_pm_streams(None).await.unwrap();
+        assert_eq!(first_page.len(), 20);
+        assert!(!first_page.contains(&id));
+        assert!(pm_recovery_queue_contains(&repo, id).await);
         let mut command = packet(id);
         if status == PmRuntimeStatus::Stopped {
             command.state = SessionRunState::Cancelled;
@@ -277,6 +329,7 @@ async fn pm_observed_terminal_remains_recoverable_until_mirrored_and_marker_is_m
             repo.get_pm_run(id).await.unwrap().terminal_status,
             Some(status)
         );
+        assert!(!pm_recovery_queue_contains(&repo, id).await);
         let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
             .await
             .unwrap();
@@ -388,13 +441,7 @@ async fn http_stream(case: StreamCase, dispatch_enabled: bool) {
     let config = Arc::new(config);
     let _supervisor = LocalRuntimeSupervisor::new(config.clone(), repo.clone(), events.clone());
     if matches!(case, StreamCase::UnknownAck) {
-        assert!(
-            !repo
-                .list_recoverable_pm_streams(None)
-                .await
-                .unwrap()
-                .contains(&id)
-        );
+        assert!(!pm_recovery_queue_contains(&repo, id).await);
         sleep(Duration::from_millis(300)).await;
         assert_eq!(reads.load(Ordering::SeqCst), 0);
         assert_eq!(streams.load(Ordering::SeqCst), 0);
@@ -522,13 +569,7 @@ async fn http_stream(case: StreamCase, dispatch_enabled: bool) {
             .session_event_cursor(reservation.session_id)
             .await
             .unwrap();
-        assert!(
-            !repo
-                .list_recoverable_pm_streams(None)
-                .await
-                .unwrap()
-                .contains(&id)
-        );
+        assert!(!pm_recovery_queue_contains(&repo, id).await);
         let _restarted = (!dispatch_enabled)
             .then(|| LocalRuntimeSupervisor::new(config.clone(), repo.clone(), events.clone()));
         sleep(Duration::from_millis(150)).await;

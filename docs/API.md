@@ -33,6 +33,20 @@ and receipt, not a new submission. Idle PM free-form launch currently reports
 `pm_idle_prompt_contract_unavailable`; no fabricated clarification or unbound
 chat fallback is permitted. Operators cannot substitute for owner decisions.
 
+The025 candidate allows owner Stop of an originally accepted PM run despite a
+lost initial guidance ACK; Steer still requires acknowledged guidance or a
+continuation checkpoint, with all other authority/custody checks unchanged.
+The026 source candidate allows only explicit PM Stop during config drain and
+skips the PM MCP profile verifier only for Stop. Steer retains both gates.
+Owner/project/assignment, coordinator, Tracker/Workflow, native and credential
+checks remain unchanged. Pending-PM activation409 remains; accepted-running PM
+drains normally and requires terminal proof before activation can proceed.
+PM readback uses shared strict terminal validation: completed requires matching
+native identity and exact boolean completed=true/partial=false/interrupted=false.
+Unknown evidence retains the hold; Stop ACK is not terminal proof. No endpoint,
+public DTO/OpenAPI schema change or Hermes producer patch is introduced.
+Current-source PostgreSQL/native qualification remains pending.
+
 ## Hermes Recovery Candidate
 
 The recovery slice changes no public Fleet route, DTO or OpenAPI schema. The default-off original-key
@@ -362,6 +376,13 @@ Fleet:
 - `GET /leaders`
 - `GET/PUT /leaders/{leader_agent_id}/executors`
 - `GET /executors`
+
+The source candidate permits managed Hermes `stop` and subsequent `DELETE`
+without a physical Stop only for a verified never-started creation witness.
+The response uses the existing runtime-operation shape; no new endpoint or DTO
+is introduced. Unknown/private/preparation custody stays held, and concurrent
+preparation or activation can reject archival after Stop. Refresh the agent;
+do not delete journals to clear the hold. PostgreSQL/API qualification is pending.
 
 Sessions and workflow:
 

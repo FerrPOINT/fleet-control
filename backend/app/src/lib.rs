@@ -872,6 +872,10 @@ pub trait FleetRepository: Send + Sync {
         id: Uuid,
         patch: RuntimeStatePatch,
     ) -> Result<Agent, AppError>;
+    /// No physical exit proof: only the unchanged creation witness without runtime custody.
+    async fn try_stop_unstarted_container(&self, _id: Uuid) -> Result<bool, AppError> {
+        Ok(false)
+    }
     async fn archive_agent(&self, id: Uuid) -> Result<Agent, AppError>;
     async fn list_leader_executors(
         &self,

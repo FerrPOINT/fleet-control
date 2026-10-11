@@ -1415,7 +1415,9 @@ function RevisionConfirmation({
         />
         Подтверждаю цель, границы и критерии приёмки редакции {revision.revision}
       </label>
-      {!enabled && <p>Подтверждение недоступно: проверьте актуальную редакцию и prerequisites.</p>}
+      {!enabled && !verified && (
+        <p>Подтверждение недоступно: проверьте актуальную редакцию и prerequisites.</p>
+      )}
       <Button
         disabled={!enabled || !checked || mutation.isPending || verified || recovery.restored}
         onClick={() => mutation.mutate()}

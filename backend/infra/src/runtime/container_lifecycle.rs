@@ -624,6 +624,17 @@ impl LocalRuntimeSupervisor {
         &self,
         agent: &Agent,
     ) -> Result<RuntimeOperationResponse, AppError> {
+        if self.repo.get_container_launch(agent.id).await?.is_none() {
+            self.unstarted_container_files(agent.id).await?;
+            if self.repo.try_stop_unstarted_container(agent.id).await? {
+                self.unstarted_container_files(agent.id).await?;
+                return Ok(RuntimeOperationResponse {
+                    agent_id: agent.id,
+                    status: AgentStatus::Stopped,
+                    message: "Runtime was never started; no container stop was required".into(),
+                });
+            }
+        }
         let mut launch = self.owned_container(agent).await?;
         if launch.state == "exited" {
             return self
@@ -665,6 +676,23 @@ impl LocalRuntimeSupervisor {
             None,
         )
         .await
+    }
+
+    async fn unstarted_container_files(&self, agent: Uuid) -> Result<(), AppError> {
+        let config = self
+            .config
+            .fleet
+            .container_control
+            .as_ref()
+            .ok_or_else(held)?;
+        let root = private_root(&config.controller_root).await?;
+        for suffix in ["container-intent.json", "container-prepared.json"] {
+            match tokio::fs::symlink_metadata(root.join(format!("{agent}.{suffix}"))).await {
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                _ => return Err(held()),
+            }
+        }
+        Ok(())
     }
 
     pub(super) async fn health_container(

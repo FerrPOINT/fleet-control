@@ -208,7 +208,7 @@ class CodegenTests(unittest.TestCase):
         return value
 
     def test_exact_journal_source_parent_tree_and_blobs(self):
-        self.assertEqual(codegen.SOURCE_SHA, "aa11d3b90fcacb6f01a99b8a534cadbffbf54993")
+        self.assertEqual(codegen.SOURCE_SHA, "aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba")
         self.assertEqual(codegen.BASE_SHA, "19a7a381ae6dbea61a643bb96189e483fa64df5c")
         codegen.qualify_source(ROOT)
         results = [" ".join([codegen.SOURCE_SHA, *codegen.SOURCE_PARENTS]).encode(), codegen.SOURCE_TREE.encode()]

@@ -31,6 +31,8 @@ mod m20261010_000021_activation_authority_alias;
 mod m20261010_000022_pm_dispatch;
 mod m20261010_000023_pm_human_controls;
 mod m20261010_000024_pm_ack_bounds;
+mod m20261011_000025_pm_stop_custody;
+mod m20261011_000026_pm_stop_drain;
 
 pub struct Migrator;
 
@@ -117,11 +119,13 @@ impl MigratorTrait for CanonicalMigrator {
         migrations.push(Box::new(m20261010_000022_pm_dispatch::Migration));
         migrations.push(Box::new(m20261010_000023_pm_human_controls::Migration));
         migrations.push(Box::new(m20261010_000024_pm_ack_bounds::Migration));
+        migrations.push(Box::new(m20261011_000025_pm_stop_custody::Migration));
+        migrations.push(Box::new(m20261011_000026_pm_stop_drain::Migration));
         migrations
     }
 }
 
-struct LegacyMigrator;
+pub struct LegacyMigrator;
 
 #[async_trait::async_trait]
 impl MigratorTrait for LegacyMigrator {
@@ -147,6 +151,8 @@ impl MigratorTrait for LegacyMigrator {
             Box::new(m20261010_000022_pm_dispatch::Migration),
             Box::new(m20261010_000023_pm_human_controls::Migration),
             Box::new(m20261010_000024_pm_ack_bounds::Migration),
+            Box::new(m20261011_000025_pm_stop_custody::Migration),
+            Box::new(m20261011_000026_pm_stop_drain::Migration),
         ]);
         migrations
     }
