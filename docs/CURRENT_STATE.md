@@ -24,10 +24,10 @@ live-region update barrier and corrects the browser fixture to read the existing
 The integration also includes exact-run PM instruction receipts in the existing
 tool journal. New question/revision claims require a validated matching receipt;
 continuation cannot reuse the old run's proof. This is not proof that the model
-read the instructions or completed the workflow. Latest terminal3e/source7a8 backend
-qualification fails at check3/84, exit101, retaining E0369 with null file/line/column;
-the affected expression and compiler cause are not localized, and PostgreSQL was
-not reached. Historical50cb/source5bc passed
+read the instructions or completed the workflow. Latest terminal8090/source300c
+backend qualification fails at foundation11/84, exit101, with a retained test/frame
+but no assertion reason. Check, Clippy and credentials PG completed in the ordered
+prefix, not the complete PG gate or final API comparison. Historical50cb/source5bc passed
 PM recovery13 before failing at runtime_stream_bounds51/84. Fixture949
 isolates each invalid-stream case and its background-worker runtime, correcting
 a verified lifetime defect, not proving the cause or a qualified fix. Existing custody,
@@ -51,7 +51,10 @@ requires separate compatible chat/control evidence.
 
 Workflow [PR90](https://github.com/FerrPOINT/project-workflow/pull/90) is merged
 asef2cf9e with new source994bc8e, including a checkpoint fix; PM OpenAPI is
-unchanged. Its documented PM acceptance uses different Fleet/Tracker/SDK
+unchanged. Authenticated generic assign/bind/step exists for Analyst, Architect,
+Developer, Reviewer, Tester and DevOps; Workflow remains the technical sink/cursor,
+not the missing Tracker-owned admission/heartbeat/fencing and verified-stop
+capacity-release authority. Its documented PM acceptance uses different Fleet/Tracker/SDK
 candidates, not their main releases or ourb97/SDK19a assembly. This grants no
 new acceptance here; exact dependency provenance is in the verification ledger.
 
@@ -60,9 +63,9 @@ new acceptance here; exact dependency provenance is in the verification ledger.
 | Scope                    | Verified evidence                                                                                                                                                                                                                                                                                                                                              | Still open                                                                                                                                                       |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Rust OpenAPI, sourceaa11 | [38066257094](https://github.com/FerrPOINT/fleet-control/actions/runs/38066257094) SUCCESS; artifact11674599663; original strict readback verified; schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`. Schema bytes equal the actuala5f schema compared against seven immutable Tracker357 DTOs; eight verifier units pass      | Complete backend/DB/native checks remain separate from schema generation                                                                                         |
-| Backend                  | [38100869562](https://github.com/FerrPOINT/fleet-control/actions/runs/38100869562)/1 FAIL on3e/source7a8 at check3/84, exit101; strict readback retains E0369 with null file/line/column, untruncated output and both scoped cleanups true                                                                                                                     | No localized compiler cause; PG was not reached. All84/current-source/native/live acceptance remain open                                                         |
+| Backend                  | [38102509149](https://github.com/FerrPOINT/fleet-control/actions/runs/38102509149)/1 FAIL on8090/source300c at foundation11/84, exit101; artifact11688303731 strict readback retains test_failure and pm_events.rs:296:9, readable/untruncated, both scoped cleanups true                                                                                      | Assertion reason not retained. Ordered prefix completed, not all PG or final API comparison; source4d4/native/live acceptance remain open                        |
 | Frontend, sourceaca/fc0  | [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687) SUCCESS; original strict readback verifies artifact11677891567. All23 gates,461 units,135 catalogue/186 fixture images; all three browsers47 passed/zero flaky with nine opt-in live skips each. 135 catalogue and9 PM views imported, selected corrected captures reviewed | Complete live PM acceptance; fixture success does not qualify backend or installed runtime                                                                       |
-| PM execution             | Structured tools, checkpoint continuation, controls, stream recovery and instruction receipts are integrated; historical source5bc passed PM recovery13 before failing runtime stream bounds51                                                                                                                                                                 | Latest source7a8 failed check before PG; complete PG/HTTP receipt, real compatible service calls and owner flow remain required                                  |
+| PM execution             | Structured tools, checkpoint continuation, controls, stream recovery and instruction receipts are integrated; historical source5bc passed PM recovery13 before failing runtime stream bounds51                                                                                                                                                                 | Source300c failed foundation11 before PM13;4d4 excluded. Complete PG/HTTP, compatible service calls and owner flow remain required                               |
 | Forge                    | [38093642467](https://github.com/FerrPOINT/CI-CD/actions/runs/38093642467)/1 on278/sourcee781 FAIL: authenticated A five stages PASS; B PG5/24 negatives/14 cleaned journals PASS; C OCI7 exit101, CLI1/child DiskSpaceGuard. Stages8-12 NOT_RUN; scoped cleanup/all remaining0                                                                                | Original aggregate rejects C; no full12/PM/native Hermes acceptance. Initial disk measurements do not prove capacity at the later child failure; no floor waiver |
 | Base                     | [PR183](https://github.com/FerrPOINT/services-base/pull/183) merged externally as66b7faf; three maintenance helper blobs match the previously qualified payload and the Forge successor pins that merged object                                                                                                                                                | Consumer/native checks remain separate; no silent SDK or installed-packet promotion                                                                              |
 
@@ -70,18 +73,26 @@ Source8f/025 and fixture949 require qualification on their final inputs; passing
 PM recovery on older5bc does not qualify these later changes. afab and Forge20e
 remain distinct historical receipts in the verification ledger.
 
-The latest terminal source7a8 failure identifies E0369 only, not a source expression
-or qualified fix; the earlier6843/source8f receipt remains historical. Published
-source300c contains a separate narrow comparison compile-fix candidate;
+Historical3e/source7a8 retained E0369 with a nullable frame, not a localized cause;
+the earlier6843/source8f receipt remains historical. Latest
 [38102509149](https://github.com/FerrPOINT/fleet-control/actions/runs/38102509149)/1
-on controls8090/source300c is in progress, not passing evidence, and excludes
-the source-frozen shared-probe P2. Independent source review of that P2 passed;
+on controls8090/source300c fails foundation11/84 at
+`pm_events::pm_observed_terminal_remains_recoverable_until_mirrored_and_marker_is_monotonic`,
+`backend/infra/tests/support/pm_events.rs:296:9`. No assertion reason is retained;
+ordered progression past check/Clippy/credentials PG is not complete backend or
+final API qualification, nor proof of the earlier compiler cause. The run excludes
+the reviewed shared-probe P2 published as4d4bc557. Independent source review passed;
 PG/native qualification remains pending. Cached Stopped/Cancelled/Failed needs no mirror
 commit; Completed may bypass the native probe only with `terminal_committed=true`.
 Uncommitted Completed still requires original strict native proof or stays held
 after replacement; the candidate does not fabricate that marker. Its controlled
 HTTP/repository activation and origin fixtures do not qualify physical Docker
 generation replacement or rollback.
+Source inspection found that a shared DB does not guarantee a fixture is in the
+first20-item page. The test-only candidate6c5c89c uses keyset membership checks
+and a22-fixture page-boundary case; product query/timeouts are unchanged.
+PG validation is pending; the retained receipt has no assertion reason proving
+this was the actual failure cause.
 Published source candidatec976c27 rejects config activation with409 before
 drain when a bound PM run is pending, including no-journal/prepared/unknown
 acceptance. Accepted-running PM retains normal drain. It adds no migration;
@@ -96,9 +107,11 @@ resource audit. No recipe cause is established. Exact receipts and earlier
 431/579/1fa/bb failures remain in the
 [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#current-hosted-qualification-2026-10-10).
 
-Point-in-time local capacity readback records C:54.70GiB free but Windows available
-commit2.09GiB, below the unchanged6GiB floor; daemon free disk is unconfirmed.
-Grouping audit35/0/0 passes with only permanent projects, not capacity admission.
+Latest known point-in-time capacity observation,2026-10-11 01:49UTC, records
+C:53.760GiB free against30GiB, available physical memory18.664GiB and available
+commit2.990GiB, below the unchanged6GiB floor; this is not a fresh-now readback.
+Daemon free disk is unconfirmed. Historical grouping audit35/0/0 passes with only
+permanent projects, not capacity admission.
 No QA was launched; native qualification remains held.
 
 Backend controls retain all existing checks. Additive024/025/026 migration tests

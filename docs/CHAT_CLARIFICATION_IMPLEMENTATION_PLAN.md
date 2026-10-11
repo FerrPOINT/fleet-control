@@ -140,10 +140,10 @@ producer fixtures and HTTP/PG component checks retain their exact source scopes.
 Corrected frontend sourceaca/fc0 passes all23 gates/461 units and47 tests per browser
 engine, with nine opt-in live-only skips each;135 catalogue and nine PM views are
 imported with provenance. These are fixture captures, not live service acceptance.
-Reviewed source and authored backend
-regressions do not substitute for the full backend gate: latest terminalafab/sourcecb1
-fails at PM recovery with stack overflow and an identified aborted test, not an
-identified cause. Source5bc is an experiment awaiting qualification, not a proven fix.
+Reviewed source and authored backend regressions do not substitute for the full
+backend gate. See [CURRENT_STATE](CURRENT_STATE.md#current-evidence) for current
+qualification. The afab/sourcecb1 failure and source5bc experiment are historical
+attempts, not the latest status or evidence of a proven fix or full acceptance.
 
 ### Remaining Before Release And Live Acceptance
 
