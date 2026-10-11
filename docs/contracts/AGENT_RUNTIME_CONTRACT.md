@@ -1,5 +1,16 @@
 # Agent Runtime Contract
 
+## Never-Started Managed Stop Candidate
+
+Managed Hermes Stop may be a no-op only when a fresh agent-row-locked check
+proves the unchanged creation witness (`not_started`, desired stopped, no PID,
+timestamps or capabilities), no runtime custody and no private intent/prepared
+files. Repeated no-op Stop preserves that witness; it does not fabricate native
+exit evidence. Unknown, legacy or attempted custody remains held. Archival
+rechecks preparation after Stop and allows a retained preparation only with its
+exact matching exited launch. No schema or runtime protocol changes are added;
+authored PostgreSQL/API regressions still require execution.
+
 ## PM Stop Custody025 Candidate
 
 For an originally accepted PM run,025 permits owner Stop despite a lost initial

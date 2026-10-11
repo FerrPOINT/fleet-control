@@ -263,6 +263,15 @@ settings changes, skill/config edits, runtime actions, handoff and delegation.
 
 ## Recovery
 
+### Never-Started Managed Agents
+
+The source candidate permits repeated Stop and archive of a never-started
+managed Hermes agent without invoking Docker. Fleet verifies the original DB
+witness and absence of private/runtime custody; an absent launch alone is not
+sufficient. Do not clear intent files, journals or runtime fields to obtain this
+shortcut. Unknown preparation remains held; a normal stopped generation keeps
+its matching exited receipt. The authored regressions are not native acceptance.
+
 ### Accepted PM Runs
 
 Set `pm.dispatch.enabled=false` to prevent new PM dispatch and continuation,

@@ -27,7 +27,7 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/config-union-backend-20261010"
-SOURCE_SHA = "729bb4bfa508df203fb5cf36316dcdc8f2d9f02c"
+SOURCE_SHA = "aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 UTILITY_SHA = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
@@ -35,7 +35,7 @@ UTILITY_INVENTORY_SHA = "8e727d1d2ba02941dc176f26945d25593068fc593cb619928538129
 PACKAGE_SHA = "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58"
 PACKAGE_TREE = "96d9a7453744fd09f9ee3ba3b2c20f6b3d389b85"
 PACKAGE_INVENTORY_SHA = "1bdf56b21b0b97ec4a5a6303b04ecdda1b6609164aa018acc830187ca124f827"
-# Authentic aa11 codegen reused only through exact API dependency closure parity.
+# Authentic AABE codegen: run38107719356/1, artifact11689594281.
 OPENAPI_SHA = "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501"
 SWAGGER_SHA = "481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc"
 WORKFLOW = ".github/workflows/backend-build-only.yml"
@@ -46,7 +46,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "f7ee0ff536e3b02a0ef1cd500c28a140aaa238ebe847604270a4bd69ecdb5b30"
+SOURCE_INVENTORY_SHA = "99a07af6f8341bcdccdcc08948dcef6a6721f71cd34ef650e423cfc43d587acb"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
@@ -467,12 +467,12 @@ def inventory(root):
 def reviewed_inventory(controls):
     value = json.loads((controls / INVENTORY).read_bytes())
     require(value["source_commit"] == SOURCE_SHA and value["executed"] is False, "Inventory pin drift")
-    require(len(value["ignored"]) == 181 and value["default_foundation_ignored"] == 126
+    require(len(value["ignored"]) == 182 and value["default_foundation_ignored"] == 126
             and len(value["groups"]["runtime_controls"]) == 30
             and len(value["groups"]["runtime_terminal"]) == 14, "Ignored coverage weakened")
     require(len({(item["package"], item["target_kind"], item["target"], item["name"])
-                 for item in value["ignored"]}) == 181, "Duplicate ignored identities")
-    require(len(value["groups"]["foundation"]) == 78 and len(value["workspace_default_declarations"]) == 403,
+                 for item in value["ignored"]}) == 182, "Duplicate ignored identities")
+    require(len(value["groups"]["foundation"]) == 79 and len(value["workspace_default_declarations"]) == 404,
             "Default/foundation declaration coverage drift")
     require(len(value["pm_workspace_required"]) == 51 and len(set(value["pm_workspace_required"])) == 51,
             "PM workspace selector coverage drift")
@@ -1022,7 +1022,7 @@ def verify_test_log(stage, text, reviewed, ordinary_listing=""):
         require(bool(expected) and actual == expected, "Workspace default execution differs from compiler listing")
         require(bool(summaries) and sum(row[0] for row in summaries) == sum(actual.values())
                 and all(row[1] == 0 for row in summaries)
-                and sum(row[2] for row in summaries) == 181, "Workspace result/ignored totals drift")
+                and sum(row[2] for row in summaries) == 182, "Workspace result/ignored totals drift")
     else:
         expected = Counter(reviewed["groups"][stage])
         ignored = 126 if stage == "foundation" else 0
@@ -1034,7 +1034,7 @@ def verify_test_log(stage, text, reviewed, ordinary_listing=""):
 
 def verify_runtime_inventory(ordinary, ignored, reviewed):
     expected = Counter(item["name"] for item in reviewed["ignored"])
-    require(listed_names(ignored) == expected and sum(expected.values()) == 181, "Compiler ignored inventory drift")
+    require(listed_names(ignored) == expected and sum(expected.values()) == 182, "Compiler ignored inventory drift")
     require(bool(listed_names(ordinary) - expected), "Zero workspace default selection")
     require(all(listed_names(ordinary)[name] == 1 and name not in expected
                 for name in reviewed["pm_workspace_required"]), "PM compiler selectors missing/duplicate/ignored")
@@ -1044,7 +1044,7 @@ def verify_runtime_inventory(ordinary, ignored, reviewed):
                 for name in reviewed["groups"]["pm_recovery_pg"]), "PM recovery compiler selectors missing/duplicate/not ignored")
     require(all(listed_names(ordinary)[name] == expected[name] == 1
                 for name in reviewed["groups"]["pm_ack_migration"]), "PM ACK migration compiler selector missing/duplicate/not ignored")
-    return dict(ignored=181, ignored_names_sha256=digest(canonical(sorted(expected.elements()))),
+    return dict(ignored=182, ignored_names_sha256=digest(canonical(sorted(expected.elements()))),
                 listed_default_count=sum((listed_names(ordinary) - expected).values()))
 
 
@@ -1345,7 +1345,7 @@ def execute():
                   status="success" if success else "failure", failed_stage=None if success else failed_stage,
                   gates=safe_rows, focused=focused, runtime_inventory=runtime_inventory,
                   contracts=contracts, migration_ledger=migration_ledger,
-                  ignored_required=181, foundation_ignored=126, resources=resources, cleanup=cleanup,
+                  ignored_required=182, foundation_ignored=126, resources=resources, cleanup=cleanup,
                   service_disposal="GitHub-managed ephemeral service, platform cleanup after job",
                   local_docker_or_native_guard_waiver=False, private_diagnostics_uploaded=False)
     provenance = dict(version=1, repository=REPOSITORY, branch=BRANCH, source_sha=SOURCE_SHA, base_sha=BASE_SHA,
@@ -1455,8 +1455,8 @@ def validate_evidence_files(files, *, workflow_sha, run_id, attempt):
             and report["sdlc_acceptance"] is False and report["status"] == "success"
             and report["gates"] == [dict(stage=name, status="passed") for name in GATES]
             and report["cleanup"] == dict(scratch=True, synthetic_databases=True)
-            and report["ignored_required"] == 181 and report["foundation_ignored"] == 126
-            and report["runtime_inventory"]["ignored"] == 181, "Incomplete backend gate receipt")
+            and report["ignored_required"] == 182 and report["foundation_ignored"] == 126
+            and report["runtime_inventory"]["ignored"] == 182, "Incomplete backend gate receipt")
     reviewed = reviewed_inventory(controls)
     require_codegen_binding(reviewed)
     require(provenance["utility_tree"] == reviewed["utility_tree"], "Utility tree drift")
@@ -1472,7 +1472,7 @@ def validate_evidence_files(files, *, workflow_sha, run_id, attempt):
         require(actual == dict(passed=len(names), failed=0, ignored=126 if stage == "foundation" else 0,
                                tests=sorted(names)), "Focused test receipt mismatch")
     ws = report["focused"]["workspace"]
-    require(ws["passed"] > 0 and ws["failed"] == 0 and ws["ignored"] == 181
+    require(ws["passed"] > 0 and ws["failed"] == 0 and ws["ignored"] == 182
             and len(ws["tests"]) == ws["passed"] == report["runtime_inventory"]["listed_default_count"],
             "Empty/failed workspace receipt")
     require(report["runtime_inventory"]["ignored_names_sha256"] == digest(canonical(sorted(

@@ -1,5 +1,11 @@
 # Hermes Adapter Contract
 
+Managed agent lifecycle Stop has a narrowly guarded never-started no-op in the
+Fleet source candidate. It preserves the creation witness and sends no Hermes or
+Docker command. Missing launch history alone is insufficient: DB and private
+custody checks must pass. This does not change native run Stop, terminal proof,
+Hermes APIs or the producer. See [runtime contract](AGENT_RUNTIME_CONTRACT.md#never-started-managed-stop-candidate).
+
 ## PM Integration Candidate
 
 PM consumes unchanged Hermes through the same native run/control protocol and

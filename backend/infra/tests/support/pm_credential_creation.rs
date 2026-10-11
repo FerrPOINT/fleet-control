@@ -14,6 +14,41 @@ use tokio::sync::Mutex;
 const PARENT: &str = "sdlc_pat_parent-test-secret-1234567890";
 const CHILD: &str = "sdlc_pat_child-test-secret-1234567890";
 
+// Distinct static panic sites are readable in the existing safe CI frame report.
+fn continuation_failure(error: shared::AppError) -> ! {
+    match error {
+        shared::AppError::Conflict(reason) => match reason.as_str() {
+            "PM original runtime context changed" => panic!("continuation_runtime_context_changed"),
+            "effective configuration readback failed" => {
+                panic!("continuation_effective_configuration_changed")
+            }
+            "saved answer or current Tracker assignment changed" => {
+                panic!("continuation_tracker_assignment_changed")
+            }
+            "PM original stream custody or owner binding changed" => {
+                panic!("continuation_original_stream_custody_changed")
+            }
+            "PM continuation custody changed" => panic!("continuation_intent_custody_changed"),
+            "PM dispatch key has a different payload" => {
+                panic!("continuation_dispatch_key_conflict")
+            }
+            "PM is draining or has an active/unresolved run" => {
+                panic!("continuation_capacity_held")
+            }
+            "PM is not waiting for this saved answer" => {
+                panic!("continuation_workflow_not_waiting")
+            }
+            "another PM continuation is reserved" => panic!("continuation_workflow_reservation"),
+            _ => panic!("continuation_other_conflict"),
+        },
+        shared::AppError::Forbidden => panic!("continuation_forbidden"),
+        shared::AppError::Database(_) => panic!("continuation_database_error"),
+        shared::AppError::Validation(_) => panic!("continuation_validation_error"),
+        shared::AppError::NotFound { .. } => panic!("continuation_not_found"),
+        _ => panic!("continuation_other_error"),
+    }
+}
+
 #[test]
 fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_terminal_proof() {
     use app::RuntimeSupervisor;
@@ -1175,7 +1210,8 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
                 continue;
             }
             assert_eq!(
-                resume_runtime.resume_pm_answer(&actor, &delivered).await.unwrap(),
+                resume_runtime.resume_pm_answer(&actor, &delivered).await
+                    .unwrap_or_else(|error| continuation_failure(error)),
                 if matches!(fault, "none" | "replacement" | "rollback") {
                     PmContinuationOutcome::Confirmed
                 } else {

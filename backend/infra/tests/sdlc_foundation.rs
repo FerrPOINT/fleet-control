@@ -3765,6 +3765,258 @@ async fn config_revision_drains_runs_and_failed_rollback_stays_blocked() {
 }
 
 #[tokio::test]
+#[cfg_attr(not(target_os = "linux"), ignore = "Linux private controller storage")]
+async fn managed_unstarted_stop_and_api_archive_preserve_unknown_custody() {
+    use app::RuntimeSupervisor;
+
+    let (repo, owner, _) = fixture().await.expect("Disposable PostgreSQL is required");
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let root = std::env::temp_dir().join(format!("fleet-unstarted-{}", Uuid::new_v4()));
+    let private = root.join("controller");
+    tokio::fs::create_dir_all(&private).await.unwrap();
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        tokio::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o700))
+            .await
+            .unwrap();
+    }
+    let mut config = AppConfig::default();
+    config.fleet.agents_root = root.join("agents").to_string_lossy().into_owned();
+    config.fleet.container_control = Some(shared::ContainerControlConfig {
+        python: root.join("must-not-execute").to_string_lossy().into_owned(),
+        base_root: root.join("no-native-source").to_string_lossy().into_owned(),
+        context: "unstarted-fixture".into(),
+        controller_root: private.to_string_lossy().into_owned(),
+        mapping_controller: None,
+        provisioning: None,
+        recovered_activation: false,
+    });
+    let config = Arc::new(config);
+    let repo = Arc::new(repo);
+    let (events, _) = tokio::sync::broadcast::channel(16);
+    let runtime = Arc::new({
+        let config = config.clone();
+        let repo = repo.clone();
+        let events = events.clone();
+        // These assertions own Stop/Archive, not the global background queues.
+        std::thread::spawn(move || {
+            infra::runtime::LocalRuntimeSupervisor::new(config, repo, events)
+        })
+        .join()
+        .unwrap()
+    });
+    let (restart_tx, _) = tokio::sync::mpsc::channel(1);
+    let ctx = Arc::new(app::AppContext::new(
+        config.clone(),
+        repo.clone(),
+        Arc::new(infra::FilesystemProvisioner),
+        runtime.clone(),
+        events,
+        restart_tx,
+    ));
+    let user = api::middleware::CurrentUser {
+        id: owner,
+        role: domain::SystemRole::Operator,
+        is_system_admin: false,
+        central_write: None,
+    };
+    repo.ensure_runtime_templates().await.unwrap();
+    for repeat_stop in [false, true] {
+        let fresh = api::routes::agents::create_agent(
+            axum::extract::State(ctx.clone()),
+            axum::Extension(user.clone()),
+            axum::Json(CreateAgentRequest {
+                kind: AgentKind::Hermes,
+                product_role: AgentProductRole::Executor,
+                role: AgentRole::Developer,
+                sdlc_role: Some(SdlcRole::Developer),
+                display_name: "Never-started managed Hermes".into(),
+                description: None,
+                namespace_id: None,
+                namespace_name: None,
+                workflow_id: None,
+                workflow_name: None,
+                executor_ids: vec![],
+            }),
+        )
+        .await
+        .unwrap()
+        .0;
+        let id = fresh.id;
+        assert_eq!(fresh.status, AgentStatus::Ready);
+        let witness = serde_json::to_value(&fresh.runtime).unwrap();
+        assert_eq!(witness["health_status"], "not_started");
+        if repeat_stop {
+            for _ in 0..2 {
+                let result = runtime
+                    .stop(&repo.get_agent(id).await.unwrap())
+                    .await
+                    .unwrap();
+                assert_eq!(result.status, AgentStatus::Stopped);
+                assert_eq!(
+                    serde_json::to_value(repo.get_agent(id).await.unwrap().runtime).unwrap(),
+                    witness
+                );
+            }
+        }
+        let archived = api::routes::agents::archive_agent(
+            axum::extract::State(ctx.clone()),
+            axum::Extension(user.clone()),
+            axum::extract::Path(id),
+        )
+        .await
+        .unwrap()
+        .0;
+        assert_eq!(archived.status, AgentStatus::Archived);
+        assert_eq!(serde_json::to_value(archived.runtime).unwrap(), witness);
+        assert!(repo.get_container_launch(id).await.unwrap().is_none());
+        assert!(repo.get_container_preparation(id).await.unwrap().is_none());
+        assert!(!repo.try_stop_unstarted_container(id).await.unwrap());
+    }
+    let id = agent_with_config(&repo, &config).await;
+    let fresh = repo
+        .update_agent_status(id, AgentStatus::Ready)
+        .await
+        .unwrap();
+    let before = serde_json::to_value(&fresh).unwrap();
+    for suffix in ["container-intent.json", "container-prepared.json"] {
+        let path = private.join(format!("{id}.{suffix}"));
+        tokio::fs::write(&path, b"{unknown-private-custody")
+            .await
+            .unwrap();
+        assert!(matches!(
+            runtime.stop(&fresh).await,
+            Err(shared::AppError::Unavailable(_))
+        ));
+        assert!(
+            api::routes::agents::archive_agent(
+                axum::extract::State(ctx.clone()),
+                axum::Extension(user.clone()),
+                axum::extract::Path(id),
+            )
+            .await
+            .is_err()
+        );
+        assert_eq!(
+            serde_json::to_value(repo.get_agent(id).await.unwrap()).unwrap(),
+            before
+        );
+        assert_eq!(
+            tokio::fs::read(&path).await.unwrap(),
+            b"{unknown-private-custody"
+        );
+        tokio::fs::remove_file(&path).await.unwrap();
+        #[cfg(target_os = "linux")]
+        {
+            std::os::unix::fs::symlink(private.join("absent-target"), &path).unwrap();
+            assert!(runtime.stop(&fresh).await.is_err());
+            tokio::fs::remove_file(&path).await.unwrap();
+        }
+    }
+    for changed in [
+        "health_status=NULL",
+        "health_status='starting'",
+        "desired_state='running'",
+        "pid=42",
+        "started_at=now()",
+        "stopped_at=now()",
+        "last_health_at=now()",
+        "last_capabilities_json='{\"run_start\":true}'::jsonb",
+    ] {
+        let id = agent_with_config(&repo, &config).await;
+        repo.update_agent_status(id, AgentStatus::Ready)
+            .await
+            .unwrap();
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            format!("UPDATE agent_runtime SET {changed} WHERE agent_id=$1"),
+            [id.into()],
+        ))
+        .await
+        .unwrap();
+        let fresh = repo.get_agent(id).await.unwrap();
+        let before = serde_json::to_value(&fresh).unwrap();
+        assert!(
+            !repo.try_stop_unstarted_container(id).await.unwrap(),
+            "{changed}"
+        );
+        assert!(runtime.stop(&fresh).await.is_err(), "{changed}");
+        assert!(
+            api::routes::agents::archive_agent(
+                axum::extract::State(ctx.clone()),
+                axum::Extension(user.clone()),
+                axum::extract::Path(id),
+            )
+            .await
+            .is_err(),
+            "{changed}"
+        );
+        assert_eq!(
+            serde_json::to_value(repo.get_agent(id).await.unwrap()).unwrap(),
+            before
+        );
+    }
+    for status in [AgentStatus::Starting, AgentStatus::Degraded] {
+        let id = agent_with_config(&repo, &config).await;
+        let fresh = repo.update_agent_status(id, status).await.unwrap();
+        let before = serde_json::to_value(&fresh).unwrap();
+        assert!(!repo.try_stop_unstarted_container(id).await.unwrap());
+        assert!(runtime.stop(&fresh).await.is_err());
+        assert_eq!(
+            serde_json::to_value(repo.get_agent(id).await.unwrap()).unwrap(),
+            before
+        );
+    }
+    let id = agent_with_config(&repo, &config).await;
+    repo.update_agent_status(id, AgentStatus::Ready)
+        .await
+        .unwrap();
+    let draft = repo
+        .create_config_revision(id, configuration(), owner)
+        .await
+        .unwrap();
+    repo.validate_config_revision(id, draft.revision, vec![])
+        .await
+        .unwrap();
+    repo.request_config_activation(id, draft.revision, owner)
+        .await
+        .unwrap();
+    let fresh = repo.get_agent(id).await.unwrap();
+    let before = serde_json::to_value(&fresh).unwrap();
+    let revisions = serde_json::to_value(repo.list_config_revisions(id).await.unwrap()).unwrap();
+    assert!(matches!(
+        runtime.stop(&fresh).await,
+        Err(shared::AppError::Conflict(_))
+    ));
+    assert_eq!(
+        serde_json::to_value(repo.get_agent(id).await.unwrap()).unwrap(),
+        before,
+        "drain refusal must roll back the Stop CAS"
+    );
+    assert_eq!(
+        serde_json::to_value(repo.list_config_revisions(id).await.unwrap()).unwrap(),
+        revisions
+    );
+    repo.finish_config_activation(
+        id,
+        draft.revision,
+        Some("unstarted fixture activation not executed".into()),
+        false,
+    )
+    .await
+    .unwrap();
+    assert!(!root.join("must-not-execute").exists());
+    drop(ctx);
+    drop(runtime);
+    drop(repo);
+    db.close().await.unwrap();
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
 async fn config_revision_archive_rechecks_drain_after_stop_and_preserves_activation_custody() {
     let (repo, owner, _) = fixture().await.expect("Disposable PostgreSQL is required");
     let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
@@ -3953,6 +4205,7 @@ async fn config_revision_archive_rechecks_drain_after_stop_and_preserves_activat
             repo.get_agent(agent_id).await.unwrap().status,
             AgentStatus::Stopped
         );
+        assert!(!repo.try_stop_unstarted_container(agent_id).await.unwrap());
         assert!(matches!(repo.archive_agent(agent_id).await,
             Err(shared::AppError::Conflict(reason)) if reason == "original container exit is not verified"));
         assert_eq!(
