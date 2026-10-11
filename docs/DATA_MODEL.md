@@ -8,6 +8,29 @@ new ledger or backfill is involved. `pm_dispatch_journal.guidance_delivered`
 still means only native steer acknowledgement, not instruction readership or
 business completion; continuation needs its own instruction receipt.
 
+## PM Stop Custody025 Candidate
+
+Additive `m20261011_000025_pm_stop_custody` changes only the existing control
+custody trigger function, not tables, receipt fields or historical010-024 sources.
+For an accepted nonterminal PM run, Stop no longer requires an acknowledged
+initial guidance steer or a continuation checkpoint. Steer retains that
+prerequisite. Original request/native identity, owner/task binding, active agent,
+drain and prior-stop guards remain in025; missing dispatch ACK is not Stop authority.
+
+Additive026 leaves025 unchanged and exempts only PM Stop from the drain
+predicate in both repository SQL and the custody trigger. Steer remains blocked
+during drain. Accepted-running PM still drains normally; pending PM reservations
+still cause activation409 before drain, including no-journal/prepared/unknown
+acceptance. Original custody and prior-stop guards remain; there are no new
+tables, receipt fields or rewritten rows. This candidate has27 canonical/30 split
+migrations and is not PostgreSQL/runtime verified.
+
+PM status readback reuses the shared Hermes terminal validator. `completed`
+requires exact boolean `completed=true`, `partial=false`, `interrupted=false`
+alongside matching run/session identity; malformed or contradictory evidence
+cannot release custody. A Stop ACK is still not terminal observation or business
+completion. This source candidate is not PostgreSQL/native qualification.
+
 ## PM Human Controls Integration Candidate
 
 Additive migration023 follows authority021 and PM022 in both supported

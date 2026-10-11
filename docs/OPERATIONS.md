@@ -1,5 +1,34 @@
 # Operations
 
+## PM Stop And Terminal Readback025/026 Candidate
+
+With025, the owner may Stop an originally accepted PM run even when the initial
+guidance ACK was lost. Steer still requires acknowledged guidance or a continuation
+checkpoint. This is not a dispatch permit: current owner/project/assignment,
+original native/request custody and prior-stop checks still apply. Unknown
+initial dispatch acceptance does not gain authority from the guidance exception.
+Retain the same control key/body for recovery; do not create a new run or clear holds.
+
+The026 source candidate permits explicit owner Stop during accepted-running PM
+drain, in repository SQL and the DB trigger. Only Stop skips the PM MCP profile
+verifier; Steer still requires that verifier and is blocked during drain. Owner,
+project, assignment, coordinator, Tracker/Workflow, native and credential checks
+remain unchanged. Pending PM activation409 remains; Stop is not permission to
+activate beneath an active run or to start another run.
+
+PM readback uses the same terminal validator as Hermes event/readback handling.
+A `completed` status without exact boolean completed/partial/interrupted flags
+is not terminal proof; unknown evidence retains the hold. Stop ACK alone does
+not release capacity or prove business completion.
+
+Rehearse025/026 on both supported lineages before deployment; candidate counts
+are27/30.026 downgrade refuses any retained Stop joined to a PM binding;025
+retains its guidance-exception downgrade guard. Preserve
+receipts and use forward reconciliation, not history deletion or manual flag edits.
+See [026 upgrade/downgrade boundaries](MIGRATIONS.md#pm-stop-under-drain026-candidate)
+and [025 custody boundaries](MIGRATIONS.md#pm-stop-custody025-candidate).
+The source candidate and authored tests do not constitute PG/native acceptance.
+
 ## PM Human Controls Migration Gate
 
 Migration023 requires a clean and historical-data PostgreSQL rehearsal for both
@@ -106,6 +135,11 @@ Fleet task-bound prompt/steer remains blocked until verified workflow orchestrat
 
 Save a config draft, validate it, then explicitly activate. Desired and effective
 revisions can differ. During drain, do not force changes beneath active runs.
+Published unqualified candidatec976c27 returns409 before setting drain while a bound
+PM run is pending, even without a dispatch journal or with prepared/unknown
+acceptance. Reconcile original custody; do not clear a reservation or issue a
+new command to force activation. Accepted-running PM retains normal drain;
+activation waits for its terminal proof. This guard adds no migration.
 If activation fails and rollback is unconfirmed, keep the drain in place and
 inspect the last error. Crash recovery/operator reconciliation is not yet a public
 API; do not edit state rows to fabricate readiness.

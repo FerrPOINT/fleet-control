@@ -14,9 +14,8 @@ use tokio::sync::Mutex;
 const PARENT: &str = "sdlc_pat_parent-test-secret-1234567890";
 const CHILD: &str = "sdlc_pat_child-test-secret-1234567890";
 
-#[tokio::test]
-async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_terminal_proof()
-{
+#[test]
+fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_terminal_proof() {
     use app::RuntimeSupervisor;
     use axum::{http::Method, response::IntoResponse};
     use domain::*;
@@ -27,7 +26,13 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
         "unknown-native-post",
         "invalid-terminal",
         "lost-guidance-ack",
+        "draining",
     ] {
+        let case_runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        case_runtime.block_on(async {
         let mut fixture = fixture()
             .await
             .expect("isolated PostgreSQL required for PM tool integration");
@@ -166,7 +171,7 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                     "/health"=>Json(json!({"status":"ok"})).into_response(),
                     "/v1/capabilities"=>{
                         let mut capabilities=super::hermes_protocol_fixture::capabilities();
-                        if fault=="lost-guidance-ack" {
+                        if matches!(fault,"lost-guidance-ack"|"draining") {
                             capabilities["features"]["run_steer"]=json!(true);
                             capabilities["endpoints"]["run_steer"]=json!({"method":"POST","path":"/v1/runs/{run_id}/steer"});
                         }
@@ -174,7 +179,7 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                     }
                     "/v1/runs/run_old/stop"=>{
                         assert_eq!(method,Method::POST);
-                        if fault!="stop-not-terminal" {stopped.store(true,Ordering::SeqCst);}
+                        if !matches!(fault,"stop-not-terminal"|"draining") {stopped.store(true,Ordering::SeqCst);}
                         Json(json!({"run_id":"run_old","status":"stopping"})).into_response()
                     }
                     "/v1/runs/run_old"=>Json(if stopped.load(Ordering::SeqCst)&&fault=="invalid-terminal" {
@@ -305,12 +310,12 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             axum::serve(api_listener, api_router).await.unwrap()
         }));
         let client = reqwest::Client::new();
-        if fault == "lost-guidance-ack" {
+        if matches!(fault, "lost-guidance-ack" | "draining") {
             let repo = &fixture.remote.repo;
             repo.observe_pm_run(op.id, PmRuntimeStatus::Running)
                 .await
                 .unwrap();
-            // Seed the durable post-attempt state: native guidance ACK was lost, not delivered.
+            // Keep the lost-ACK case; the drain case has delivered guidance before activation.
             let guidance = json!({"input":"Original initial guidance"}).to_string();
             assert!(matches!(
                 repo.claim_pm_guidance(op.id, guidance.clone())
@@ -322,6 +327,37 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 repo.claim_pm_guidance(op.id, guidance).await.unwrap(),
                 PmGuidancePermit::Unknown
             ));
+            let activation = if fault == "draining" {
+                repo.finish_pm_guidance(op.id).await.unwrap();
+                let effective = repo
+                    .get_effective_config_revision(op.request.agent_id)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let draft = repo
+                    .create_config_revision(
+                        op.request.agent_id,
+                        effective.snapshot.config,
+                        op.owner_user_id,
+                    )
+                    .await
+                    .unwrap();
+                repo.validate_config_revision(op.request.agent_id, draft.revision, vec![])
+                    .await
+                    .unwrap();
+                repo.request_config_activation(
+                    op.request.agent_id,
+                    draft.revision,
+                    op.owner_user_id,
+                )
+                .await
+                .unwrap();
+                assert!(repo.agent_is_draining(op.request.agent_id).await.unwrap());
+                assert!(repo.claim_config_activation().await.unwrap().is_none());
+                Some(draft.revision)
+            } else {
+                None
+            };
             let agent = repo.get_agent(op.request.agent_id).await.unwrap();
             let run = repo.get_session_agent_run(op.id).await.unwrap();
             let owner = RuntimeControlActor {
@@ -371,6 +407,14 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 .unwrap();
             assert!(controls.can_stop);
             assert!(!controls.can_steer);
+            if activation.is_some() {
+                assert!(
+                    matches!(runtime.call_pm_tool(agent.id, "workflow_step", PmToolCall {
+                    operation_id: op.id, session_run_id: op.id,
+                    command: json!({"step_operation_key":"held-under-drain","report":null}),
+                }).await, Err(shared::AppError::Conflict(reason)) if reason == "PM configuration is draining")
+                );
+            }
             assert!(
                 runtime
                     .steer_run(
@@ -446,7 +490,74 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 [op.id.into()],
             )).await.unwrap().unwrap();
             assert!(guidance.try_get::<bool>("", "guidance_attempted").unwrap());
-            assert!(!guidance.try_get::<bool>("", "guidance_delivered").unwrap());
+            assert_eq!(
+                guidance.try_get::<bool>("", "guidance_delivered").unwrap(),
+                activation.is_some()
+            );
+            if let Some(revision) = activation {
+                assert!(
+                    repo.claim_config_activation().await.unwrap().is_none(),
+                    "Stop ACK is not terminal proof"
+                );
+                assert_eq!(
+                    runtime
+                        .probe_pm_run(&agent, &repo.get_pm_run(op.id).await.unwrap())
+                        .await
+                        .unwrap(),
+                    PmRuntimeStatus::Running
+                );
+                // Hold only the desired revision so the background activator cannot race these assertions.
+                let activation_guard = db.begin().await.unwrap();
+                activation_guard.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                    "SELECT revision FROM agent_config_revisions WHERE agent_id=$1 AND revision=$2 FOR UPDATE",
+                    [agent.id.into(),revision.into()])).await.unwrap().unwrap();
+                stopped.store(true, Ordering::SeqCst);
+                tokio::time::timeout(std::time::Duration::from_secs(15), async {
+                    loop {
+                        if repo.pm_stream_context(op.id).await.unwrap().1 {
+                            break;
+                        }
+                        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                    }
+                })
+                .await
+                .expect("original PM terminal follower must release activation");
+                assert_eq!(
+                    repo.get_pm_run(op.id).await.unwrap().terminal_status,
+                    Some(PmRuntimeStatus::Stopped)
+                );
+                assert!(
+                    matches!(
+                        repo.reserve_pm_run(PmRunReservation {
+                            session_run_id: Uuid::new_v4(),
+                            dispatch_operation_key: "held-new-dispatch-under-drain".into(),
+                            ..reservation.clone()
+                        })
+                        .await,
+                        Err(shared::AppError::Conflict(_))
+                    ),
+                    "drain still holds new dispatch after terminal frees capacity"
+                );
+                activation_guard.commit().await.unwrap();
+                let activated = tokio::time::timeout(std::time::Duration::from_secs(15), async {
+                    loop {
+                        let revision = repo.get_config_revision(agent.id, revision).await.unwrap();
+                        if revision.state != "activating" { break revision; }
+                        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                    }
+                }).await.expect("existing activator must claim only after terminal proof");
+                // The controlled HTTP runtime is deliberately not an owned OS child.
+                assert_eq!(activated.state, "failed");
+                assert_eq!(activated.last_error, Some(shared::AppError::conflict("untracked runtime must be reconciled before configuration activation").to_string()));
+                assert!(!repo.agent_is_draining(agent.id).await.unwrap());
+                let claimed = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                    "SELECT claimed_at IS NOT NULL AS claimed FROM agent_config_revisions WHERE agent_id=$1 AND revision=$2",
+                    [agent.id.into(),revision.into()])).await.unwrap().unwrap();
+                assert!(
+                    claimed.try_get::<bool>("", "claimed").unwrap(),
+                    "terminal proof permits activation claim"
+                );
+            }
             let requests = calls.lock().await;
             assert_eq!(
                 requests
@@ -460,7 +571,7 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                     .iter()
                     .any(|r| r == "POST /v1/runs" || r == "POST /v1/runs/run_old/steer")
             );
-            continue;
+            return;
         }
         let endpoint = format!("{api_origin}/mcp/{}", op.request.agent_id);
         let initialize = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1"}}});
@@ -1138,6 +1249,7 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
         }
         let custody = serde_json::to_string(&fixture.operation().await).unwrap();
         assert!(!custody.contains(PARENT) && !custody.contains(CHILD));
+        });
     }
 }
 

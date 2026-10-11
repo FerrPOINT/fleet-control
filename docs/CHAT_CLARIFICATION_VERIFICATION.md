@@ -194,9 +194,74 @@ Reported pure checks are Windows196 selectors (193 PASS/three skips), Linux196
 PASS and parent three focused checks PASS, with Curie approval.
 Parent fresh API verification identifies actual push run
 [38092256984](https://github.com/FerrPOINT/fleet-control/actions/runs/38092256984)/1,
-created2026-10-10T22:39:45Z, in progress on exact50cb/source5bc.
-No terminal result or qualification is claimed; afab remains the latest
-terminal backend observation.
+created2026-10-10T22:39:45Z on exact50cb/source5bc. It completed FAILURE
+at23:05:58Z, job114330922636. Original unchanged50cb strict readback verifies
+artifact11685286092, ZIP SHA256
+`96286abe61e7b4d27be5f17075a1ae4a1441f5510b0ac53ffed5a9bbd46e83db`;
+safe JSON SHA256 `e19ceb75c9ada144d22af555191ca493bb961dcec7777a017c74669696731891`.
+This historical backend receipt records runtime_stream_bounds51/84, exit101,
+test_failure, null signal/command/harness exit numbers, readable/untruncated log
+and exact failed test
+`runtime_stream_bounds::runtime_stream_bounds_invalid_json_utf8_and_foreign_control_payloads_never_mirror`.
+The retained frame is `backend/infra/tests/sdlc_foundation.rs:121:10`, at
+create_agent.unwrap; no SQLSTATE/AppError detail or unique cause is retained.
+Both scoped cleanups are true and all acceptance flags false. The immutable
+sequential gate and completion checks establish that PM recovery13 passed before
+gate51, not all84 or later-source qualification. This receipt has no stack-overflow
+category or PM layout/phase object. Earlier afab remains a separate actual failure;
+the historical45096 bytes measure the bounded helper future, not submit internals.
+
+Reviewed fixture-only `949318d31a0895767a1cda3ac014966fa8dfeda7` gives each
+invalid-stream scenario its own Tokio runtime, retaining all inputs/assertions.
+Source inspection verifies the former fixture kept detached supervisor workers
+and their repository pools alive between cases. The per-case shutdown corrects
+that lifetime/isolation defect; actual connections, failing iteration and the
+gate51 SQL cause were not retained, so no causal or passing-fix claim follows.
+Source successor `8f8e69d637a64b2d7a3e8c2bc6dca00517539667`, sole949 child,
+reuses strict shared Hermes terminal validation and permits custodial owner Stop
+after lost initial guidance ACK, retaining Steer's prerequisite and other guards.
+Additive025 preserves010-024 bytes; registry counts are26 canonical/29 split.
+Its authored terminal/control and both-lineage down/up/refusal tests require
+current-source execution. No endpoint/schema/Hermes producer patch is introduced.
+The5bc PM13 result does not qualify this newer source or the separately reviewed
+test-connection fixture correction. Neither source review nor passing an earlier suite grants
+complete PM/native/SDLC acceptance.
+
+Earlier backend observation
+[38096026541](https://github.com/FerrPOINT/fleet-control/actions/runs/38096026541)/1
+failed2026-10-10T23:48:03Z on36fac/source8f, job114341986776, check3/84 exit101,
+unknown/diagnostics[], truncatedfalse, both scoped cleanups true; PG not reached.
+Original frozen36fac strict readback authenticates artifact11685104788, ZIP SHA256
+`026b9536097917b722f6dd2c33cd641c429d81b500d5a5a036137097c56d421d`;
+safe JSON SHA256 `15b1ede539d6c2cc824fc7a23f5704de1754ff8e6ed111cf5630cf321aa4de08`.
+No source cause was retained and this historical receipt is not reclassified.
+
+Latest terminal backend observation
+[38097365328](https://github.com/FerrPOINT/fleet-control/actions/runs/38097365328)/1,
+created2026-10-11T00:07:44Z, completed FAILURE00:11:29Z, job114345942303.
+Original strict6843 readback authenticates controls
+`6843c4f9f050f2f3966abf20e1fc48156cd9a38c`, unchanged source
+`8f8e69d637a64b2d7a3e8c2bc6dca00517539667`, artifact11686027116, ZIP SHA256
+`9476406cf6a93555b0655274570c8f7d18fb1112870c00ab97a72314a9ab17ba`;
+safe JSON SHA256 `5e9d835f403c4d80dfde7700c1f9315652e7c2110e61c0e2c90ec15140614c60`.
+Check3/84 command/gate exit101, categories[unknown], diagnostics[], truncatedfalse;
+scratch/synthetic-database cleanup and fallback/container stop true. PG was not
+reached; all acceptance flags remain false. The diagnostic slice retained no
+compiler code/frame/cause, proving neither network cause nor a source defect.
+It is not a source fix or passing qualification; older5bc PM13 does not qualify8f.
+
+Published source candidate `c976c27a19ec09c63aebcef74a03b7ab9ab442e2`, sole6bd
+child, checks bound pending PM runs before
+setting config drain: activation returns409 for reserved/no-journal, prepared
+and submitted/unknown acceptance without changing head/revision/custody/audit.
+It retains original-command reconciliation and accepted-running normal drain.
+The existing PM drain selector is extended, with no new selector or migration;
+its regression is authored, not executed. Source review/rustfmt/diff pass, but PG
+qualification is pending; neither source8f failure qualifies this candidate.
+
+Git inventory of exact8f versus unchanged mainc39 verifies524 changed paths and
+16 new migration files010-025. Historical exact698's523 paths/15 migrations010-024
+remain a historical audit, not current release size or merge-readiness authority.
 
 Earlier backend admission refusal
 [38078901349](https://github.com/FerrPOINT/fleet-control/actions/runs/38078901349),
@@ -316,6 +381,20 @@ Native-nine/cuts, PM/full interrupted-F6, runtime and full-SDLC acceptance remai
 unproven. Earlierbb remains a separate UNKNOWN/TAIL failure, not retroactively
 diagnosed. No raw build log or private payload is retained here.
 
+Point-in-time local capacity observation2026-10-10T23:48:46Z records host C:
+free58733666304 bytes (54.70GiB), physical memory available8912261120 bytes and
+Windows available commit2241064960 bytes (2.09GiB). Available commit is below
+the unchanged6442450944-byte6GiB floor by4201385984 bytes. Both existing local
+capacity checks, with and without phase disk headroom, REFUSE. Host disk passes
+the30GiB floor, but daemon free disk and currently available guest memory are
+unconfirmed; daemon total memory is not that proof. Grouping audit
+passes35 Desktop/0 sdlc1-runner/0 sdlc2-runner containers, all permanent, without
+cleanup or QA launch. This is grouping compliance, not capacity admission or
+native acceptance. Inspected runtime image sourcee465 is not an exact8f binary;
+the existing cold-native packet pins5db/free-chat scenarios, not PM acceptance.
+Exact8f binary/native-PM input qualification remains outstanding. No resource
+waiver, installed runtime change or new QA execution follows this readback.
+
 Earlier native [38077155580](https://github.com/FerrPOINT/fleet-control/actions/runs/38077155580),
 attempt1, is FAILURE on controls `1fa0a6c9123ef61cdd2b1254264f94c64600ce32`
 and source `5db4ff92d2168c46ce96b56f37acbbf7de92db33`. The authenticated
@@ -329,6 +408,37 @@ owned-alias cleanup marker pass, verifying absence of two candidate aliases,
 not an independent full Docker resource inventory. No native acceptance is
 claimed. Earlier38075925575 failed at parent_pull with no exact parent/cause;
 this newer observation neither repeats nor retroactively explains that failure.
+
+Current Forge qualification is a separate fresh run
+[38093642467](https://github.com/FerrPOINT/CI-CD/actions/runs/38093642467)/1,
+controls `278c7fb5863dd7b151a2c6bf0c202a274cc459f3`, source
+`e781b533bfb25fa669d5a5c65f8fa7094de7af02`, SDK19a/maintenance66b7.
+Original bounded authenticated A readback verifies artifact11684774894,
+ZIP SHA256 `9aa9454f4a52198bbe4cfee0e8961e53207677930b34f929e9b402a0fa9082ae`;
+report SHA256 `366c59b3607200a9de25b8943d0d1dce7e9b72153f54e5527dfdb6e2b942b21e`.
+Actual A passes Python81 (PG49/OCI32 declarations), row-smoke, smoke, check and
+Clippy with source266 parity, five distinct cleaned stage journals and exact
+resource-enforcement proofs. A cleanup/daemon stop/delegation removal and final
+baseline inventory preservation pass; these are A-only receipts, not native PG
+or OCI acceptance. Original frozen278 strict B readback authenticates
+artifact11686255733, ZIP SHA256
+`a1f315d56269b9d0422ad056bf4e137bac8f713d28f80b47adf5cb396bdcfe64`,
+report SHA256 `31f19119eca380ab577d68fb885bb7f1a3de9b9cd2c7495b6e85e3f56c498296`.
+B114336131953 completed00:01:43Z: PG5 PASS,24 exact negative identities and14
+cleaned journals (13 native-pg-session/one stage parent), scoped cleanup and
+baseline inventory preserved. These are fresh B proofs, not historical20e reuse.
+The run completed FAILURE2026-10-11T00:07:29Z at C114344911705. Authenticated
+artifact11687030847 has ZIP SHA256
+`885b860344506b1ca69551b7be10995136dda698feee3066626761384d13cf3a`,
+report SHA256 `bcf9959d6b0a86249adb4617f81b6823a3b10898fd39c5626c3a6f1033c44aea`.
+C OCI stage7 exits101 at oci_delivery.rs:603:5; CLI exit1/childErrorClassDiskSpaceGuard
+is a fixture-only observation with acceptanceVerified=false, not a unique cause
+or late capacity measurement. Only one cleaned stage parent/no native-oci-session
+journal; stages8-12 NOT_RUN. All partitions have scoped cleanup/daemon stop/
+delegation removal true and zero remaining task resources. Initial recorded
+capacity satisfies the floors, but does not prove capacity at the later child
+constructor or justify lowering a floor. Original aggregate rejects C at
+run.py:977 (required PARTITION_PASS); no full12/PM/native Hermes acceptance.
 
 Earlier Forge admission refusal
 [38083675365](https://github.com/FerrPOINT/CI-CD/actions/runs/38083675365)/1
@@ -390,8 +500,8 @@ source, PM or native Hermes acceptance is granted. Historical A-only and partial
 B reports retain their scopes; no old receipt is reused or overwritten.
 Product5f is unchanged. Historicalabf/d744 first-six-stage PASS and its distinct
 OCI failure follow without retrospective attribution.
-Preparede781 normally merges903; fresh qualification is pending,
-not a new run or a replacement for this terminal receipt.
+Later sourcee781 normally merges903 and has its own fresh qualification above;
+it does not replace or reuse this terminal20e receipt.
 
 Earlier Forge workload observation
 [38077188736](https://github.com/FerrPOINT/CI-CD/actions/runs/38077188736)/1

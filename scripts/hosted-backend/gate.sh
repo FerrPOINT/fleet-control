@@ -12,7 +12,7 @@ run_tests() {
   stage=$1
   shift
   local log=${QA_OUTPUT}/$stage.log expected=${QA_EXPECTED}/$stage.txt count ignored=0
-  if [[ "$stage" == foundation ]]; then ignored=125; fi
+  if [[ "$stage" == foundation ]]; then ignored=126; fi
   local exact=()
   if [[ "$stage" == lookup_* || "$stage" == control_api || "$stage" == container_preparation_projection ]]; then exact=(--exact); fi
   test -s "$expected"
@@ -263,6 +263,8 @@ stage=migration_smoke
   cargo run --locked -p migration -- status
   migration_snapshot up
   cargo run --locked -p migration -- down -n 1
+  migration_snapshot down_stop_drain
+  cargo run --locked -p migration -- down -n 1
   migration_snapshot down_stop
   cargo run --locked -p migration -- down -n 1
   migration_snapshot down_ack
@@ -291,7 +293,9 @@ stage=migration_smoke
   migration_snapshot ack_reapply
   cargo run --locked -p migration -- up -n 1
   migration_snapshot stop_reapply
-  cargo run --locked -p migration -- down -n 26
+  cargo run --locked -p migration -- up -n 1
+  migration_snapshot drain_reapply
+  cargo run --locked -p migration -- down -n 27
   cargo run --locked -p migration -- status
   migration_snapshot down_all
   cargo run --locked -p migration -- up

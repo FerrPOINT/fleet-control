@@ -309,8 +309,10 @@ async fn prepare_pm(
     {
         return Err(AppError::Forbidden);
     }
-    crate::pm_tool_config::verify(supervisor.repo.as_ref(), &current_agent, &supervisor.config)
-        .await?;
+    if operation == Operation::Steer {
+        crate::pm_tool_config::verify(supervisor.repo.as_ref(), &current_agent, &supervisor.config)
+            .await?;
+    }
     let intent = supervisor
         .repo
         .get_pm_dispatch(expected.id)

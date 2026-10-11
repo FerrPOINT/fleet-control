@@ -668,6 +668,133 @@ async fn pm_submission_is_one_shot_across_concurrent_claims_and_repository_resta
 
 #[tokio::test]
 async fn pm_drain_and_owner_revocation_block_the_unconsumed_submission() {
+    for stage in ["reserved", "prepared", "submitted"] {
+        let (repo, reservation) = pm_fixture()
+            .await
+            .expect("isolated PostgreSQL is required for PM activation tests");
+        repo.reserve_pm_run(reservation.clone()).await.unwrap();
+        let id = reservation.session_run_id;
+        let agent = reservation.identity.agent_id().unwrap();
+        let owner = repo
+            .get_session(reservation.session_id)
+            .await
+            .unwrap()
+            .user_id;
+        let intent = PmDispatchIntent {
+            session_run_id: id,
+            origin: "http://127.0.0.1:23810".into(),
+            credential_fingerprint: "a".repeat(64),
+            request_body: serde_json::to_string(
+                &json!({"input":"Original owner task","session_id":reservation.runtime_session_id()}),
+            )
+            .unwrap(),
+            workflow_assignment: json!({"operation_key":reservation.identity.assignment_operation_key}),
+            workflow_origin: "http://workflow.test".into(),
+            workflow_credential_fingerprint: "b".repeat(64),
+            runtime_context: json!({}),
+            submitted: false,
+            hermes_run_ref: None,
+        };
+        if stage != "reserved" {
+            repo.prepare_pm_dispatch(intent.clone()).await.unwrap();
+        }
+        if stage == "submitted" {
+            assert!(repo.claim_pm_submission(id).await.unwrap());
+        }
+        let draft = repo
+            .create_config_revision(agent, configuration(), owner)
+            .await
+            .unwrap();
+        let validated = repo
+            .validate_config_revision(agent, draft.revision, vec![])
+            .await
+            .unwrap();
+        assert_eq!(validated.state, "validated");
+        assert!(!validated.draining);
+        let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let snapshot_sql = "SELECT jsonb_build_object(
+            'head',(SELECT to_jsonb(h) FROM agent_config_heads h WHERE h.agent_id=$1),
+            'revision',(SELECT to_jsonb(c) FROM agent_config_revisions c WHERE c.agent_id=$1 AND c.revision=$3),
+            'run',(SELECT to_jsonb(r) FROM session_agent_runs r WHERE r.id=$2),
+            'binding',(SELECT to_jsonb(b) FROM pm_run_bindings b WHERE b.session_run_id=$2),
+            'journal',(SELECT to_jsonb(j) FROM pm_dispatch_journal j WHERE j.session_run_id=$2),
+            'audit',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY a.id),'[]'::jsonb)
+                FROM audit_log a WHERE a.entity_type='agent_config' AND a.entity_id=$1::text)
+            ) AS snapshot";
+        let before: serde_json::Value = db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                snapshot_sql,
+                [agent.into(), id.into(), draft.revision.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get("", "snapshot")
+            .unwrap();
+        assert_eq!(before["run"]["state"], "pending");
+        assert!(before["binding"]["hermes_run_ref"].is_null());
+        assert_eq!(before["journal"].is_null(), stage == "reserved");
+        assert!(matches!(
+            repo.request_config_activation(agent, draft.revision, owner)
+                .await,
+            Err(shared::AppError::Conflict(_))
+        ));
+        let after: serde_json::Value = db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                snapshot_sql,
+                [agent.into(), id.into(), draft.revision.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get("", "snapshot")
+            .unwrap();
+        assert_eq!(before, after, "activation mutated {stage} PM custody");
+        assert!(!repo.agent_is_draining(agent).await.unwrap());
+        assert_eq!(
+            repo.get_pm_dispatch(id).await.unwrap().is_none(),
+            stage == "reserved"
+        );
+        let original = repo.prepare_pm_dispatch(intent.clone()).await.unwrap();
+        assert_eq!(original.request_body, intent.request_body);
+        assert_eq!(original.submitted, stage == "submitted");
+        assert!(original.hermes_run_ref.is_none());
+        assert_eq!(
+            repo.claim_pm_submission(id).await.unwrap(),
+            stage != "submitted"
+        );
+        assert!(!repo.claim_pm_submission(id).await.unwrap());
+        repo.record_pm_submission(id, "run_config_drain".into())
+            .await
+            .unwrap();
+        repo.accept_pm_run(id, "run_config_drain".into(), "native-session".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            repo.get_session_agent_run(id).await.unwrap().state,
+            SessionRunState::Running
+        );
+        repo.request_config_activation(agent, draft.revision, owner)
+            .await
+            .unwrap();
+        assert!(repo.agent_is_draining(agent).await.unwrap());
+        assert!(repo.claim_config_activation().await.unwrap().is_none());
+        repo.observe_pm_run(id, domain::PmRuntimeStatus::Completed)
+            .await
+            .unwrap();
+        let claimed = repo.claim_config_activation().await.unwrap().unwrap();
+        assert_eq!(claimed.agent_id, agent);
+        assert_eq!(claimed.revision, draft.revision);
+        repo.finish_config_activation(agent, draft.revision, None, true)
+            .await
+            .unwrap();
+        assert!(!repo.agent_is_draining(agent).await.unwrap());
+        db.close().await.unwrap();
+    }
     let (repo, reservation, _) = setup().await;
     let id = reservation.session_run_id;
     let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())

@@ -8,6 +8,21 @@ accepted run, not a Tracker clarification answer or another model run. Stop
 acknowledgement retains capacity until exact native terminal status and the
 committed Fleet mirror agree. Original-key control replay must not resend.
 
+The025 candidate permits owner Stop after lost initial guidance ACK only for the
+originally accepted PM run; Steer's guidance/checkpoint prerequisite and all
+other authority/custody guards remain unchanged. PM status readback now reuses
+the shared terminal validator: completed requires matching native identity and
+exact boolean completed=true/partial=false/interrupted=false. Unknown evidence
+does not release custody. No endpoint/schema change or Hermes producer patch is
+required; current-source PostgreSQL/native qualification remains pending.
+
+The026 Fleet source candidate permits only explicit PM Stop during config drain
+and skips the PM MCP profile verifier only for Stop. Steer retains both gates;
+owner/project/assignment, coordinator, Tracker/Workflow, native, credential and
+original-custody checks remain unchanged. Pending-PM activation409 and
+accepted-running drain remain; ACK is not terminal proof. The Hermes producer
+and wire protocol are unchanged; PostgreSQL/runtime qualification is pending.
+
 Saved-answer delivery and PM continuation have independent durable states.
 Continuation needs the original answer/checkpoint, prior-run terminal proof,
 verified Workflow rebind and exact native acceptance; EOF, unavailable runtime
