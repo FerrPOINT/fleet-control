@@ -27,6 +27,14 @@ fresh database. Fixture Playwright cases run on Chromium, Firefox and WebKit;
 live cases require `SDLC_LIVE_QA=1`. Screenshots are fixture evidence, not a real
 seven-agent PM/decomposition/Rework/deployment acceptance.
 
+`agent_events` также требует `FLEET_TEST_DATABASE_URL` и завершается ошибкой
+без изолированного PostgreSQL. AFTER INSERT trigger добавляет более новое
+событие до возврата исходной записи; проверяется возврат собственного ID,
+payload и времени из БД. Второй тест проверяет 64 конкурентных writer:
+каждый получает свою сохранённую строку. Эти тесты входят в полный workspace
+gate; отдельно их можно запустить через
+`cargo test --locked -p infra --test agent_events -- --test-threads=1`.
+
 The managed-settings fixture changes themes through the shared account menu,
 checks the selected radio item and preserves preview/apply/rollback assertions.
 The removed standalone theme button is not an alternative control contract.

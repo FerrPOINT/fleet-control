@@ -13,13 +13,18 @@ const COMBINED: &str = super::COMBINED_VERSION;
 fn registered_versions_match_lineage_discriminators() {
     let canonical = Migrator::migrations();
     let legacy = LegacyMigrator::migrations();
-    assert_eq!(canonical.len(), 10);
-    assert_eq!(legacy.len(), 13);
-    assert_eq!(canonical.last().unwrap().name(), COMBINED);
+    assert_eq!(canonical.len(), 12);
+    assert_eq!(legacy.len(), 15);
+    assert_eq!(canonical[9].name(), COMBINED);
+    assert_eq!(
+        canonical.last().unwrap().name(),
+        "m20261008_000091_context_drafts"
+    );
     assert_eq!(
         legacy
             .iter()
             .skip(9)
+            .take(4)
             .map(|item| item.name())
             .collect::<Vec<_>>(),
         super::SPLIT_VERSIONS
@@ -131,7 +136,7 @@ async fn fresh_canonical_install_is_repeatable() {
     let fixture = Fixture::new().await;
     Migrator::up(&fixture.db, None).await.unwrap();
     let before = ledger(&fixture.db).await;
-    assert_eq!(before.len(), 10);
+    assert_eq!(before.len(), 12);
     assert!(before.iter().any(|(version, _)| version == COMBINED));
     Migrator::up(&fixture.db, None).await.unwrap();
     assert_eq!(ledger(&fixture.db).await, before);
@@ -141,10 +146,16 @@ async fn fresh_canonical_install_is_repeatable() {
             .unwrap()
             .is_empty()
     );
-    Migrator::down(&fixture.db, Some(1)).await.unwrap();
-    assert_eq!(ledger(&fixture.db).await.len(), 9);
+    assert!(
+        Migrator::down(&fixture.db, Some(1))
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("compatible cohort")
+    );
+    assert_eq!(ledger(&fixture.db).await, before);
     Migrator::up(&fixture.db, None).await.unwrap();
-    assert_eq!(ledger(&fixture.db).await.len(), 10);
+    assert_eq!(ledger(&fixture.db).await.len(), 12);
     fixture.close().await;
 }
 
@@ -158,7 +169,7 @@ async fn common_prefix_completes_with_canonical_foundation() {
     let data = history(&fixture.db).await;
     Migrator::up(&fixture.db, None).await.unwrap();
     let after = ledger(&fixture.db).await;
-    assert_eq!(after.len(), 10);
+    assert_eq!(after.len(), 12);
     assert!(after.iter().any(|(version, _)| version == COMBINED));
     assert!(before.iter().all(|entry| after.contains(entry)));
     assert_eq!(history(&fixture.db).await, data);
@@ -173,13 +184,19 @@ async fn split_down_one_and_reapply_preserves_other_history() {
     seed_history(&fixture.db).await;
     let before = ledger(&fixture.db).await;
     let data = history(&fixture.db).await;
-    Migrator::down(&fixture.db, Some(1)).await.unwrap();
+    assert!(
+        Migrator::down(&fixture.db, Some(1))
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("compatible cohort")
+    );
     let remaining = ledger(&fixture.db).await;
-    assert_eq!(remaining.len(), 12);
+    assert_eq!(remaining, before);
     assert!(remaining.iter().all(|entry| before.contains(entry)));
     Migrator::up(&fixture.db, None).await.unwrap();
     let after = ledger(&fixture.db).await;
-    assert_eq!(after.len(), 13);
+    assert_eq!(after.len(), 15);
     assert!(remaining.iter().all(|entry| after.contains(entry)));
     assert!(!after.iter().any(|(version, _)| version == COMBINED));
     assert_eq!(history(&fixture.db).await, data);
@@ -194,14 +211,14 @@ async fn complete_split_history_preserves_data_and_ledger() {
     seed_history(&fixture.db).await;
     let before = ledger(&fixture.db).await;
     let data = history(&fixture.db).await;
-    assert_eq!(before.len(), 13);
+    assert_eq!(before.len(), 15);
     assert_eq!(data.len(), 2);
     for _ in 0..2 {
         Migrator::up(&fixture.db, None).await.unwrap();
         let status = Migrator::get_migration_with_status(&fixture.db)
             .await
             .unwrap();
-        assert_eq!(status.len(), 13);
+        assert_eq!(status.len(), 15);
         assert!(
             status
                 .iter()
@@ -230,7 +247,7 @@ async fn partial_split_history_completes_only_missing_versions() {
     assert_eq!(before.len(), 10);
     Migrator::up(&fixture.db, None).await.unwrap();
     let after = ledger(&fixture.db).await;
-    assert_eq!(after.len(), 13);
+    assert_eq!(after.len(), 15);
     assert!(!after.iter().any(|(version, _)| version == COMBINED));
     assert!(before.iter().all(|entry| after.contains(entry)));
     assert_eq!(history(&fixture.db).await, data);

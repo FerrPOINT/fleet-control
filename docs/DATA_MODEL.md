@@ -104,3 +104,8 @@ Indexes cover agent status filters, product-role filters, per-agent/per-user
 session lists, leader-scoped session lists, participants, message ordering,
 runtime runs, task-key lookup, workflow namespace lookup, deployment job state,
 audit-log filters and recent events/logs.
+
+
+## Сквозной Namespace
+
+Версионированные API, данные, ownership и совместимость описаны в [Namespace](NAMESPACE.md).

@@ -12,6 +12,7 @@ pub use id::*;
 
 // Fleet-shared error lives in sdlc-shared (services-base); re-export keeps
 // every `shared::AppError` call site intact.
+pub use sdlc_shared::resource_context;
 pub use sdlc_shared::{AppError, AppResult, ErrorBody, ErrorEnvelope};
 
 use chrono::{DateTime, FixedOffset, Utc};

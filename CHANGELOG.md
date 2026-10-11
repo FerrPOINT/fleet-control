@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Base обновлён для удержания focus в `ConfirmDialog` во время pending.
+
+- Активный Base pin обновлён до согласованного кандидата SDK/UI/workspace;
+  документация standalone build использует тот же порядок выбора pin, что CI.
+
 - Первый prompt допускается при валидном подготовительном pending run без
   runtime identity. Ожидающая доставка берётся из полного состояния сессии,
   включая сообщения за пределами 500 строк истории; неизвестная проекция
@@ -11,6 +16,11 @@
   redacted-текст ответа. Message receipts, replay, dispatch и assistant mirror
   используют конкретную сохранённую строку за пределами первых 500 сообщений.
   История остаётся ограниченной; hash возвращается в авторизованном POST receipt.
+- Запись события агента возвращает собственную сохранённую строку атомарно,
+  даже если параллельный writer уже добавил более новое событие. PostgreSQL
+  регрессии проверяют детерминированное пересечение и 64 конкурентных записи.
+
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
 
 - После ошибки readiness refresh страница конфигурации показывает «Неизвестно»
   для runtime и SDLC, сохраняя действующую редакцию; успешный повтор возвращает
@@ -112,11 +122,17 @@
 
 ## [Unreleased]
 
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
+
 ### Added
 
 - Fleet monitoring alerts: миграция 6 (`fleet_alerts`), авто-алерты переходов здоровья агентов (agent_down / agent_recovered авто-resolve), `GET /api/v1/fleet-alerts` + acknowledge (Operator+, аудит), нед блокирующая запись переходов из start/stop/health.
 
 ## [Unreleased]
+
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
 
 ### Added
 
@@ -124,11 +140,17 @@
 
 ## [Unreleased]
 
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
+
 ### Added
 
 - Bulk runtime updates/rollback: `POST /api/v1/deployments/jobs/bulk` — один deployment job на агента (≤100), пропуск archived, `rollback` для runtime_update (IMPLEMENTATION_PLAN Phase 3).
 
 ## [Unreleased]
+
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
 
 ### Added
 

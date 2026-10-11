@@ -3,6 +3,7 @@ pub mod auth;
 pub mod dashboard;
 pub mod deployments;
 pub mod events;
+pub mod execution_context;
 pub mod executors;
 pub mod health;
 pub mod leaders;

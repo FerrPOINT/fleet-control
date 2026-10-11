@@ -499,12 +499,13 @@ pub async fn stream_session(
                         if !central.allows_service("fleet-control", "GET") {
                             return None;
                         }
-                        let email = central.email.as_deref()?;
-                        let principal = ctx
-                            .repo
-                            .find_or_create_central_user(&central.user_id, email, &name)
-                            .await
-                            .ok()?;
+                        let principal = crate::middleware::resolve_central_user(
+                            &ctx,
+                            &central,
+                            name.as_deref(),
+                        )
+                        .await
+                        .ok()?;
                         session_stream_user_matches(&principal, user.id)
                     }
                     crate::middleware::central_auth::CentralCheck::FallThrough
@@ -665,7 +666,7 @@ fn session_stream_subject_matches(subject: &str, expected_user_id: Uuid) -> bool
     subject.parse::<Uuid>().ok() == Some(expected_user_id)
 }
 
-fn ensure_session_read_access(
+pub(super) fn ensure_session_read_access(
     session: &AgentSession,
     user: &crate::middleware::CurrentUser,
 ) -> Result<(), AppError> {
@@ -682,7 +683,7 @@ fn ensure_session_read_access(
     Err(AppError::Forbidden)
 }
 
-fn ensure_session_write_access(
+pub(super) fn ensure_session_write_access(
     session: &AgentSession,
     user: &crate::middleware::CurrentUser,
 ) -> Result<(), AppError> {

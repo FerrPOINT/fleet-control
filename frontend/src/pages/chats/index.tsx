@@ -5,7 +5,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bot, MessageSquare, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label } from '@sdlc/ui/ui'
-import { getSession, createSession, listAgentDirectory, listSessions } from '@/api/fleet'
+import {
+  getSession,
+  createSession,
+  createContextSession,
+  listAgentDirectory,
+  listSessions,
+} from '@/api/fleet'
 import type { AgentDirectoryItem, AgentSession } from '@/api/types'
 import { useSessionUserFilter, SessionUserFilter } from '@/shared/session-user-filter'
 import { isCurrentAuth, ssoConfig, useAuthStore } from '@/shared/auth/store'
@@ -18,9 +24,19 @@ import {
   unknownOutcome,
   type DispatchMarker,
 } from '../chat-detail/core'
+import { parseNamespaceLocation } from '@sdlc/ui/lib'
+import type { components } from '@/api/generated'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { sdlcRoleLabel } from '@/shared/sdlc-roles'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
+
+function contextPath(path: string, params: URLSearchParams) {
+  const target = new URL(path, 'https://relative.invalid')
+  const context = target.searchParams
+  for (const key of ['registry_instance_id', 'namespace_id', 'tracker_instance_id', 'task_id'])
+    for (const value of params.getAll(key)) context.append(key, value)
+  return target.pathname + target.search + target.hash
+}
 
 export function groupChats(agents: AgentDirectoryItem[], sessions: AgentSession[]) {
   return agents.map((agent) => ({
@@ -196,7 +212,10 @@ export function ChatsPage() {
                   {visibleSessions.map((session) => (
                     <li key={session.id}>
                       <Link
-                        to={`/chats/${session.id}?backTo=${encodeURIComponent(`/chats?${params}`)}`}
+                        to={contextPath(
+                          `/chats/${session.id}?backTo=${encodeURIComponent(`/chats?${params}`)}`,
+                          params,
+                        )}
                         className="flex min-w-0 items-start gap-3 rounded-sm px-2 py-4 hover:bg-surface-raised focus-visible:outline-focus"
                       >
                         <UserAvatar
@@ -267,15 +286,19 @@ function CreatePrivateChat({
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [contextParams] = useSearchParams()
   const client = useQueryClient()
   const [title, setTitle] = useState('')
   const [key, setKey] = useState(() => crypto.randomUUID())
   const auth = useAuthStore()
   const scopeId = `create:${agent.id}`
   const [held, setHeld] = useState(() => dispatchHeld(scopeId))
-  const original = useRef<{ title: string; marker: DispatchMarker; uncertain: boolean } | null>(
-    null,
-  )
+  const original = useRef<{
+    title: string
+    marker: DispatchMarker
+    uncertain: boolean
+    context?: components['schemas']['ExecutionContextV2']
+  } | null>(null)
   const live = useRef(true)
   const dispatching = useRef(false)
   useEffect(() => {
@@ -301,6 +324,36 @@ function CreatePrivateChat({
           throw new Error('Read-only')
         if (!original.current) {
           if (dispatchHeld(scopeId)) throw new Error('Reconciliation required')
+          let context: components['schemas']['ExecutionContextV2'] | undefined
+          if (
+            import.meta.env.VITE_NAMESPACE_ENABLED === 'true' &&
+            ['registry_instance_id', 'namespace_id', 'task_id', 'tracker_instance_id'].some(
+              (name) => contextParams.has(name),
+            )
+          ) {
+            const namespace = parseNamespaceLocation(contextParams.toString())
+            const identity = (name: string) => {
+              const values = contextParams.getAll(name)
+              return values.length === 1 &&
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                  values[0] ?? '',
+                ) &&
+                values[0] !== '00000000-0000-0000-0000-000000000000'
+                ? values[0]
+                : null
+            }
+            const tracker = identity('tracker_instance_id')
+            const task = identity('task_id')
+            if (!namespace || !tracker || !task)
+              throw new Error('Для контекста проекта нужна корректная ссылка на задачу Tracker')
+            context = {
+              schema_version: 2,
+              operation_id: key,
+              namespace,
+              task: { tracker_instance_id: tracker, task_id: task },
+              repositories: [],
+            }
+          }
           const marker = {
             actor: scope.userId!,
             agent: agent.id,
@@ -310,23 +363,32 @@ function CreatePrivateChat({
               title: title.trim(),
               primary_agent_id: agent.id,
               leader_agent_id: null,
+              ...(context ? { context } : {}),
             }),
           }
           if (!isCurrentAuth(scope) || !live.current) throw new Error('Authentication changed')
           markDispatch(scopeId, marker)
-          original.current = { title: title.trim(), marker, uncertain: false }
+          original.current = { title: title.trim(), marker, uncertain: false, context }
           setHeld(true)
         }
         const command = original.current
         if (command.marker.actor !== scope.userId) throw new Error('Authentication changed')
         let created: AgentSession
         try {
-          created = await createSession({
-            primary_agent_id: agent.id,
-            title: command.title,
-            leader_agent_id: null,
-            idempotency_key: command.marker.key,
-          })
+          created = command.context
+            ? (
+                await createContextSession({
+                  primary_agent_id: agent.id,
+                  title: command.title,
+                  context: command.context,
+                })
+              ).session
+            : await createSession({
+                primary_agent_id: agent.id,
+                title: command.title,
+                leader_agent_id: null,
+                idempotency_key: command.marker.key,
+              })
         } catch (failure) {
           if (
             live.current &&
@@ -376,7 +438,9 @@ function CreatePrivateChat({
       setTitle('')
       setKey(crypto.randomUUID())
       if (!live.current || useAuthStore.getState().signingOut) return
-      navigate(`/chats/${session.id}?backTo=${encodeURIComponent(backTo)}`)
+      navigate(
+        contextPath(`/chats/${session.id}?backTo=${encodeURIComponent(backTo)}`, contextParams),
+      )
     },
   })
   return (

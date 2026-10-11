@@ -90,6 +90,33 @@ pub struct RuntimeSessionSnapshot {
 
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    async fn create_context_session(
+        &self,
+        _request: domain::execution_context::CreateContextSessionRequest,
+        _actor: Uuid,
+    ) -> Result<domain::execution_context::ContextSessionReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "namespace_context_creation_not_configured".into(),
+        ))
+    }
+    async fn session_execution_context(
+        &self,
+        _session: Uuid,
+    ) -> Result<Option<domain::execution_context::SessionExecutionContext>, AppError> {
+        Err(AppError::Unavailable(
+            "execution_context_store_unavailable".into(),
+        ))
+    }
+    async fn bind_session_execution_context(
+        &self,
+        _session: Uuid,
+        _actor: Uuid,
+        _context: domain::execution_context::ExecutionContextV2,
+    ) -> Result<domain::execution_context::SessionExecutionContext, AppError> {
+        Err(AppError::Unavailable(
+            "execution_context_store_unavailable".into(),
+        ))
+    }
     async fn list_runtime_templates(&self) -> Result<Vec<RuntimeTemplate>, AppError>;
     async fn ensure_runtime_templates(&self) -> Result<(), AppError>;
     async fn list_agents(&self) -> Result<Vec<Agent>, AppError>;
@@ -352,6 +379,12 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<AgentLogEntry, AppError>;
 
     async fn find_user_by_email(&self, email: &str) -> Result<Option<auth::UserRecord>, AppError>;
+    async fn find_user_by_central_subject(
+        &self,
+        _subject: &str,
+    ) -> Result<Option<auth::UserRecord>, AppError> {
+        Ok(None)
+    }
     async fn find_or_create_central_user(
         &self,
         _sub: &str,

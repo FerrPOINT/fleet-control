@@ -11,6 +11,7 @@ import { useAuthStore } from '@/shared/auth/store'
 vi.mock('@/api/fleet', () => ({
   getSession: vi.fn(),
   createSession: vi.fn(),
+  createContextSession: vi.fn(),
   listAgentDirectory: vi.fn(),
   listSessions: vi.fn(),
 }))
@@ -46,12 +47,12 @@ const session = {
   last_message_preview: 'Login requirements',
 } as AgentSession
 
-function renderPage() {
+function renderPage(entry = '/chats') {
   return render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[entry]}>
         <ChatsPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -123,6 +124,36 @@ describe('ChatsPage', () => {
     expect(vi.mocked(fleet.createSession).mock.calls[1]?.[0].idempotency_key).toBe(
       first?.idempotency_key,
     )
+  })
+
+  it('creates an inert v2 chat from a Task URL and freezes its context across retries', async () => {
+    vi.stubEnv('VITE_NAMESPACE_ENABLED', 'true')
+    vi.mocked(fleet.createContextSession).mockRejectedValueOnce(new Error('offline'))
+    const registry = '11111111-1111-4111-8111-111111111111'
+    const namespace = '22222222-2222-4222-8222-222222222222'
+    const tracker = '33333333-3333-4333-8333-333333333333'
+    const task = '44444444-4444-4444-8444-444444444444'
+    renderPage(
+      `/chats?registry_instance_id=${registry}&namespace_id=${namespace}&tracker_instance_id=${tracker}&task_id=${task}`,
+    )
+    const button = await screen.findByRole('button', { name: 'Новый чат' })
+    await waitFor(() => expect(button).toBeEnabled())
+    fireEvent.click(button)
+    fireEvent.change(screen.getByLabelText('Название'), { target: { value: 'Private work' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await waitFor(() => expect(fleet.createContextSession).toHaveBeenCalledTimes(1))
+    expect(fleet.createSession).not.toHaveBeenCalled()
+    const original = vi.mocked(fleet.createContextSession).mock.calls[0]?.[0]
+    expect(original?.context).toMatchObject({
+      schema_version: 2,
+      namespace: { registry_instance_id: registry, namespace_id: namespace },
+      task: { tracker_instance_id: tracker, task_id: task },
+    })
+    await screen.findByText(/Создание не подтверждено/)
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await waitFor(() => expect(fleet.createContextSession).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(fleet.createContextSession).mock.calls[1]?.[0]).toEqual(original)
+    vi.unstubAllEnvs()
   })
 
   it('renders loading failures instead of an empty directory', async () => {
