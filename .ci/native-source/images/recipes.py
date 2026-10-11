@@ -29,9 +29,14 @@ def hermes_recipe(raw, inputs, lock):
     # Registry sdists would introduce additional, unreviewed build dependencies.
     # Do not fall back: this bounded unit admits locked runtime wheels only, plus
     # Hermes' own editable build using the two explicitly hashed build constraints.
-    no_build = " ".join("--no-build-package " + p["name"] for p in packages if "registry" in p.get("source", {}))
+    # The project and pip CLIs use different package-vector flags and delimiters.
+    registry = [p["name"] for p in packages if "registry" in p.get("source", {})]
+    no_build = "--no-build-package '" + " ".join(registry) + "'"
+    only_binary = "--only-binary '" + ",".join(registry) + "'"
     tail = tail.replace(line, "COPY recipes/build-constraints.txt /build-inputs/build-constraints.txt\n" +
-                        line + " --build-constraint /build-inputs/build-constraints.txt " + no_build)
+                        line + " --no-install-project " + no_build +
+                        " && uv pip install --python /opt/hermes/.venv/bin/python --no-deps --editable /opt/hermes"
+                        " --build-constraint /build-inputs/build-constraints.txt " + only_binary)
     tail = tail.replace("COPY --from=builder /fleet-server /usr/local/bin/fleet-control-server\n", "")
     tail = tail.replace("groupadd -r fleet-control && useradd -r -g fleet-control", "groupadd -g 999 fleet-control && useradd -u 999 -g fleet-control")
     label_start = tail.index("ARG BASE_REVISION\n")

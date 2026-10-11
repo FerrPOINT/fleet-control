@@ -4,13 +4,13 @@ This README supersedes current-status claims in historical wrapper reports and
 the historical sections of `qa/README.md`/`qa/CUTS.md`. Historical packets and Git
 objects remain unchanged; they are not receipts for this successor.
 
-**Prepared, not executed or accepted.** The unit is a cold source image build,
+**Build-only candidate, not accepted.** The unit is a cold source image build,
 the unchanged offline qualifier, then the existing two-agent native driver and
 separate protocol4 cut supplement on the **same Linux daemon**. The caller is
 [native-source-build-only.yml](../../.github/workflows/native-source-build-only.yml),
-one Ubuntu24.04 job on the dedicated build-only push branch. This diagnostic
-successor is not yet published or executed; prior attempts did not reach native
-acceptance.
+one Ubuntu24.04 job on the dedicated build-only push branch. This two-phase
+recipe successor requires review and execution authorization. Current results
+require authenticated run readback; prior attempts did not reach native acceptance.
 No registry
 transport, service, scheduler, Hermes patch or production source edit is added.
 
@@ -57,6 +57,15 @@ Signed snapshot metadata is hash-checked before APT installs. Registry Python
 sdists are prohibited; Hermes' own editable build uses explicit hashed
 wheel/setuptools constraints. No resolver has run: missing platform wheels fail
 closed, without fallback or lock mutation. Cargo retains product lock checksums.
+The source-only recipe successor uses uv0.11.6's supported two-phase path:
+`sync --frozen --no-install-project` selects the original runtime lock and extras,
+then `pip install --no-deps --editable` installs only the Hermes root into that
+same venv with the two original hash-URL build constraints. Both phases retain
+the complete registry no-build package vector; build isolation stays enabled.
+Project sync uses a space-delimited no-build-package vector; pip install uses
+the equivalent comma-delimited only-binary vector. No project/lock/dependency or
+resource pin changes; this candidate still requires actual cold/offline/native
+qualification and does not reclassify the prior UNKNOWN/FULL failure.
 The original offline qualifier is LF-byte-identical: Rust/Cargo1.88, fmt/clippy,
 Docker/Compose, all13770 blobs and `uv sync --check --frozen --offline` with the
 original extras. UID/GID999 and socket boundaries remain unchanged.
@@ -97,8 +106,8 @@ prevents success output; terminal VM teardown is not cleanup evidence.
 The authored caller requires parent/independent review before publication. Its
 public preflight verifies the exact source tuple and additions before any private
 Base token use. All35 copied QA/image files match component
-`4e65a5a05f8672531bba19d9546e58d8e2f29c6e`; their compact path/SHA256 map digest is
-`d49ee2507c72ddc1810c40f050486d670d79f183f3474083f6147720a1f359a1`.
+`5ac37daf3b58b310f6f10dd5f69d8b6475b10ecc`; their compact path/SHA256 map digest is
+`068113506b29ffe6e5430e47dfd5a53b958462647ee9c57c345fea5b37932e39`.
 Only this README and the workflow are caller-specific. No cache, Git donor,
 credentials or prepared packet is included. In that one host job, set absolute
 exact Git input directories (no dependency copies):
@@ -173,8 +182,8 @@ RUN from the hash-checked sealed recipe and its reviewed command hash. No
 command/path/frame/body is projected. Missing/conflicting/partial/untrusted
 evidence stays null/unknown; old receipt shapes, categories, bounds and timeout
 behavior remain compatible. These are diagnostic observations, not a cause or
-native acceptance proof. This successor is uncommitted and not launchable
-until independent review, final component reference binding and authorization.
+native acceptance proof. Publication and execution require final independent
+review and explicit authorization; acceptance requires validated run receipts.
 
 The caller's only artifact is a success-only `receipt.json` (maximum64KiB).
 It revalidates existing original-nine and cut reports, actual compile proofs,
@@ -235,12 +244,14 @@ Actual1fa run38077155580 proved candidate_build/command_nonzero with all parent
 parity passed, but retained no candidate role, child exit or build cause. This
 change does not retroactively diagnose it or qualify any native scenario.
 
-Any future direct qualification is for2dc only, not historical5db or later heads.
-The authentic aabe codegen receipt38107719356 remains historical evidence:
-the76-file API dependency closure is byte-identical, but it does not qualify
-the repaired credentials fixture or full backend. Native launch remains held
-until backend qualification and explicit review/authorization. This retarget
-does not introduce PM/F6 coverage beyond the existing matrices.
+Direct qualification targets pinned sourcec3fc;2dc/5db evidence stays historical.
+Parent authorized isolated candidate QA separately from backend qualification,
+not runtime promotion. Published f876/sourcec3fc run38113987817/1 failed candidate
+build; original-nine/cuts did not execute and root cause remains unproven.
+The authentic aabe codegen receipt38107719356 retains its original provenance;
+reuse requires exact76-file API closure parity, not backend/native acceptance.
+Any new successor still requires review and explicit execution authorization.
+Existing PM/F6 coverage limits remain unchanged.
 
 ## Host Compose compatibility
 

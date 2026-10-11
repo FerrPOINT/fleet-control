@@ -7,6 +7,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shlex
 import stat
 import sys
 import tempfile
@@ -76,9 +77,62 @@ class SourceTests(unittest.TestCase):
     def test_no_unreviewed_registry_sdist_build_fallback(self):
         import tomllib
         raw = recipes.hermes_recipe(self.base_recipe(), build.INPUTS, self.lock()).decode()
-        for package in tomllib.loads(self.lock().decode())["package"]:
-            if "registry" in package.get("source", {}):
-                self.assertIn("--no-build-package " + package["name"], raw)
+        command = next(line[4:] for line in raw.splitlines() if line.startswith("RUN uv sync "))
+        phases = command.split(" && ")
+        self.assertEqual(len(phases), 2)
+        expected = [package["name"] for package in tomllib.loads(self.lock().decode())["package"]
+                    if "registry" in package.get("source", {})]
+        self.assertEqual(len(expected), 258)
+        self.assertNotIn("hermes-agent", expected)
+        for phase, flag, delimiter in zip(phases, ("--no-build-package", "--only-binary"), (" ", ",")):
+            args = shlex.split(phase)
+            self.assertEqual(args.count(flag), 1)
+            self.assertEqual(args[args.index(flag) + 1].split(delimiter), expected)
+            self.assertNotIn(":all:", args[args.index(flag) + 1])
+            self.assertNotIn(":none:", args[args.index(flag) + 1])
+
+    def test_project_sync_installs_only_frozen_runtime_dependencies(self):
+        raw = recipes.hermes_recipe(self.base_recipe(), build.INPUTS, self.lock()).decode()
+        command = next(line[4:] for line in raw.splitlines() if line.startswith("RUN uv sync "))
+        args = shlex.split(command.split(" && ")[0])
+        self.assertEqual(args[:-2], ["uv", "sync", "--frozen", "--no-dev", "--extra", "web",
+                                   "--extra", "messaging", "--python", "/usr/bin/python3",
+                                   "--no-install-project"])
+        self.assertEqual(args[-2], "--no-build-package")
+        self.assertNotIn("--build-constraint", args)
+        self.assertNotIn("--only-binary", args)
+
+    def test_editable_root_uses_original_venv_without_runtime_dependency_resolution(self):
+        raw = recipes.hermes_recipe(self.base_recipe(), build.INPUTS, self.lock()).decode()
+        command = next(line[4:] for line in raw.splitlines() if line.startswith("RUN uv sync "))
+        args = shlex.split(command.split(" && ")[1])
+        self.assertEqual(args[:-2], ["uv", "pip", "install", "--python", "/opt/hermes/.venv/bin/python",
+                                   "--no-deps", "--editable", "/opt/hermes", "--build-constraint",
+                                   "/build-inputs/build-constraints.txt"])
+        self.assertEqual(args[-2], "--only-binary")
+        self.assertNotIn("--no-build-package", args)
+        self.assertNotIn("--no-build-isolation", args)
+        self.assertNotIn("--no-verify-hashes", args)
+
+    def test_editable_root_build_system_requires_only_the_two_constrained_packages(self):
+        import tomllib
+        repo = Path(os.environ["FLEET_QA_HERMES_REPO"])
+        project = tomllib.loads(git(repo, "show", build.INPUTS["hermes"] + ":pyproject.toml").decode())
+        self.assertEqual(project["project"]["name"], "hermes-agent")
+        self.assertEqual(project["build-system"],
+                         {"requires": ["setuptools==83.0.0", "wheel"], "build-backend": "setuptools.build_meta"})
+        self.assertEqual(set(project["project"]["optional-dependencies"]) & {"web", "messaging"},
+                         {"web", "messaging"})
+
+    def test_two_phase_recipe_hash_and_existing_terminal_bound_are_explicit(self):
+        raw = recipes.hermes_recipe(self.base_recipe(), build.INPUTS, self.lock())
+        command = next(line[4:] for line in raw.splitlines() if line.startswith(b"RUN uv sync "))
+        self.assertEqual(hashlib.sha256(command).hexdigest(),
+                         "0b58742ab99ab2b9eff32eef4647930b1307bda332bba3a9c73c8d832d304aaa")
+        self.assertEqual(hashlib.sha256(raw).hexdigest(),
+                         "611c39573bee313f09b03737e0e981104fde96bffa0bfdca48426cea04af982e")
+        self.assertEqual(len([line for line in raw.splitlines() if line.startswith(b"RUN ")]), 3)
+        self.assertLessEqual(len(b"/bin/sh -c " + command), 16384)
 
     def test_wheel_and_setuptools_are_explicit_hash_url_constraints(self):
         raw = recipes.build_constraints(build.INPUTS).decode().splitlines()

@@ -35,7 +35,7 @@ BUILD_SCAN_LIMIT = 8 * 1024 ** 2
 BUILD_LINE_LIMIT = 65536
 RECIPE_RUNS = {
     "33e8b80d063bda4262e9e01a23ba978b839c2b9627f7a9f938d59c3755c29c8a": "apt_setup",
-    "df7258831be12f4b80b57113120ce4b302ee2de504e40cde43e27328e9f2600d": "uv_sync",
+    "0b58742ab99ab2b9eff32eef4647930b1307bda332bba3a9c73c8d832d304aaa": "uv_sync",
     "08c1d64bde9e3725433a4696291216a991ada87e164562f80789e13b79193fee": "account_setup",
 }
 BUILD_CATEGORIES = PULL_CATEGORIES | {"rust_compile", "no_space", "dependency_resolution",
