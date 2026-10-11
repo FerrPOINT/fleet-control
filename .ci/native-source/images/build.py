@@ -33,6 +33,11 @@ CANDIDATE_KINDS = frozenset(("controller", "hermes"))
 BUILD_LOG_LIMIT = 65536
 BUILD_SCAN_LIMIT = 8 * 1024 ** 2
 BUILD_LINE_LIMIT = 65536
+RECIPE_RUNS = {
+    "33e8b80d063bda4262e9e01a23ba978b839c2b9627f7a9f938d59c3755c29c8a": "apt_setup",
+    "df7258831be12f4b80b57113120ce4b302ee2de504e40cde43e27328e9f2600d": "uv_sync",
+    "08c1d64bde9e3725433a4696291216a991ada87e164562f80789e13b79193fee": "account_setup",
+}
 BUILD_CATEGORIES = PULL_CATEGORIES | {"rust_compile", "no_space", "dependency_resolution",
     "docker_cli_refused", "compose_config_refused", "pinned_fetch_refused", "pinned_hash_refused", "apt_refused", "account_refused",
     "uv_build_refused", "uv_download_build_refused", "uv_no_solution", "uv_no_platform_distribution"}
@@ -102,6 +107,14 @@ def failure_projection(report):
             codes = list(dict.fromkeys(code for code in codes[:8] if type(code) is str and re.fullmatch(r"E[0-9]{4}", code)))
             if codes:
                 value["rust_codes"] = codes
+        if "recipe_instruction" in candidate or "inner_exit_code" in candidate:
+            instruction, inner = candidate.get("recipe_instruction"), candidate.get("inner_exit_code")
+            valid = (value["kind"] == "hermes" and value["log_scope"] == "full"
+                     and value["exit_code"] is not None and type(instruction) is str
+                     and instruction in RECIPE_RUNS.values() and type(inner) is int and 1 <= inner <= 255)
+            value.update(recipe_instruction=instruction if valid else None, inner_exit_code=inner if valid else None)
+            if not valid:
+                value["category"] = "unknown"
         result["candidate_build"] = value
     if len(json.dumps(result).encode("ascii")) > 1024:
         raise ValueError("Closed failure projection exceeds bound")
@@ -134,12 +147,15 @@ def parent_pull_category(raw):
     return matches[0] if len(matches) == 1 else "unknown"
 
 
-def candidate_build_diagnostic(raw, *, tail=False):
+def candidate_build_diagnostic(raw, *, tail=False, recipe=None, recipe_sha256=None):
     """Bounded complete frames only; large logs do not enable broad legacy heuristics."""
     if (type(raw) is not bytes or type(tail) is not bool
             or len(raw) > (BUILD_LOG_LIMIT if tail else BUILD_SCAN_LIMIT)
             or raw.count(b"\n") > BUILD_LINE_LIMIT):
-        return dict(category="unknown", log_scope="unavailable")
+        result = dict(category="unknown", log_scope="unavailable")
+        if recipe_sha256 is not None:
+            result.update(recipe_instruction=None, inner_exit_code=None)
+        return result
     legacy_full = not tail and len(raw) <= BUILD_LOG_LIMIT
     if tail:
         raw = raw.partition(b"\n")[2]
@@ -150,7 +166,7 @@ def candidate_build_diagnostic(raw, *, tail=False):
         "uv_no_solution": rb"  \xc3\x97 No solution found when resolving dependencies(?: for [^\r\n\x1b]{1,2048})?:",
         "uv_no_platform_distribution": rb"error: Distribution `[^`\r\n\x1b]{1,2048}` can't be installed because it doesn't have a source distribution or wheel for the current platform",
     }
-    uv_headers, uv_failed = {}, set()
+    uv_headers, uv_failed, terminals = {}, set(), []
     # Correlate complete producer frames before stripping their vertex identity.
     for line in complete:
         if b"\x1b" in line:
@@ -160,9 +176,11 @@ def candidate_build_diagnostic(raw, *, tail=False):
             for reason, pattern in uv_patterns.items():
                 if re.fullmatch(pattern, header[2]):
                     uv_headers.setdefault(header[1], set()).add(reason)
-        terminal = re.fullmatch(rb'#([1-9][0-9]{0,5}) ERROR: process "[^\r\n\x1b]{1,16384}" did not complete successfully: exit code: ([1-9][0-9]{0,2})', line)
-        if terminal and int(terminal[2]) <= 255 and terminal[1] in uv_headers:
-            uv_failed.add(terminal[1])
+        terminal = re.fullmatch(rb'#([1-9][0-9]{0,5}) ERROR: process "([^\r\n\x1b]{1,16384})" did not complete successfully: exit code: ([1-9][0-9]{0,2})', line)
+        if terminal:
+            terminals.append(terminal)
+            if int(terminal[3]) <= 255 and terminal[1] in uv_headers:
+                uv_failed.add(terminal[1])
     uv_reasons = {reason for vertex in uv_failed for reason in uv_headers[vertex]}
     prefix = rb"^(?:#[0-9]{1,6} )?[0-9]{1,8}(?:\.[0-9]{1,6})? "
     lines = [re.sub(prefix, b"", line) for line in complete]
@@ -205,14 +223,34 @@ def candidate_build_diagnostic(raw, *, tail=False):
     matches.update(uv_reasons)
     if len(matches) == 1:
         result["category"] = next(iter(matches))
+    if recipe_sha256 is not None:
+        result.update(recipe_instruction=None, inner_exit_code=None)
+        # Both the whole generated recipe seal and the three reviewed RUN bytes
+        # must match. No shell parsing, substring match or command projection.
+        if (not tail and raw.endswith(b"\n") and type(recipe) is bytes and len(recipe) <= 65536
+                and type(recipe_sha256) is str and re.fullmatch(r"[a-f0-9]{64}", recipe_sha256)
+                and hashlib.sha256(recipe).hexdigest() == recipe_sha256 and len(terminals) == 1
+                and len(matches) <= 1
+                and sum(b"ERROR: process " in line for line in complete) == 1):
+            runs = [line[4:] for line in recipe.splitlines() if line.startswith(b"RUN ")]
+            hashes = [hashlib.sha256(command).hexdigest() for command in runs]
+            command, inner = terminals[0][2], int(terminals[0][3])
+            if len(runs) == 3 and set(hashes) == set(RECIPE_RUNS) and 1 <= inner <= 255:
+                for run, digest in zip(runs, hashes):
+                    if command == b"/bin/sh -c " + run:
+                        result.update(recipe_instruction=RECIPE_RUNS[digest], inner_exit_code=inner)
+        if result["recipe_instruction"] is None:
+            result["category"] = "unknown"
     return result
 
 
-def logged(args, path, timeout=1800, *, parent_kind=None, candidate_kind=None):
+def logged(args, path, timeout=1800, *, parent_kind=None, candidate_kind=None, recipe_sha256=None):
     if parent_kind is not None and (type(parent_kind) is not str or parent_kind not in PARENT_KINDS):
         raise ValueError("Closed source parent kind required")
     if candidate_kind is not None and (parent_kind is not None or type(candidate_kind) is not str or candidate_kind not in CANDIDATE_KINDS):
         raise ValueError("Closed source candidate kind required")
+    if recipe_sha256 is not None and candidate_kind != "hermes":
+        raise ValueError("Recipe diagnostics require the Hermes candidate")
     with path.open("x+b" if parent_kind is not None or candidate_kind is not None else "xb") as output:
         try:
             result = subprocess.run(args, stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
@@ -234,9 +272,25 @@ def logged(args, path, timeout=1800, *, parent_kind=None, candidate_kind=None):
                 error.parent_pull = dict(kind=parent_kind, exit_code=result.returncode, category=category)
             if candidate_kind is not None:
                 diagnostic = dict(category="unknown", log_scope="unavailable")
+                recipe = None
+                if recipe_sha256 is not None:
+                    diagnostic.update(recipe_instruction=None, inner_exit_code=None)
+                    try:
+                        filename = path.parent.parent / "context/recipes/hermes.Dockerfile"
+                        if filename.is_symlink():
+                            raise OSError("Ordinary recipe required")
+                        fd = os.open(filename, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+                        with os.fdopen(fd, "rb") as stream:
+                            st = os.fstat(stream.fileno())
+                            if stat.S_ISREG(st.st_mode) and st.st_size <= 65536:
+                                recipe = stream.read(65537)
+                    except OSError:
+                        pass
                 try:
                     output.seek(0)
-                    diagnostic = candidate_build_diagnostic(output.read(BUILD_SCAN_LIMIT + 1))
+                    raw = output.read(BUILD_SCAN_LIMIT + 1)
+                    diagnostic = (candidate_build_diagnostic(raw) if recipe_sha256 is None else
+                                  candidate_build_diagnostic(raw, recipe=recipe, recipe_sha256=recipe_sha256))
                 except OSError:
                     pass
                 error.candidate_build = dict(kind=candidate_kind, exit_code=result.returncode, **diagnostic)
@@ -531,7 +585,7 @@ def execute(root, ack, context, builder):
         candidates = {}
         for kind in ("controller", "hermes"):
             operation = "candidate_source"
-            verify(root)
+            m = verify(root)
             operation = "candidate_resources"
             policy.phase_preflight(root, profile)
             policy.phase_preflight(daemon_root, profile)
@@ -548,7 +602,8 @@ def execute(root, ack, context, builder):
                 raise BuildFailure("controller_input_changed")
             operation = "candidate_build"
             logged(command + ["build", "--builder", builder, "--pull=false", "--no-cache", kind + "-image"],
-                   root / "evidence" / (kind + "-build.log"), candidate_kind=kind)
+                   root / "evidence" / (kind + "-build.log"), candidate_kind=kind,
+                   recipe_sha256=m["files"]["context/recipes/hermes.Dockerfile"] if kind == "hermes" else None)
             operation = "candidate_metadata"
             value = image(docker, spec["services"][kind + "-image"]["image"])
             if value["os"] != "linux" or value["architecture"] != "amd64" or value["volumes"]:

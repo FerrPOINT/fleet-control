@@ -32,15 +32,17 @@ class SourceTests(unittest.TestCase):
         return git(repo, "show", build.INPUTS["hermes"] + ":uv.lock")
 
     def test_exact_source_and_parent_tuple_are_frozen(self):
-        self.assertEqual(build.INPUTS["fleet"], "2dcff77e01dc957e3a1d2ffda39b309835ac8d19")
-        self.assertEqual(build.INPUTS["fleet_parent"], "febcb1757089255d0c11208ca1154f3faf789aa3")
-        self.assertEqual(build.INPUTS["fleet_tree"], "46950f240c51c30bfb82ff13a1761770256937d0")
+        self.assertEqual(build.INPUTS["fleet"], "c3fc175b97168736717c72c2b32e1036c5b6f9db")
+        self.assertEqual(build.INPUTS["fleet_parent"], "324a8000e6b766a77c1bab8ca494a9de16409bc1")
+        self.assertEqual(build.INPUTS["fleet_tree"], "beeb851103acf908c395b90e7bbcc816d979034e")
 
     def test_final_source_delta_is_only_exact_fixtures_and_docs(self):
         import source_coverage
         proof = source_coverage.qualify(Path(os.environ["FLEET_QA_SOURCE_REPO"]), build.INPUTS["fleet"])
         self.assertEqual(proof["final_delta"], source_coverage.FINAL_DELTA)
-        self.assertTrue(proof["production_byte_parity"])
+        # Current source includes the explicitly reviewed continuation custody fix.
+        self.assertFalse(proof["production_byte_parity"])
+        self.assertEqual(proof["final_delta"][0], "backend/infra/src/runtime/pm_continuation.rs")
         self.assertFalse(proof["pm_acceptance"])
 
     def test_five_parents_are_digest_only_not_local_refs(self):
@@ -373,7 +375,7 @@ class DiagnosticTests(unittest.TestCase):
                 self.assertIn(args[3], ("container", "network", "volume"))
                 return b"SECRET leftover" if case == "cleanup" else b""
 
-            def logged(args, path, timeout=1800, *, parent_kind=None, candidate_kind=None):
+            def logged(args, path, timeout=1800, *, parent_kind=None, candidate_kind=None, recipe_sha256=None):
                 observations.append("pull" if "pull" in args else "build" if "build" in args else "cleanup")
                 if case == "pull" and "pull" in args or case == "build" and "build" in args:
                     raise build.BuildFailure("command_nonzero")
@@ -399,7 +401,8 @@ class DiagnosticTests(unittest.TestCase):
                 return {kind: {"state": "qualified", "sha256": "a" * 64} for kind in ("controller", "hermes")}
 
             with contextlib.ExitStack() as stack:
-                for name, value in (("verify", lambda root: {"policy": policy.policy("local")}),
+                for name, value in (("verify", lambda root: {"policy": policy.policy("local"),
+                                    "files": {"context/recipes/hermes.Dockerfile": "a" * 64}}),
                                     ("maintenance", lambda root: api), ("checked", checked),
                                     ("logged", logged), ("image", image), ("qualify", qualify),
                                     ("os", types.SimpleNamespace(name="posix", environ={}))):
@@ -1063,6 +1066,188 @@ class FullBuildDiagnosticTests(unittest.TestCase):
         value = build.candidate_build_diagnostic(frames + self.FILLER + frames)
         self.assertEqual(value, dict(category="rust_compile", log_scope="full", rust_codes=[f"E{i:04}" for i in range(8)]))
         self.assertNotIn("SECRET", json.dumps(value))
+
+
+class RecipeInstructionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        source = SourceTests()
+        cls.recipe = recipes.hermes_recipe(source.base_recipe(), build.INPUTS, source.lock())
+        cls.digest = hashlib.sha256(cls.recipe).hexdigest()
+        cls.commands = {build.RECIPE_RUNS[hashlib.sha256(line[4:]).hexdigest()]: line[4:]
+                        for line in cls.recipe.splitlines() if line.startswith(b"RUN ")}
+
+    def terminal(self, label="uv_sync", code=1, vertex=17):
+        return (f'#{vertex} ERROR: process "'.encode() + b"/bin/sh -c " + self.commands[label]
+                + f'" did not complete successfully: exit code: {code}\n'.encode())
+
+    def diagnostic(self, raw, **kwargs):
+        return build.candidate_build_diagnostic(raw, **dict(recipe=self.recipe, recipe_sha256=self.digest, **kwargs))
+
+    def assert_unknown(self, value, scope="full"):
+        self.assertEqual(value["category"], "unknown")
+        self.assertEqual(value["log_scope"], scope)
+        self.assertIsNone(value["recipe_instruction"])
+        self.assertIsNone(value["inner_exit_code"])
+        self.assertNotIn("SECRET", json.dumps(value))
+
+    def test_three_exact_reviewed_commands_and_exit_boundaries(self):
+        self.assertEqual(set(self.commands), {"apt_setup", "uv_sync", "account_setup"})
+        for label in self.commands:
+            for code in (1, 255):
+                value = self.diagnostic(self.terminal(label, code))
+                self.assertEqual(value, dict(category="unknown", log_scope="full",
+                                             recipe_instruction=label, inner_exit_code=code))
+
+    def test_existing_uv_category_is_retained_only_with_exact_command(self):
+        raw = b"#17 1.234   \xc3\x97 Failed to build `SECRET`\n" + self.terminal()
+        self.assertEqual(self.diagnostic(raw), dict(category="uv_build_refused", log_scope="full",
+                                                  recipe_instruction="uv_sync", inner_exit_code=1))
+
+    def test_early_large_full_frame_and_secret_filler_never_project_commands(self):
+        raw = self.terminal("apt_setup", 37) + b"SECRET URL/token/body\n" * 4096
+        value = self.diagnostic(raw)
+        self.assertEqual(value["recipe_instruction"], "apt_setup")
+        self.assertEqual(value["inner_exit_code"], 37)
+        self.assertNotIn("SECRET", json.dumps(value))
+        for command in self.commands.values():
+            self.assertNotIn(command.decode(), json.dumps(value))
+
+    def test_duplicate_conflicting_and_foreign_terminal_frames_are_not_unique(self):
+        for other in (self.terminal(), self.terminal(code=2), self.terminal("apt_setup"),
+                      self.terminal(vertex=18), b'#19 ERROR: process "SECRET" did not complete successfully: exit code: 1\n'):
+            self.assert_unknown(self.diagnostic(self.terminal() + other))
+        self.assert_unknown(self.diagnostic(b"error[E0432]: SECRET\nunknown flag: --provenance\n" + self.terminal()))
+
+    def test_partial_ansi_quoted_malformed_and_invalid_exit_frames_are_unknown(self):
+        frame = self.terminal()
+        for raw in (frame[:-1], frame[:-10], b'"' + frame, b"\x1b[31m" + frame,
+                    frame.replace(b"#17 ERROR:", b"#017 ERROR:"), frame + b"partial SECRET",
+                    frame + b'#18 ERROR: process "SECRET" truncated\n'):
+            self.assert_unknown(self.diagnostic(raw))
+        for code in (0, -1, 256, 999, "01", "1SECRET"):
+            self.assert_unknown(self.diagnostic(self.terminal(code=code)))
+
+    def test_changed_command_and_unsupported_full_frame_do_not_mine_known_symptoms(self):
+        for raw in (self.terminal().replace(b"uv sync", b"uv SECRETsync"),
+                    self.terminal().replace(b"/bin/sh -c ", b"/bin/bash -c "),
+                    b'#17 ERROR: process "SECRET" did not complete successfully: exit code: 1\n'):
+            self.assert_unknown(self.diagnostic(b"no space left on device\n" + raw))
+
+    def test_changed_missing_or_unreviewed_recipe_fails_hash_and_run_binding(self):
+        cases = [(self.recipe + b"\n", self.digest), (None, self.digest), (self.recipe, "SECRET"),
+                 (self.recipe, True), (self.recipe, "0" * 64)]
+        for recipe in (self.recipe.replace(b"RUN uv sync", b"RUN uv SECRETsync"),
+                       self.recipe + b"RUN SECRET\n", b"RUN SECRET\n"):
+            cases.append((recipe, hashlib.sha256(recipe).hexdigest()))
+        for recipe, digest in cases:
+            value = build.candidate_build_diagnostic(self.terminal(), recipe=recipe, recipe_sha256=digest)
+            self.assert_unknown(value)
+
+    def test_tail_size_and_line_caps_never_offer_instruction_proof(self):
+        self.assert_unknown(self.diagnostic(b"partial\n" + self.terminal(), tail=True), "tail")
+        self.assert_unknown(self.diagnostic(self.terminal() + b"x" * build.BUILD_SCAN_LIMIT), "unavailable")
+        self.assert_unknown(self.diagnostic(self.terminal() + b"\n" * build.BUILD_LINE_LIMIT), "unavailable")
+
+    def test_projection_is_closed_paired_and_backward_compatible_for_readback(self):
+        report = dict(failure_operation="candidate_build", candidate_build=dict(
+            kind="hermes", exit_code=37, **self.diagnostic(self.terminal())))
+        projected = build.failure_projection(report)
+        self.assertEqual(projected, build.failure_projection(projected))
+        self.assertEqual(set(projected["candidate_build"]),
+                         {"kind", "exit_code", "category", "log_scope", "recipe_instruction", "inner_exit_code"})
+        old = copy.deepcopy(report)
+        del old["candidate_build"]["recipe_instruction"]
+        del old["candidate_build"]["inner_exit_code"]
+        self.assertEqual(set(build.failure_projection(old)["candidate_build"]),
+                         {"kind", "exit_code", "category", "log_scope"})
+        for key, value in (("recipe_instruction", "uv_syncSECRET"), ("recipe_instruction", []),
+                           ("inner_exit_code", True), ("inner_exit_code", 0), ("inner_exit_code", 256),
+                           ("kind", "controller"), ("log_scope", "tail"), ("exit_code", None)):
+            changed = copy.deepcopy(report)
+            changed["candidate_build"][key] = value
+            candidate = build.failure_projection(changed)["candidate_build"]
+            self.assertIsNone(candidate["recipe_instruction"])
+            self.assertIsNone(candidate["inner_exit_code"])
+            self.assertEqual(candidate["category"], "unknown")
+        report["candidate_build"]["raw_command"] = "SECRET URL/token/body"
+        self.assertNotEqual(report["candidate_build"], build.failure_projection(report)["candidate_build"])
+        self.assertNotIn("SECRET", json.dumps(build.failure_projection(report)))
+        report["candidate_build"]["rust_codes"] = [f"E{i:04}" for i in range(8)]
+        self.assertLessEqual(len(json.dumps(build.failure_projection(report)).encode()), 1024)
+
+    def test_wrong_candidate_binding_is_refused_before_process_or_log_access(self):
+        with patch.object(build.subprocess, "run") as process, patch.object(Path, "open") as opened:
+            for kind in ("controller", None):
+                with self.assertRaises(ValueError):
+                    build.logged(["SECRET"], Path("unused"), candidate_kind=kind, recipe_sha256=self.digest)
+            process.assert_not_called()
+            opened.assert_not_called()
+
+    def test_logged_uses_same_packet_bounded_recipe_hash_and_safe_readback(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "evidence").mkdir()
+            filename = root / "context/recipes/hermes.Dockerfile"
+            filename.parent.mkdir(parents=True)
+            filename.write_bytes(self.recipe)
+            def failed(args, **kwargs):
+                kwargs["stdout"].write(self.terminal("account_setup", 23))
+                kwargs["stdout"].flush()
+                return types.SimpleNamespace(returncode=37)
+            for digest, expected in ((self.digest, "account_setup"), ("0" * 64, None)):
+                with patch.object(build.subprocess, "run", side_effect=failed), self.assertRaises(build.BuildFailure) as raised:
+                    build.logged(["SECRET"], root / "evidence" / (digest + ".log"),
+                                 candidate_kind="hermes", recipe_sha256=digest)
+                report = {}
+                build.remember_failure(report, raised.exception, "candidate_build")
+                value = build.failure_projection(report)["candidate_build"]
+                self.assertEqual(value["recipe_instruction"], expected)
+                self.assertEqual(value["inner_exit_code"], 23 if expected else None)
+                self.assertEqual(value["exit_code"], 37)
+                self.assertNotIn("SECRET", json.dumps(report))
+
+    def test_missing_oversize_unreadable_recipe_and_failed_log_read_stay_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "evidence").mkdir()
+            filename = root / "context/recipes/hermes.Dockerfile"
+            filename.parent.mkdir(parents=True)
+            def failed(args, **kwargs):
+                kwargs["stdout"].write(self.terminal())
+                kwargs["stdout"].flush()
+                return types.SimpleNamespace(returncode=37)
+            for index, data in enumerate((None, b"SECRET" * 12000, self.recipe)):
+                if data is not None:
+                    filename.write_bytes(data)
+                with contextlib.ExitStack() as stack:
+                    if index == 2:
+                        stack.enter_context(patch.object(build.os, "open", side_effect=OSError("SECRET")))
+                    stack.enter_context(patch.object(build.subprocess, "run", side_effect=failed))
+                    with self.assertRaises(build.BuildFailure) as raised:
+                        build.logged(["SECRET"], root / "evidence" / f"{index}.log",
+                                     candidate_kind="hermes", recipe_sha256=self.digest)
+                self.assert_unknown(build.failure_projection(dict(failure_operation="candidate_build",
+                    candidate_build=raised.exception.candidate_build))["candidate_build"])
+        class Unreadable(io.BytesIO):
+            def read(self, size=-1):
+                raise OSError("SECRET")
+        with patch.object(Path, "open", return_value=Unreadable()), \
+             patch.object(build.subprocess, "run", return_value=types.SimpleNamespace(returncode=37)), \
+             self.assertRaises(build.BuildFailure) as raised:
+            build.logged(["SECRET"], Path("unused"), candidate_kind="hermes", recipe_sha256=self.digest)
+        self.assert_unknown(raised.exception.candidate_build, "unavailable")
+
+    def test_execute_callsite_binds_recipe_digest_from_verified_manifest(self):
+        import ast
+        tree = ast.parse((HERE / "build.py").read_text())
+        calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name) and node.func.id == "logged"
+                 and any(key.arg == "recipe_sha256" for key in node.keywords)]
+        self.assertEqual(len(calls), 1)
+        expression = ast.unparse(next(key.value for key in calls[0].keywords if key.arg == "recipe_sha256"))
+        self.assertIn("m['files']['context/recipes/hermes.Dockerfile']", expression)
+        self.assertIn("kind == 'hermes'", expression)
 
 
 class ContextTests(unittest.TestCase):

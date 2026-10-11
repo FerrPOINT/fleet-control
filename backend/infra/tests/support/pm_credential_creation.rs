@@ -1215,7 +1215,29 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
             foreign.subject = "foreign-owner".into();
             assert!(resume_runtime.resume_pm_answer(&foreign, &delivered).await.is_err());
             ledger.lock().await["fence"] = json!(2);
-            assert!(resume_runtime.resume_pm_answer(&actor, &delivered).await.is_err());
+            let ledger_before_fence = ledger.lock().await.clone();
+            let predecessor_before_fence = serde_json::to_value(
+                fixture.remote.repo.get_pm_run(op.id).await.unwrap(),
+            ).unwrap();
+            let mutation_calls_before_fence = calls.lock().await.iter().filter(|r| matches!(r.as_str(),
+                "POST /internal/runtime/v1/pm/resume" | "POST /internal/runtime/v1/pm/rebind"
+                | "POST /v1/runs" | "POST /v1/runs/run_old/stop" | "POST /v1/runs/run_old/steer"
+            )).count();
+            assert!(matches!(
+                resume_runtime.resume_pm_answer(&actor, &delivered).await,
+                Err(shared::AppError::Conflict(reason)) if reason == "PM continuation custody changed"
+            ));
+            assert_eq!(calls.lock().await.iter().filter(|r| matches!(r.as_str(),
+                "POST /internal/runtime/v1/pm/resume" | "POST /internal/runtime/v1/pm/rebind"
+                | "POST /v1/runs" | "POST /v1/runs/run_old/stop" | "POST /v1/runs/run_old/steer"
+            )).count(), mutation_calls_before_fence);
+            assert!(*ledger.lock().await == ledger_before_fence);
+            assert!(fixture.remote.repo.get_pm_run(saved.id).await.is_err());
+            assert!(fixture.remote.repo.get_pm_dispatch(saved.id).await.unwrap().is_none());
+            assert!(serde_json::to_value(fixture.remote.repo.get_pm_run(op.id).await.unwrap()).unwrap()
+                == predecessor_before_fence);
+            assert!(serde_json::to_value(fixture.remote.repo.get_pm_dispatch(op.id).await.unwrap().unwrap()).unwrap()
+                == serde_json::to_value(&original).unwrap());
             ledger.lock().await["fence"] = json!(1);
             let agent = fixture.remote.repo.get_agent(op.request.agent_id).await.unwrap();
             let marker = std::path::Path::new(&agent.paths.config).join(".fleet-config-revision.json");

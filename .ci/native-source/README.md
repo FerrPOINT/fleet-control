@@ -16,9 +16,9 @@ transport, service, scheduler, Hermes patch or production source edit is added.
 
 ## Exact Inputs
 
-- Fleet `2dcff77e01dc957e3a1d2ffda39b309835ac8d19`, tree
-  `46950f240c51c30bfb82ff13a1761770256937d0`, sole parent
-  `febcb1757089255d0c11208ca1154f3faf789aa3`.
+- Fleet `c3fc175b97168736717c72c2b32e1036c5b6f9db`, tree
+  `beeb851103acf908c395b90e7bbcc816d979034e`, sole parent
+  `324a8000e6b766a77c1bab8ca494a9de16409bc1`.
 - SDK `19a7a381ae6dbea61a643bb96189e483fa64df5c`.
 - Base cold recipe, launchers and four utilities
   `9b53de7b23593949a9e6c05bd5a4f94b930e50a0`.
@@ -37,8 +37,9 @@ image was pulled**. Installation/platform closure remains unproven.
 `cat-file --batch`, verifying every Git blob identity. No worktree copy,
 `git archive`, credentials, dependency directory or historical image enters the
 context. The seal covers sources/recipes; extra context/qualifier-parent files
-are rejected. The exact aabe-to-2dc delta is one infra fixture/test file and four
-docs; production bytes are unchanged relative to aabe, not historical5db.
+are rejected. The exact aabe-to-c3fc delta is the reviewed PM continuation
+custody refusal, its fixture/test file and four docs. Production byte parity
+with aabe is explicitly false; the candidate is not backend-qualified here.
 `qa/source_coverage.py` verifies that delta
 and catalogs current config admission/activation, migration026, free-session
 projection and stored request hash. Two additive native assertions cover
@@ -96,15 +97,15 @@ prevents success output; terminal VM teardown is not cleanup evidence.
 The authored caller requires parent/independent review before publication. Its
 public preflight verifies the exact source tuple and additions before any private
 Base token use. All35 copied QA/image files match component
-`216ca92820c9891297fe7f36984c5519a2d40c89`; their compact path/SHA256 map digest is
-`a67eeb2e3f82c43065a47a6a2b1bc12f379253cd8d9c0119499281cc7b12e4a5`.
+`4e65a5a05f8672531bba19d9546e58d8e2f29c6e`; their compact path/SHA256 map digest is
+`d49ee2507c72ddc1810c40f050486d670d79f183f3474083f6147720a1f359a1`.
 Only this README and the workflow are caller-specific. No cache, Git donor,
 credentials or prepared packet is included. In that one host job, set absolute
 exact Git input directories (no dependency copies):
 
 The canonical raw-Git build input inventory is14085 files (Fleet222, SDK85,
 Base7, maintenance1, Hermes13770), SHA256
-`16a95648e65f7a52819994f2b62a63b0e78f70bd3182067199b708c407a355a2`.
+`0fb4147c1dbc3904600135027ae8d78cf1fcb6a545cc88c09701ed699cbe6b68`.
 This is source-only hashing, not a build, image or native receipt.
 
 ```bash
@@ -137,8 +138,8 @@ python3 -B qa/cut_run.py --execute --packet "$CUT_PACKET" \
   --heavy-slot-ack "$REVIEWED_CUT_ACK"
 ```
 
-Build ACK: exactly `exclusive-source-image-build-<packet-name>-2dcff77e01dc`.
-Native ACK contains `exclusive`, `native4`, `2dcff77e01dc`; cut ACK uses
+Build ACK: exactly `exclusive-source-image-build-<packet-name>-c3fc175b9716`.
+Native ACK contains `exclusive`, `native4`, `c3fc175b9716`; cut ACK uses
 `native4cut`, not `native4`. One attempt per packet; no overwrite/rerun defaults.
 Native preparation is held until genuine fresh image qualification completes.
 
@@ -164,6 +165,16 @@ Any future public handoff is restricted to reviewed closed statuses, source,
 seals/image IDs/digests and bounded cleanup proof. Same-daemon execution requires
 no image tar or new registry credentials. No workflow/push/dispatch/heavy run has
 been performed by this preparation task.
+
+Hermes failed-build diagnostics may add only `recipe_instruction`
+(`apt_setup`, `uv_sync`, `account_setup` or null) and `inner_exit_code`
+(1..255 or null). A unique complete FULL terminal frame must exactly match a
+RUN from the hash-checked sealed recipe and its reviewed command hash. No
+command/path/frame/body is projected. Missing/conflicting/partial/untrusted
+evidence stays null/unknown; old receipt shapes, categories, bounds and timeout
+behavior remain compatible. These are diagnostic observations, not a cause or
+native acceptance proof. This successor is uncommitted and not launchable
+until independent review, final component reference binding and authorization.
 
 The caller's only artifact is a success-only `receipt.json` (maximum64KiB).
 It revalidates existing original-nine and cut reports, actual compile proofs,
@@ -254,6 +265,8 @@ Evidence: [actual runner software manifest](https://github.com/actions/runner-im
 [Compose2.39.0 release](https://github.com/docker/compose/releases/tag/v2.39.0).
 
 ## Paired UV fatal symptoms
+
+### Historical UV Pair Extension (Before Recipe Fields)
 
 Within the bounded fully captured failed-build log, a complete anchored
 UV0.11.6 fatal header is recognized only with a later complete
