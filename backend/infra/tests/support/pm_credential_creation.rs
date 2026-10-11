@@ -51,7 +51,7 @@ fn continuation_failure(error: shared::AppError) -> ! {
 
 #[test]
 fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_terminal_proof() {
-    use app::RuntimeSupervisor;
+    use app::{AgentProvisioner, RuntimeSupervisor};
     use axum::{http::Method, response::IntoResponse};
     use domain::*;
     use sha2::{Digest, Sha256};
@@ -275,15 +275,26 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
         let api_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let api_origin = format!("http://{}", api_listener.local_addr().unwrap());
         fixture.config.pm.dispatch.tool_origin = Some(api_origin.clone());
+        let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let seeded_skills = fixture.remote.repo.list_agent_skills(op.request.agent_id).await.unwrap();
+        assert_eq!(seeded_skills.iter().map(|skill| skill.name.as_str()).collect::<Vec<_>>(),
+            ["development", "gh-commit-pr", "project-workflow"]);
+        assert!(seeded_skills.iter().all(|skill|
+            skill.state == SkillState::Enabled && skill.content.is_none() && skill.source == "seed"));
+        // This controlled HOME intentionally installs no skills; future revisions must agree.
+        let removed = db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "DELETE FROM agent_skills WHERE agent_id=$1 AND source='seed'", [op.request.agent_id.into()]))
+            .await.unwrap();
+        assert_eq!(removed.rows_affected(), 3);
+        assert!(fixture.remote.repo.list_agent_skills(op.request.agent_id).await.unwrap().is_empty());
         let _home = super::pm_dispatch::install_tool_home(
             fixture.remote.repo.as_ref(),
             &op,
             &mut fixture.config,
         )
         .await;
-        let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
-            .await
-            .unwrap();
         db.execute(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "UPDATE agents SET api_port=$2,workflow_id='1' WHERE id=$1",
@@ -291,6 +302,14 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
         ))
         .await
         .unwrap();
+        let installed = fixture.remote.repo.get_effective_config_revision(op.request.agent_id)
+            .await.unwrap().unwrap();
+        assert!(installed.snapshot.skills.is_empty());
+        infra::FilesystemProvisioner.verify_effective_configuration(
+            &fixture.remote.repo.get_agent(op.request.agent_id).await.unwrap(),
+            &fixture.config,
+            &installed,
+        ).await.expect("controlled initial PM profile must match its snapshot");
         fixture
             .remote
             .repo
@@ -1144,6 +1163,7 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
                 "terminal observation need not wait for assistant mirror commit");
             let effective = repo.get_effective_config_revision(agent.id).await.unwrap().unwrap();
             let draft = repo.create_config_revision(agent.id, effective.snapshot.config, op.owner_user_id).await.unwrap();
+            assert!(draft.snapshot.skills.is_empty());
             repo.validate_config_revision(agent.id, draft.revision, vec![]).await.unwrap();
             repo.request_config_activation(agent.id, draft.revision, op.owner_user_id).await.unwrap();
             let claim = repo.claim_config_activation().await.unwrap().unwrap();
@@ -1163,6 +1183,10 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
             db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
                 "UPDATE agents SET api_port=$2 WHERE id=$1",
                 [agent.id.into(), i32::from(replacement_peer.as_ref().unwrap().0).into()])).await.unwrap();
+            assert!(effective.snapshot.skills.is_empty());
+            infra::FilesystemProvisioner.verify_effective_configuration(
+                &repo.get_agent(agent.id).await.unwrap(), &fixture.config, &effective,
+            ).await.expect("controlled replacement or rollback must match its snapshot");
             retired.store(true, Ordering::SeqCst);
             Some(calls.lock().await.iter().filter(|r| r.as_str()=="GET /v1/runs/run_old").count())
         } else {
