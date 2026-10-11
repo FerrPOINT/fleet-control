@@ -2284,25 +2284,20 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_compiler_category_slice_preserves_frozen36_execution_and_200_identities(self):
         import ast
-        frozen = "36fac86c7cdd945f8614fbaa6b7e302989b1a71d"
+        frozen = "6843c4f9f050f2f3966abf20e1fc48156cd9a38c"
         before = ast.parse(self.source_blob(gate.HELPER, frozen))
         after = ast.parse((ROOT / gate.HELPER).read_bytes())
         functions = lambda tree: {n.name: ast.dump(n) for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
         old, new = functions(before), functions(after)
         self.assertEqual(old.keys(), new.keys())
-        self.assertEqual({name for name in old if old[name] != new[name]}, {"safe_compiler_diagnostics"})
-        other_nodes = lambda tree: [ast.dump(n) for n in tree.body if not isinstance(n, (ast.FunctionDef, ast.ClassDef))
-            and not (isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name) and n.targets[0].id == "CATEGORY_PATTERNS")]
+        self.assertEqual({name for name in old if old[name] != new[name]},
+                         {"safe_compiler_diagnostics", "validate_failure_evidence"})
+        other_nodes = lambda tree: [ast.dump(n) for n in tree.body if not isinstance(n, (ast.FunctionDef, ast.ClassDef))]
         self.assertEqual(other_nodes(before), other_nodes(after))
-        patterns = next(ast.literal_eval(n.value) for n in before.body if isinstance(n, ast.Assign)
-                        and isinstance(n.targets[0], ast.Name) and n.targets[0].id == "CATEGORY_PATTERNS")
-        self.assertEqual(gate.CATEGORY_PATTERNS, dict(patterns, network=patterns["network"] +
-            ("download of config.json failed", "failed to get successful http response")))
         names = lambda tree: {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name.startswith("test_")}
         old_names = names(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)))
-        self.assertEqual(len(old_names), 200)
-        self.assertEqual(names(ast.parse(Path(__file__).read_bytes())) - old_names, {self._testMethodName})
-        self.assertTrue(old_names <= names(ast.parse(Path(__file__).read_bytes())))
+        self.assertEqual(len(old_names), 201)
+        self.assertEqual(names(ast.parse(Path(__file__).read_bytes())), old_names)
         for path in gate.WRITE_SET - {gate.HELPER, "scripts/tests/test_hosted_backend_gate.py"}:
             self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen), path)
 
@@ -2314,6 +2309,15 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(result, dict(diagnostics=[dict(error_code="E0308", file="backend/api/src/routes/sessions.rs", line=17, column=9)],
                                       categories=[], truncated=False))
         self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
+        for spans in ([], None, "PRIVATE_SENTINEL", [dict(file_name="/private/base/PRIVATE_SENTINEL.rs",
+                      line_start=17, column_start=9, is_primary=True)]):
+            with self.subTest(spans_type=type(spans).__name__):
+                value = json.loads(self.compiler_line())
+                value["message"]["spans"] = spans
+                result = self.diagnostics((json.dumps(value) + "\n").encode())
+                self.assertEqual(result, dict(diagnostics=[dict(error_code="E0308", file=None, line=None, column=None)],
+                                             categories=[], truncated=False))
+                self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
         for category, patterns in gate.CATEGORY_PATTERNS.items():
             for pattern in patterns:
                 with self.subTest(category=category, pattern=pattern):
@@ -2325,7 +2329,13 @@ class HostedBackendTests(unittest.TestCase):
                     self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
                     value["message"]["spans"] = []
                     self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode()),
-                                     dict(diagnostics=[], categories=[category], truncated=False))
+                                     dict(diagnostics=[dict(error_code="E0308", file=None, line=None, column=None)],
+                                          categories=[category], truncated=False))
+        value = json.loads(self.compiler_line())
+        value["message"]["spans"].append(dict(file_name="/private/PRIVATE_SENTINEL.rs",
+                                             is_primary=True, line_start=1, column_start=1))
+        self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode()),
+                         self.diagnostics(self.compiler_line()))
 
     def test_compiler_paths_only_exact_fleet_allowlist_no_private_prefix_or_traversal(self):
         for file in ("api/src/routes/sessions.rs", "backend/api/src/routes/sessions.rs", "/owned/src/fleet-control/backend/api/src/routes/sessions.rs"):
@@ -2334,31 +2344,39 @@ class HostedBackendTests(unittest.TestCase):
                      "api\\src\\routes\\sessions.rs", "/owned/src/fleet-control/backend/../private.rs",
                      "api//src/routes/sessions.rs", "api/src/routes/./sessions.rs", "api/.local/private.rs",
                      "target/private.rs", "api/src/routes/sessions.rs\nPRIVATE_SENTINEL", "api/src/private.rs"):
-            self.assertEqual(self.diagnostics(self.compiler_line(file))["diagnostics"], [])
+            result = self.diagnostics(self.compiler_line(file))
+            self.assertEqual(result["diagnostics"], [dict(error_code="E0308", file=None, line=None, column=None)])
+            self.assertNotIn(file, json.dumps(result))
 
     def test_crate_relative_span_requires_allowlisted_target_never_guesses(self):
         value = json.loads(self.compiler_line("src/routes/sessions.rs"))
-        self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"], [])
+        self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"],
+                         [dict(error_code="E0308", file=None, line=None, column=None)])
         value["target"] = dict(src_path="/owned/src/fleet-control/backend/api/src/lib.rs")
         self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"][0]["file"], "backend/api/src/routes/sessions.rs")
         for entry in ("/private/base/src/lib.rs", "../api/src/lib.rs", "api/src/private.rs"):
             value["target"]["src_path"] = entry
-            self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"], [])
+            self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"],
+                             [dict(error_code="E0308", file=None, line=None, column=None)])
 
     def test_compiler_untrusted_codes_and_numeric_boundaries(self):
         for code in (None, "clippy::private_token", "E1234 PRIVATE_SENTINEL", "E１２３４", ["E0308"], "PRIVATE_SENTINEL"):
             result = self.diagnostics(self.compiler_line(code=code))
             self.assertIsNone(result["diagnostics"][0]["error_code"])
             self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
+            self.assertEqual(self.diagnostics(self.compiler_line(file="/private/PRIVATE_SENTINEL.rs", code=code)),
+                             dict(diagnostics=[], categories=["unknown"], truncated=False))
         for line, column in ((True, 9), (1, True), ("17", 9), (0, 9), (-1, 9), (1000001, 9), (17, 10001), (17, 0)):
-            self.assertEqual(self.diagnostics(self.compiler_line(line=line, column=column))["diagnostics"], [])
+            self.assertEqual(self.diagnostics(self.compiler_line(line=line, column=column))["diagnostics"],
+                             [dict(error_code="E0308", file=None, line=None, column=None)])
 
     def test_compiler_only_error_primary_spans_not_rendered_children_or_artifacts(self):
         value = json.loads(self.compiler_line())
         for level in ("warning", "note", "help", "PRIVATE_SENTINEL"):
             value["message"]["level"] = level
             self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"], [])
-        self.assertEqual(self.diagnostics(self.compiler_line(primary=False))["diagnostics"], [])
+        self.assertEqual(self.diagnostics(self.compiler_line(primary=False))["diagnostics"],
+                         [dict(error_code="E0308", file=None, line=None, column=None)])
         value["reason"], value["message"]["level"] = "compiler-artifact", "error"
         self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"], [])
         for reason, level in (("compiler-message", "warning"), ("compiler-message", "note"),
@@ -2404,6 +2422,22 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(len(result["diagnostics"]), gate.DIAGNOSTIC_LIMIT)
         self.assertTrue(result["truncated"])
         self.assertIn("unknown", result["categories"])
+        same = self.compiler_line(file="/private/PRIVATE_SENTINEL.rs")
+        self.assertEqual(self.diagnostics(same + same)["diagnostics"],
+                         [dict(error_code="E0308", file=None, line=None, column=None)])
+        result = self.diagnostics(b"".join(self.compiler_line(file="/private/PRIVATE_SENTINEL.rs", code=f"E{code:04d}")
+                                           for code in range(80)))
+        self.assertEqual(len(result["diagnostics"]), gate.DIAGNOSTIC_LIMIT)
+        self.assertEqual(len({row["error_code"] for row in result["diagnostics"]}), gate.DIAGNOSTIC_LIMIT)
+        self.assertTrue(result["truncated"])
+        self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
+        # A full located record set must not gain a fallback for its last capped span.
+        value = json.loads(self.compiler_line(line=80))
+        value["message"]["spans"].append(dict(file_name="/private/PRIVATE_SENTINEL.rs", is_primary=True, line_start=1, column_start=1))
+        result = self.diagnostics(b"".join(self.compiler_line(line=line) for line in range(1, 33)) +
+                                  (json.dumps(value) + "\n").encode())
+        self.assertTrue(result["truncated"])
+        self.assertTrue(all(row["file"] is not None for row in result["diagnostics"]))
 
     def test_compiler_input_and_line_limits_discard_oversized_context(self):
         with mock.patch.object(gate, "DIAGNOSTIC_LINE_LIMIT", 64), mock.patch.object(gate, "DIAGNOSTIC_INPUT_LIMIT", 256):
@@ -3328,6 +3362,27 @@ class HostedBackendTests(unittest.TestCase):
     def test_failure_schema_strict_no_private_fields_or_fake_pass(self):
         value = self.failure_value()
         self.validate_failure(value)
+        code_only = dict(error_code="E0308", file=None, line=None, column=None)
+        self.validate_failure(dict(value, diagnostics=[code_only]))
+        self.validate_failure(dict(value, diagnostics=[value["diagnostics"][0], code_only]))
+        for code in (None, "E0308 PRIVATE_SENTINEL", "E１２３４", "clippy::private", True, ["E0308"]):
+            with self.assertRaises(ValueError):
+                self.validate_failure(dict(value, diagnostics=[dict(code_only, error_code=code)]))
+        located = value["diagnostics"][0]
+        for mask in range(1, 7):
+            partial = dict(code_only)
+            for bit, key in enumerate(("file", "line", "column")):
+                if mask & (1 << bit):
+                    partial[key] = located[key]
+            with self.assertRaises(ValueError):
+                self.validate_failure(dict(value, diagnostics=[partial]))
+        for records in ([code_only, code_only],
+                        [dict(code_only, error_code=f"E{code:04d}") for code in range(gate.DIAGNOSTIC_LIMIT + 1)]):
+            with self.assertRaises(ValueError):
+                self.validate_failure(dict(value, diagnostics=records))
+        for code in (None, "E0308"):
+            with self.assertRaises(ValueError):
+                self.validate_failure(dict(self.failure_test_value(), diagnostics=[dict(code_only, error_code=code)]))
         for key, item in (("message", "PRIVATE_SENTINEL"), ("rendered", "PRIVATE_SENTINEL"), ("backend_quality_gate", True),
                           ("all_quality_gate", True), ("sdlc_acceptance", True), ("source_sha", "bf27"),
                           ("source_inventory_sha256", "0" * 64), ("command_exit_code", "PRIVATE_SENTINEL"),

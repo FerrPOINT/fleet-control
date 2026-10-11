@@ -670,15 +670,15 @@ def safe_compiler_diagnostics(streams, allowed, fleet_backend):
             code = code.get("code") if isinstance(code, dict) else None
             code = code if isinstance(code, str) and re.fullmatch(r"E[0-9]{4}", code) else None
             spans = message.get("spans")
-            if not isinstance(spans, list):
-                continue
-            for span in spans:
+            located = False
+            for span in spans if isinstance(spans, list) else ():
                 if not isinstance(span, dict) or span.get("is_primary") is not True:
                     continue
                 file = diagnostic_file(span.get("file_name"), allowed, fleet_backend, value.get("target"))
                 line, column = span.get("line_start"), span.get("column_start")
                 if file is None or type(line) is not int or type(column) is not int or not (1 <= line <= 1000000 and 1 <= column <= 10000):
                     continue
+                located = True
                 key = (code, file, line, column)
                 if key in seen:
                     continue
@@ -687,6 +687,13 @@ def safe_compiler_diagnostics(streams, allowed, fleet_backend):
                     continue
                 seen.add(key)
                 diagnostics.append(dict(error_code=code, file=file, line=line, column=column))
+            key = (code, None, None, None)
+            if code is not None and not located and key not in seen:
+                if len(diagnostics) >= DIAGNOSTIC_LIMIT:
+                    truncated = True
+                else:
+                    seen.add(key)
+                    diagnostics.append(dict(error_code=code, file=None, line=None, column=None))
         if remaining <= 0:
             truncated = True
             break
@@ -958,9 +965,12 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
         code, file = record["error_code"], record["file"]
         require(code is None or isinstance(code, str) and re.fullmatch(r"E[0-9]{4}", code), "Unsafe diagnostic code")
         require(not test_failure or code is None, "Test failure cannot claim compiler diagnostics")
-        require(isinstance(file, str) and file in allowed, "Non-allowlisted Fleet diagnostic file")
-        require(type(record["line"]) is int and 1 <= record["line"] <= 1000000
-                and type(record["column"]) is int and 1 <= record["column"] <= 10000, "Invalid diagnostic location")
+        if file is None and record["line"] is None and record["column"] is None:
+            require(not test_failure and code is not None, "Invalid code-only compiler diagnostic")
+        else:
+            require(isinstance(file, str) and file in allowed, "Non-allowlisted Fleet diagnostic file")
+            require(type(record["line"]) is int and 1 <= record["line"] <= 1000000
+                    and type(record["column"]) is int and 1 <= record["column"] <= 10000, "Invalid diagnostic location")
         seen.add((code, file, record["line"], record["column"]))
     require(len(seen) == len(records) and (records or value["categories"]), "Empty/duplicate diagnostic evidence")
     cleanup = value["cleanup"]
