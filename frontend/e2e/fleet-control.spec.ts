@@ -9,6 +9,7 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
 }, testInfo) => {
   test.setTimeout(90000)
   const state = createState()
+  state.sessions[0].task_bound = true
   await installMocks(page, state)
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
@@ -195,7 +196,7 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
         ),
       ).toBe(true)
       const accessibility = await new AxeBuilder({ page })
-        .include('.fc-chat-workbench')
+        .include('.fc-task-chat-workbench')
         .withTags(['wcag2a', 'wcag2aa'])
         .analyze()
       expect(
@@ -512,6 +513,7 @@ function makeSession(
     visibility: leader ? 'leader_scoped' : 'private',
     title,
     task_key: taskKey,
+    task_bound: false,
     state: 'active',
     namespace_id: agent.namespace_id,
     external_session_id: `hermes-${agent.name}`,
@@ -1177,7 +1179,12 @@ async function installMocks(page: Page, state: ApiState) {
           makeRun(session.id, target),
         ]
       }
-      return fulfill(route, session)
+      return fulfill(route, {
+        ...session,
+        pending_delivery: (state.messagesBySession[session.id] ?? []).some((message) =>
+          ['pending', 'dispatched'].includes(message.delivery_state),
+        ),
+      })
     }
 
     if (pathName === '/api/v1/workflow-catalog') {
@@ -1887,7 +1894,7 @@ test('Chats groups private sessions by agent and keeps leader controls out of th
   await page.getByRole('link', { name: /Initial developer task/ }).click()
   await expect(page.getByLabel('Лидер сессии')).not.toBeVisible()
   await expect(page.getByLabel('Новый основной агент')).not.toBeVisible()
-  await expect(page.getByLabel('Сообщение агенту', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Сообщение', { exact: true })).toBeVisible()
 })
 
 test('Hermes fleet control flow covers agents, runtime, skills, sessions and handoff', async ({

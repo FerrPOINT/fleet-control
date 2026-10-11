@@ -1,0 +1,108 @@
+
+Running 84 tests using 3 workers
+
+  -   1 [chromium] › e2e\agent-detail-live.spec.ts:27:1 › all agent detail tabs are localized, accessible and responsive against live APIs
+  -   2 [chromium] › e2e\detail-layout-live.spec.ts:27:1 › detail rails measure 320 px at 1024 and stack below primary content at 1023
+  -   3 [chromium] › e2e\agent-edit-live.spec.ts:22:1 › executor edit avoids leader requests and exposes named editors
+(node:7320) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:21164) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:18988) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  4 [chromium] › e2e\chats-core.spec.ts:271:1 › unknown prompt freezes payload, retries original key and releases only a matching receipt (2.8s)
+  ok  6 [chromium] › e2e\chats-core.spec.ts:291:1 › reload and another actor retain unknown prompt hold without redispatch (2.8s)
+  ok  7 [chromium] › e2e\chats-core.spec.ts:309:1 › preflight ACL denial sends no POST (814ms)
+  ok  8 [chromium] › e2e\chats-core.spec.ts:320:1 › denied session hides dialogue and controls at all sizes (927ms)
+  ok  5 [chromium] › e2e\chats-core.spec.ts:229:1 › dialogue and unavailable PM tabs fit all sizes and keep context accessible (4.2s)
+  ok 10 [chromium] › e2e\chats-core.spec.ts:346:1 › active primary run blocks prompts without pretending stop or steer capability (660ms)
+  ok  9 [chromium] › e2e\chats-core.spec.ts:332:1 › owner without write permission is read-only at all sizes (934ms)
+  ok 11 [chromium] › e2e\chats-core.spec.ts:369:1 › legacy unknown stop marker is held without unsupported lookup (696ms)
+  ok 12 [chromium] › e2e\chats-core.spec.ts:383:1 › list search and agent filters survive dialogue and browser return (844ms)
+  ok 13 [chromium] › e2e\chats-core.spec.ts:396:1 › reading position and draft survive tabs; inactive deltas do not signal new messages (1.1s)
+  ok 14 [chromium] › e2e\chats-core.spec.ts:427:1 › unknown private-chat creation freezes title and replays only the original request (968ms)
+  -  17 [chromium] › e2e\executors-live.spec.ts:19:1 › live executor directory supports search, sessions and responsive themes
+  ok 15 [chromium] › e2e\chats-core.spec.ts:451:1 › reload of unknown creation cannot silently issue a new key (1.1s)
+  ok 16 [chromium] › e2e\chats-core.spec.ts:465:1 › a rejected retry cannot release an earlier unknown prompt (863ms)
+  ok 19 [chromium] › e2e\fleet-control.spec.ts:1129:1 › workflow bindings rebind only to a workflow in the selected namespace (770ms)
+  ok 21 [chromium] › e2e\fleet-control.spec.ts:1352:1 › storage review links purge candidates to their workspace (684ms)
+  ok 18 [chromium] › e2e\fleet-control.spec.ts:1075:1 › uses the shared work-area geometry across semantic page modes (2.7s)
+  ok 22 [chromium] › e2e\fleet-control.spec.ts:1364:1 › Chats groups private sessions by agent and keeps leader controls out of the new route (966ms)
+  -  24 [chromium] › e2e\leader-team-live.spec.ts:19:1 › live leader team is read-only until changed and fits responsive themes
+  -  25 [chromium] › e2e\logs-live.spec.ts:19:1 › live logs stay compact and readable across themes and widths
+  -  26 [chromium] › e2e\workflow-bindings-live.spec.ts:19:1 › workflow bindings remain usable on the live fleet across themes and widths
+  -  27 [chromium] › e2e\dashboard-localization-live.spec.ts:23:1 › dashboard and navigation use Russian labels on the live fleet
+  -  28 [chromium] › e2e\platform-header-live.spec.ts:27:1 › Fleet global header preserves navigation, services, identity and central logout
+  -  29 [firefox] › e2e\agent-detail-live.spec.ts:27:1 › all agent detail tabs are localized, accessible and responsive against live APIs
+  -  30 [firefox] › e2e\detail-layout-live.spec.ts:27:1 › detail rails measure 320 px at 1024 and stack below primary content at 1023
+  -  31 [firefox] › e2e\agent-edit-live.spec.ts:22:1 › executor edit avoids leader requests and exposes named editors
+(node:15380) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 23 [chromium] › e2e\fleet-control.spec.ts:1383:1 › Hermes fleet control flow covers agents, runtime, skills, sessions and handoff (5.1s)
+  ok 32 [firefox] › e2e\chats-core.spec.ts:229:1 › dialogue and unavailable PM tabs fit all sizes and keep context accessible (3.4s)
+(node:32152) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 33 [firefox] › e2e\chats-core.spec.ts:291:1 › reload and another actor retain unknown prompt hold without redispatch (1.2s)
+  ok 34 [firefox] › e2e\chats-core.spec.ts:309:1 › preflight ACL denial sends no POST (711ms)
+  ok 20 [chromium] › e2e\fleet-control.spec.ts:1139:1 › managed settings require preview, preserve failed changes and expose rollback history (9.6s)
+  ok 36 [firefox] › e2e\chats-core.spec.ts:320:1 › denied session hides dialogue and controls at all sizes (985ms)
+(node:14012) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 37 [firefox] › e2e\chats-core.spec.ts:346:1 › active primary run blocks prompts without pretending stop or steer capability (648ms)
+  ok 39 [firefox] › e2e\chats-core.spec.ts:369:1 › legacy unknown stop marker is held without unsupported lookup (897ms)
+  ok 40 [firefox] › e2e\chats-core.spec.ts:383:1 › list search and agent filters survive dialogue and browser return (704ms)
+  ok 41 [firefox] › e2e\chats-core.spec.ts:396:1 › reading position and draft survive tabs; inactive deltas do not signal new messages (1.2s)
+  ok 42 [firefox] › e2e\chats-core.spec.ts:427:1 › unknown private-chat creation freezes title and replays only the original request (1.1s)
+  ok 35 [firefox] › e2e\chats-core.spec.ts:271:1 › unknown prompt freezes payload, retries original key and releases only a matching receipt (6.7s)
+  ok 44 [firefox] › e2e\chats-core.spec.ts:465:1 › a rejected retry cannot release an earlier unknown prompt (1.6s)
+  -  45 [firefox] › e2e\executors-live.spec.ts:19:1 › live executor directory supports search, sessions and responsive themes
+  ok 38 [firefox] › e2e\chats-core.spec.ts:332:1 › owner without write permission is read-only at all sizes (5.4s)
+  ok 43 [firefox] › e2e\chats-core.spec.ts:451:1 › reload of unknown creation cannot silently issue a new key (3.6s)
+  ok 47 [firefox] › e2e\fleet-control.spec.ts:1129:1 › workflow bindings rebind only to a workflow in the selected namespace (800ms)
+  ok 49 [firefox] › e2e\fleet-control.spec.ts:1352:1 › storage review links purge candidates to their workspace (834ms)
+  ok 50 [firefox] › e2e\fleet-control.spec.ts:1364:1 › Chats groups private sessions by agent and keeps leader controls out of the new route (944ms)
+  ok 46 [firefox] › e2e\fleet-control.spec.ts:1075:1 › uses the shared work-area geometry across semantic page modes (4.8s)
+  -  52 [firefox] › e2e\leader-team-live.spec.ts:19:1 › live leader team is read-only until changed and fits responsive themes
+  -  53 [firefox] › e2e\logs-live.spec.ts:19:1 › live logs stay compact and readable across themes and widths
+  -  54 [firefox] › e2e\workflow-bindings-live.spec.ts:19:1 › workflow bindings remain usable on the live fleet across themes and widths
+  -  55 [firefox] › e2e\dashboard-localization-live.spec.ts:23:1 › dashboard and navigation use Russian labels on the live fleet
+  -  56 [firefox] › e2e\platform-header-live.spec.ts:27:1 › Fleet global header preserves navigation, services, identity and central logout
+  -  57 [webkit] › e2e\agent-detail-live.spec.ts:27:1 › all agent detail tabs are localized, accessible and responsive against live APIs
+  -  58 [webkit] › e2e\detail-layout-live.spec.ts:27:1 › detail rails measure 320 px at 1024 and stack below primary content at 1023
+  -  59 [webkit] › e2e\agent-edit-live.spec.ts:22:1 › executor edit avoids leader requests and exposes named editors
+(node:12448) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 48 [firefox] › e2e\fleet-control.spec.ts:1139:1 › managed settings require preview, preserve failed changes and expose rollback history (9.5s)
+  ok 60 [webkit] › e2e\chats-core.spec.ts:229:1 › dialogue and unavailable PM tabs fit all sizes and keep context accessible (4.0s)
+(node:18336) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 51 [firefox] › e2e\fleet-control.spec.ts:1383:1 › Hermes fleet control flow covers agents, runtime, skills, sessions and handoff (10.4s)
+  ok 61 [webkit] › e2e\chats-core.spec.ts:291:1 › reload and another actor retain unknown prompt hold without redispatch (1.8s)
+  ok 62 [webkit] › e2e\chats-core.spec.ts:271:1 › unknown prompt freezes payload, retries original key and releases only a matching receipt (1.6s)
+(node:26968) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 63 [webkit] › e2e\chats-core.spec.ts:320:1 › denied session hides dialogue and controls at all sizes (1.0s)
+  ok 64 [webkit] › e2e\chats-core.spec.ts:332:1 › owner without write permission is read-only at all sizes (1.1s)
+  ok 66 [webkit] › e2e\chats-core.spec.ts:346:1 › active primary run blocks prompts without pretending stop or steer capability (1.1s)
+  ok 65 [webkit] › e2e\chats-core.spec.ts:309:1 › preflight ACL denial sends no POST (1.4s)
+  ok 67 [webkit] › e2e\chats-core.spec.ts:369:1 › legacy unknown stop marker is held without unsupported lookup (1.5s)
+  ok 68 [webkit] › e2e\chats-core.spec.ts:383:1 › list search and agent filters survive dialogue and browser return (2.1s)
+  ok 69 [webkit] › e2e\chats-core.spec.ts:396:1 › reading position and draft survive tabs; inactive deltas do not signal new messages (2.5s)
+  ok 70 [webkit] › e2e\chats-core.spec.ts:427:1 › unknown private-chat creation freezes title and replays only the original request (2.0s)
+  -  73 [webkit] › e2e\executors-live.spec.ts:19:1 › live executor directory supports search, sessions and responsive themes
+  ok 72 [webkit] › e2e\chats-core.spec.ts:465:1 › a rejected retry cannot release an earlier unknown prompt (1.6s)
+  ok 71 [webkit] › e2e\chats-core.spec.ts:451:1 › reload of unknown creation cannot silently issue a new key (2.3s)
+  ok 75 [webkit] › e2e\fleet-control.spec.ts:1129:1 › workflow bindings rebind only to a workflow in the selected namespace (1.2s)
+  ok 77 [webkit] › e2e\fleet-control.spec.ts:1352:1 › storage review links purge candidates to their workspace (1.5s)
+  ok 78 [webkit] › e2e\fleet-control.spec.ts:1364:1 › Chats groups private sessions by agent and keeps leader controls out of the new route (2.0s)
+  ok 74 [webkit] › e2e\fleet-control.spec.ts:1075:1 › uses the shared work-area geometry across semantic page modes (7.6s)
+  -  80 [webkit] › e2e\leader-team-live.spec.ts:19:1 › live leader team is read-only until changed and fits responsive themes
+  -  81 [webkit] › e2e\logs-live.spec.ts:19:1 › live logs stay compact and readable across themes and widths
+  -  82 [webkit] › e2e\workflow-bindings-live.spec.ts:19:1 › workflow bindings remain usable on the live fleet across themes and widths
+  -  83 [webkit] › e2e\dashboard-localization-live.spec.ts:23:1 › dashboard and navigation use Russian labels on the live fleet
+  -  84 [webkit] › e2e\platform-header-live.spec.ts:27:1 › Fleet global header preserves navigation, services, identity and central logout
+  ok 76 [webkit] › e2e\fleet-control.spec.ts:1139:1 › managed settings require preview, preserve failed changes and expose rollback history (16.2s)
+  ok 79 [webkit] › e2e\fleet-control.spec.ts:1383:1 › Hermes fleet control flow covers agents, runtime, skills, sessions and handoff (13.6s)
+
+  27 skipped
+  57 passed (1.1m)

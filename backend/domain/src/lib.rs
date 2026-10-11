@@ -1120,6 +1120,10 @@ pub struct AgentSession {
     pub namespace_id: Option<String>,
     pub external_session_id: Option<String>,
     pub last_message_preview: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_delivery: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_bound: Option<bool>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
 }
@@ -1163,6 +1167,8 @@ pub struct SessionMessage {
     pub delivery_state: MessageDeliveryState,
     pub delivery_error: Option<String>,
     pub replayed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_payload_hash: Option<String>,
     pub created_at: Timestamp,
 }
 

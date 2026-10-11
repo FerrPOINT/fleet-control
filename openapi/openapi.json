@@ -3986,6 +3986,12 @@
             ],
             "format": "uuid"
           },
+          "pending_delivery": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "primary_agent_id": {
             "type": "string",
             "format": "uuid"
@@ -3995,6 +4001,12 @@
           },
           "state": {
             "$ref": "#/components/schemas/SessionState"
+          },
+          "task_bound": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "task_key": {
             "type": [
@@ -6560,6 +6572,12 @@
           },
           "replayed": {
             "type": "boolean"
+          },
+          "request_payload_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "runtime_message_id": {
             "type": [

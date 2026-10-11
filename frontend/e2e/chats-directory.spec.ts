@@ -144,7 +144,13 @@ test('directory uses server counts, concrete cursors and scoped returnTo across 
         json: [agent(dev, 1, 'Directory developer'), agent(qa, 2, 'Directory reviewer')],
       })
     if (url.pathname === `/api/v1/sessions/${last}`)
-      return route.fulfill({ json: session(last, dev, 'Second page chat') })
+      return route.fulfill({
+        json: {
+          ...session(last, dev, 'Second page chat'),
+          task_bound: false,
+          pending_delivery: false,
+        },
+      })
     if (url.pathname.endsWith('/task-context'))
       return route.fulfill({ json: { binding: null, tracker: null } })
     if (url.pathname.endsWith('/chat-controls'))
@@ -195,7 +201,7 @@ test('directory uses server counts, concrete cursors and scoped returnTo across 
   expect(requests.at(-1)!.searchParams.get('before')).toBe(first)
   const href = new URL((await link.getAttribute('href'))!, 'http://localhost')
   expect(href.pathname).toBe(`/chats/${last}`)
-  const returnTo = new URL(href.searchParams.get('returnTo')!, 'http://localhost')
+  const returnTo = new URL(href.searchParams.get('backTo')!, 'http://localhost')
   expect(returnTo.searchParams.get('q')).toBe('literal%_')
   expect(returnTo.searchParams.get('before')).toBe(first)
   expect(returnTo.searchParams.get('users')).toBe(owner)
@@ -237,7 +243,7 @@ test('directory uses server counts, concrete cursors and scoped returnTo across 
   }
   await link.click()
   await expect(page.getByRole('heading', { name: 'Second page chat' })).toBeVisible()
-  await page.getByRole('link', { name: 'Вернуться к чатам' }).click()
+  await page.getByRole('link', { name: 'Назад к чатам' }).click()
   await expect(link).toBeVisible()
   const restored = new URL(page.url())
   expect(Object.fromEntries(restored.searchParams)).toEqual(

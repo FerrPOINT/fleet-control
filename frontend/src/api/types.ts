@@ -1,3 +1,5 @@
+import type { components } from './generated'
+
 export type AgentKind = 'hermes' | 'java_agent'
 export type SystemRole = 'admin' | 'operator' | 'user'
 export type AgentProductRole = 'leader' | 'executor'
@@ -131,30 +133,7 @@ export interface AgentSkill {
   updated_at: string
 }
 
-export interface AgentSession {
-  id: string
-  agent_id: string
-  primary_agent_id: string
-  agent_name: string
-  primary_agent_name: string
-  user_id: string
-  user_email: string
-  user_username: string
-  user_display_name: string
-  leader_agent_id: string | null
-  leader_agent_name: string | null
-  parent_session_id: string | null
-  created_by_leader_agent_id: string | null
-  visibility: SessionVisibility
-  title: string
-  task_key: string | null
-  state: SessionState
-  namespace_id: string | null
-  external_session_id: string | null
-  last_message_preview: string | null
-  created_at: string
-  updated_at: string
-}
+export type AgentSession = components['schemas']['AgentSession']
 
 export interface LeaderExecutor {
   leader_agent_id: string
@@ -179,21 +158,7 @@ export interface SessionParticipant {
   created_at: string
 }
 
-export interface SessionMessage {
-  id: string
-  session_id: string
-  author_type: MessageAuthorType
-  author_user_id: string | null
-  author_agent_id: string | null
-  author_display_name: string
-  body: string
-  message_kind: MessageKind
-  runtime_message_id: string | null
-  delivery_state: MessageDeliveryState
-  delivery_error: string | null
-  replayed: boolean
-  created_at: string
-}
+export type SessionMessage = components['schemas']['SessionMessage']
 
 export interface SessionAgentRun {
   id: string
@@ -408,13 +373,7 @@ export interface AssignSessionLeaderRequest {
   leader_agent_id: string | null
 }
 
-export interface CreateSessionMessageRequest {
-  body: string
-  author_agent_id?: string | null
-  message_kind?: MessageKind | null
-  runtime_message_id?: string | null
-  idempotency_key?: string | null
-}
+export type CreateSessionMessageRequest = components['schemas']['CreateSessionMessageRequest']
 
 export interface SteerSessionRunRequest {
   input: string

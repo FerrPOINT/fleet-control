@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+- Private и task-bound Chats выбираются по сохранённой Fleet binding. Private
+  UI сохраняет original-command recovery и получает cursor history с append
+  order; server-scoped directory сохраняет защиту создания и фильтры возврата.
+- Steer/stop проверяют актуального владельца и runtime identity; неизвестный
+  исход удерживается после reload. Ответы Task и подтверждения редакций сохраняют
+  исходный ключ и принимают только receipt соответствующего вопроса/владельца.
+- Pending run с единственным runtime session ID удерживает новый prompt;
+  подготовительный слот без обеих runtime identities остаётся допустимым.
+
+- Первый prompt допускается при валидном подготовительном pending run без
+  runtime identity. Ожидающая доставка берётся из полного состояния сессии,
+  включая сообщения за пределами 500 строк истории; неизвестная проекция
+  и занятый runtime удерживают отправку.
+
+- Chats подтверждает сохранённую команду по hash исходного запроса, сохраняя
+  redacted-текст ответа. Message receipts, replay, dispatch и assistant mirror
+  используют конкретную сохранённую строку за пределами первых 500 сообщений.
+  История остаётся ограниченной; hash возвращается в авторизованном POST receipt.
+
 - Reconcile the task-chat foundation with accepted main34aaec0 by normal merge;
   retain atomic redacted process logs, canonical heartbeat monitoring and both
   browser/screenshot packets. Fresh merged-tree acceptance remains pending.

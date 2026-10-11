@@ -2496,6 +2496,8 @@ mod tests {
             namespace_id: None,
             external_session_id: None,
             last_message_preview: None,
+            pending_delivery: None,
+            task_bound: None,
             created_at: "2026-09-01T00:00:00Z".to_string(),
             updated_at: "2026-09-01T00:00:00Z".to_string(),
         }
@@ -2519,6 +2521,7 @@ mod tests {
             delivery_state: MessageDeliveryState::Pending,
             delivery_error: None,
             replayed: false,
+            request_payload_hash: None,
             created_at: "2026-09-01T00:00:00Z".to_string(),
         }
     }
