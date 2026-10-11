@@ -16,9 +16,9 @@ transport, service, scheduler, Hermes patch or production source edit is added.
 
 ## Exact Inputs
 
-- Fleet `5db4ff92d2168c46ce96b56f37acbbf7de92db33`, tree
-  `5328b7de2d2e1922ae6748b02f974471a01d9de4`, sole parent
-  `e00b73070c327d28883c3f7a2a523b759df6662b`.
+- Fleet `2dcff77e01dc957e3a1d2ffda39b309835ac8d19`, tree
+  `46950f240c51c30bfb82ff13a1761770256937d0`, sole parent
+  `febcb1757089255d0c11208ca1154f3faf789aa3`.
 - SDK `19a7a381ae6dbea61a643bb96189e483fa64df5c`.
 - Base cold recipe, launchers and four utilities
   `9b53de7b23593949a9e6c05bd5a4f94b930e50a0`.
@@ -37,9 +37,10 @@ image was pulled**. Installation/platform closure remains unproven.
 `cat-file --batch`, verifying every Git blob identity. No worktree copy,
 `git archive`, credentials, dependency directory or historical image enters the
 context. The seal covers sources/recipes; extra context/qualifier-parent files
-are rejected. The exact e80-to-5db delta is three infra fixture/test files and two
-docs; production bytes are unchanged. `qa/source_coverage.py` verifies that delta
-and catalogs current config admission/activation, migration024, free-session
+are rejected. The exact aabe-to-2dc delta is one infra fixture/test file and four
+docs; production bytes are unchanged relative to aabe, not historical5db.
+`qa/source_coverage.py` verifies that delta
+and catalogs current config admission/activation, migration026, free-session
 projection and stored request hash. Two additive native assertions cover
 `task_bound=false` and the exact request hash. All inherited assertions remain.
 
@@ -95,11 +96,16 @@ prevents success output; terminal VM teardown is not cleanup evidence.
 The authored caller requires parent/independent review before publication. Its
 public preflight verifies the exact source tuple and additions before any private
 Base token use. All35 copied QA/image files match component
-`799ecf60d38117372dd7c355a888be499ec10b2d`; their compact path/SHA256 map digest is
-`9dce353967eec2517e939a787fb6581c6a354216188e4875961e7092712aaaa7`.
+`216ca92820c9891297fe7f36984c5519a2d40c89`; their compact path/SHA256 map digest is
+`a67eeb2e3f82c43065a47a6a2b1bc12f379253cd8d9c0119499281cc7b12e4a5`.
 Only this README and the workflow are caller-specific. No cache, Git donor,
 credentials or prepared packet is included. In that one host job, set absolute
 exact Git input directories (no dependency copies):
+
+The canonical raw-Git build input inventory is14085 files (Fleet222, SDK85,
+Base7, maintenance1, Hermes13770), SHA256
+`16a95648e65f7a52819994f2b62a63b0e78f70bd3182067199b708c407a355a2`.
+This is source-only hashing, not a build, image or native receipt.
 
 ```bash
 set -euo pipefail
@@ -131,8 +137,8 @@ python3 -B qa/cut_run.py --execute --packet "$CUT_PACKET" \
   --heavy-slot-ack "$REVIEWED_CUT_ACK"
 ```
 
-Build ACK: exactly `exclusive-source-image-build-<packet-name>-5db4ff92d216`.
-Native ACK contains `exclusive`, `native4`, `5db4ff92d216`; cut ACK uses
+Build ACK: exactly `exclusive-source-image-build-<packet-name>-2dcff77e01dc`.
+Native ACK contains `exclusive`, `native4`, `2dcff77e01dc`; cut ACK uses
 `native4cut`, not `native4`. One attempt per packet; no overwrite/rerun defaults.
 Native preparation is held until genuine fresh image qualification completes.
 
@@ -218,10 +224,12 @@ Actual1fa run38077155580 proved candidate_build/command_nonzero with all parent
 parity passed, but retained no candidate role, child exit or build cause. This
 change does not retroactively diagnose it or qualify any native scenario.
 
-The direct qualified source would be5db only. Later UI-only aca/152 commits and
-the subsequent infra test-only fixture repair require explicit source parity
-review, not a claim that this job directly checked their heads. They do not
-replace the frozen source inventory or introduce PM/F6 coverage.
+Any future direct qualification is for2dc only, not historical5db or later heads.
+The authentic aabe codegen receipt38107719356 remains historical evidence:
+the76-file API dependency closure is byte-identical, but it does not qualify
+the repaired credentials fixture or full backend. Native launch remains held
+until backend qualification and explicit review/authorization. This retarget
+does not introduce PM/F6 coverage beyond the existing matrices.
 
 ## Host Compose compatibility
 

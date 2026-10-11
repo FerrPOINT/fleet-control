@@ -88,49 +88,72 @@ for compatible projects. Disable stops new assignments without deleting history.
 
 ## Baseline
 
+Historical planning baseline, not the current integration or acceptance status:
+
 - Fleet: merged foundation 470f2856735bde5eff5bc969b6973a6d38044b12.
 - Tracker baseline: 569c1b9; PM contract implementation: 0cffd7d8c5fe5d9b12776c226635780beb583a4f.
 - Workflow baseline: 7a720b1; PM continuation implementation: a99a5d8.
 - Known prerequisite: Tracker's central-auth project bypass must not be inherited by SDLC.
-- Preview tests/builds passed previously; live contracts and acceptance remain to be implemented.
+- At that baseline, preview tests/builds had passed; runtime integration and live acceptance were still outstanding.
 
 ## Implementation Ledger
 
-Implemented: Fleet immutable bindings/history/gateway and production chat tabs; Tracker
-versioned state and owner/machine boundaries; Workflow checkpoint/continuation contract.
-Verified Fleet evidence is recorded in CURRENT_STATE; service-specific tests belong to
-their own repositories. Preview approval does not close live acceptance.
-Typed response DTOs and the accepted Tracker wire contract now have source-generated drift
-checks. See [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md) for the boundary
-between local contract evidence and the unimplemented runtime integration.
+This ledger describes implemented source at integration `80b891b`, not a live
+acceptance receipt. Historical baseline refs above are unchanged. Exact receipts
+and failed attempts remain in the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md);
+[CURRENT_STATE](CURRENT_STATE.md) and [GAP_REGISTER](GAP_REGISTER.md) track open gates.
 
-The follow-up implements trusted machine-only Hermes readback and exact-request
-approval decisions. Readback has authenticated test-runtime evidence; it is not
-an implemented PM dispatch/continuation orchestrator.
+### Implemented And Source-Reviewed
 
-The owner-only Draft/input/reservation/chat creation coordinator is implemented;
-it persists stable operations and stops at `awaiting_admission`. Continuations
-now require fresh trusted Workflow namespace ownership before external writes.
-The namespace guard is not an admission receipt or a runtime readiness claim.
-Fresh effective configuration verification now compares the managed files and
-isolated workspace against the active database snapshot without creating files.
-It exposes only a generic readiness blocker, not secrets or a runnable admission.
-Persisted task-workspace/config claims and their fencing remain part of the next
-admission implementation.
+- Immutable task bindings, paginated history, protected Tracker gateway and production
+  dialogue/clarification/requirements tabs; owner/project/human checks, durable
+  answer commands and separate answer-save/continuation outcomes.
+- Owner-only Draft/input/reservation/chat creation saga and typed API/client. With
+  dispatch disabled it stops at `awaiting_admission`; the opt-in runtime path also
+  returns `awaiting_runtime_acceptance` or `runtime_accepted`. Native acceptance is
+  not business completion, and the production creation form is not yet connected.
+- PM initial dispatch through existing Workflow/Hermes APIs, persisted immutable
+  request/key/identity, capacity reservation, current assignment and effective-config
+  checks. Bounded original-key replay requires attested current container proof;
+  missing/expired/foreign evidence stays held, never a new key or implicit takeover.
+- Restricted PM MCP tools for Tracker reads/question/revision publication and Workflow
+  steps/checkpoints; durable operation journals, current-run/assignment/version fences,
+  exact-run instruction receipts and server-only credentials. Tools cannot answer or
+  confirm as the human owner. Receipt validation is not proof of model compliance.
+- Saved-answer checkpoint continuation with old-run terminal/safe-stop readback,
+  stable resume identity, Workflow rebind and a fresh run's instruction receipt.
+  Accepted-run following, durable stream/final projection and terminal/capacity
+  reconciliation exist; disconnect/EOF is not completion.
+- Owner controls and trusted exact-request approval readback are integrated. Ordinary
+  task-bound send remains denied; active PM steer/stop use current guarded authority.
+  Idle PM prompts remain explicitly unsupported, without fabricated checkpoints or
+  fallback private-chat dispatch. Hermes is unchanged; no custom pre-model hook,
+  host controller or second scheduler is required.
+- Server-only Base delegation, strict Tracker metadata decoding and cursor persistence,
+  immutable projection/version pins and opt-in authenticated polling. Each cycle
+  rechecks Base subject/scope and Tracker project access; polling is not PM publication.
 
-Remaining before release: creation UI and full predispatch admission/dispatch saga,
-runtime structured tools/scoped assignment,
-live authenticated Tracker outbox acceptance, integration of trusted readback into PM delivery/rebind,
-prerequisite verifier, live restart/negative acceptance and current production screenshots.
-Task-bound chat ordinary send/steer is deliberately blocked until these contracts are wired.
+### Qualified Evidence And Limits
 
-Implemented follow-ups: bounded server-only Base delegation client, transactional
-PM terminal/capacity reconciliation, strict metadata-only Tracker decoder and
-immutable projection/version pins. Producer HTTP snapshots from Tracker's own
-PostgreSQL tests cover all nine event types without rewriting source digests.
-These are foundations and contract evidence, not actual PM tools/delivery/resume.
+Typed DTO drift checks and authentic Rust OpenAPI generation have recorded evidence;
+producer fixtures and HTTP/PG component checks retain their exact source scopes.
+Corrected frontend sourceaca/fc0 passes all23 gates/461 units and47 tests per browser
+engine, with nine opt-in live-only skips each;135 catalogue and nine PM views are
+imported with provenance. These are fixture captures, not live service acceptance.
+Reviewed source and authored backend regressions do not substitute for the full
+backend gate. See [CURRENT_STATE](CURRENT_STATE.md#current-evidence) for current
+qualification. The afab/sourcecb1 failure and source5bc experiment are historical
+attempts, not the latest status or evidence of a proven fix or full acceptance.
 
-Authenticated metadata polling is implemented behind a disabled-by-default
-deployment flag. Base subject/scope and Tracker project access are rechecked each
-cycle; source cursors survive restarts. PostgreSQL and fault-injected HTTP checks
-verify this component, not live PM publication/resume or Backlog acceptance.
+### Remaining Before Release And Live Acceptance
+
+Connect the existing PM creation API only after explicit form approval. Complete
+current-source backend/PG/HTTP and migration qualification, real authenticated
+Tracker outbox delivery, PM tools/continuation/restart/negative flows, and owner
+exact-revision confirmation through Backlog. Qualify native provisioning/config
+activation/recovery and two-agent isolation; verify the remaining interactive/live
+flows rather than treating fixture screenshots or runtime ACKs as business success.
+General non-PM execution/workspace authority and automatic Java SDLC remain separate
+compatible-producer/consumer gaps; the initial PM Draft path does not fabricate
+task-workspace claims to close them. The approved target above remains unchanged;
+no complete PM, native-runtime or full-SDLC acceptance is claimed.

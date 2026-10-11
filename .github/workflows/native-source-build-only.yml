@@ -40,9 +40,9 @@ jobs:
           python3 -B - <<'PY'
           import hashlib, json, os, subprocess
           from pathlib import Path
-          source = '5db4ff92d2168c46ce96b56f37acbbf7de92db33'
-          tree = '5328b7de2d2e1922ae6748b02f974471a01d9de4'
-          parent = 'e00b73070c327d28883c3f7a2a523b759df6662b'
+          source = '2dcff77e01dc957e3a1d2ffda39b309835ac8d19'
+          tree = '46950f240c51c30bfb82ff13a1761770256937d0'
+          parent = 'febcb1757089255d0c11208ca1154f3faf789aa3'
           def git(*args):
               return subprocess.run(['git', '--no-replace-objects', *args], capture_output=True, check=True).stdout
           assert os.environ['GITHUB_REPOSITORY'] == 'FerrPOINT/fleet-control'
@@ -86,7 +86,7 @@ jobs:
           process.stdin.close()
           assert process.wait(timeout=30) == 0
           assert len(helpers) == 35
-          assert hashlib.sha256(json.dumps(helpers, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == '9dce353967eec2517e939a787fb6581c6a354216188e4875961e7092712aaaa7'
+          assert hashlib.sha256(json.dumps(helpers, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == 'a67eeb2e3f82c43065a47a6a2b1bc12f379253cd8d9c0119499281cc7b12e4a5'
           actual = set()
           for path in Path(prefix).rglob('*'):
               assert not path.is_symlink()
@@ -99,7 +99,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: FerrPOINT/fleet-control
-          ref: 5db4ff92d2168c46ce96b56f37acbbf7de92db33
+          ref: 2dcff77e01dc957e3a1d2ffda39b309835ac8d19
           path: inputs/fleet
           fetch-depth: 0
           persist-credentials: false
@@ -165,14 +165,14 @@ jobs:
           PY
           python3 -B images/build.py --execute-build --packet "$BUILD_PACKET" \
             --docker-context "$DOCKER_CONTEXT" --builder default \
-            --heavy-slot-ack "exclusive-source-image-build-$(basename "$BUILD_PACKET")-5db4ff92d216"
+            --heavy-slot-ack "exclusive-source-image-build-$(basename "$BUILD_PACKET")-2dcff77e01dc"
       - name: Original nine native scenarios
         working-directory: controls/.ci/native-source
         run: |
           python3 -B qa/run.py --prepare --image-build-packet "$BUILD_PACKET" > "$RUNNER_TEMP/native-nine-prepare.json"
           NATIVE_PACKET=$(python3 -B -c 'import json,sys; x=json.load(open(sys.argv[1])); assert x["state"]=="prepared_not_executed" and x["execute_eligible"] is True; print(x["packet"])' "$RUNNER_TEMP/native-nine-prepare.json")
           python3 -B qa/run.py --execute --packet "$NATIVE_PACKET" --image-build-packet "$BUILD_PACKET" \
-            --docker-context "$DOCKER_CONTEXT" --heavy-slot-ack 'exclusive native4 5db4ff92d216'
+            --docker-context "$DOCKER_CONTEXT" --heavy-slot-ack 'exclusive native4 2dcff77e01dc'
           printf 'NATIVE_PACKET=%s\n' "$NATIVE_PACKET" >> "$GITHUB_ENV"
       - name: Separate existing native cut supplement
         working-directory: controls/.ci/native-source
@@ -180,7 +180,7 @@ jobs:
           python3 -B qa/cut_run.py --prepare --image-build-packet "$BUILD_PACKET" > "$RUNNER_TEMP/native-cut-prepare.json"
           CUT_PACKET=$(python3 -B -c 'import json,sys; x=json.load(open(sys.argv[1])); assert x["state"]=="cut_prepared_not_executed"; print(x["packet"])' "$RUNNER_TEMP/native-cut-prepare.json")
           python3 -B qa/cut_run.py --execute --packet "$CUT_PACKET" --image-build-packet "$BUILD_PACKET" \
-            --docker-context "$DOCKER_CONTEXT" --heavy-slot-ack 'exclusive native4cut 5db4ff92d216'
+            --docker-context "$DOCKER_CONTEXT" --heavy-slot-ack 'exclusive native4cut 2dcff77e01dc'
           printf 'CUT_PACKET=%s\n' "$CUT_PACKET" >> "$GITHUB_ENV"
       - name: Finally remove only this attempt's exact fresh candidate aliases
         if: ${{ always() && env.BUILD_PACKET != '' }}
@@ -263,7 +263,7 @@ jobs:
               no_force=True, no_parent_prune=True)
           bm = build.verify(b)
           inventory = hashlib.sha256(json.dumps(bm['source_inventory'], sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-          assert bm['source_count'] == 14083 and inventory == '286d6e537a41f072bf92c159c422efa2e7035d3447d79d8976b3bd584cefd13e'
+          assert bm['source_count'] == 14085 and inventory == '16a95648e65f7a52819994f2b62a63b0e78f70bd3182067199b708c407a355a2'
           run.bind_candidates(b); cut_run.driver.bind_candidates(b)
           manifests = [run.verify(n), cut_run.driver.verify(c)]
           reports = [read(p / 'terminal-report.json') for p in (n, c)]
@@ -309,12 +309,12 @@ jobs:
           receipt = dict(kind='fleet-native-scoped-success-v1', state='scoped_native_matrices_passed_not_sdlc_acceptance',
               run_id=os.environ['GITHUB_RUN_ID'], attempt=1, controls=os.environ['GITHUB_SHA'],
               source=build.INPUTS['fleet'], source_tree=build.INPUTS['fleet_tree'], source_parent=build.INPUTS['fleet_parent'],
-              component='799ecf60d38117372dd7c355a888be499ec10b2d',
+              component='216ca92820c9891297fe7f36984c5519a2d40c89',
               pins={key: build.INPUTS[key] for key in ('sdk', 'base', 'maintenance', 'hermes', 'maintenance_sha256', 'parents')},
               inputs_sha256=sha(Path('images/inputs.json')), source_inventory_sha256=inventory,
-              source_files=14083, hermes_blobs=13770, images=proof['images'],
+              source_files=14085, hermes_blobs=13770, images=proof['images'],
               build_receipt_sha256=proof['receipt_sha256'], build_seal_sha256=proof['seal_sha256'],
-              helper_seals=dict(component_files_sha256='9dce353967eec2517e939a787fb6581c6a354216188e4875961e7092712aaaa7',
+              helper_seals=dict(component_files_sha256='a67eeb2e3f82c43065a47a6a2b1bc12f379253cd8d9c0119499281cc7b12e4a5',
                   original_nine=sha(n / 'seal.json'), cuts=sha(c / 'seal.json')),
               candidate_cleanup=candidate_cleanup,
               same_daemon=True, offline_qualification=True, policy=proof['policy'],

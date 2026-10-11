@@ -34,14 +34,21 @@ intent/reservation/heartbeat, not completed execution admission or safe-stop
 release/reacquire. Architect, Developer, Reviewer, Tester and DevOps execution
 lifecycles remain missing producer dependencies.
 
-Workflow PR90 at `7fdcd949c1372f444fc850f6bb142e4538088285` provides the
-role/mode catalog; catalog presence is not execution authority. PM continuation
-requires a genuine waiting checkpoint and answer event. An arbitrary idle PM
-turn must not fabricate those inputs or fall back to free-chat dispatch.
-The reviewed update from66e serializes initial/continuation run reservations and
-disables inherited HTTP proxy/netrc settings for trusted readback. Its runtime
-step API is unchanged; producer CI passes, but live Fleet integration and the
-broader owner-execution authority remain separate requirements.
+Newer Tracker PR127 is merged into a feature branch, not main, and implements
+PM native admission beyond that pinned baseline. Its required Fleet/model hook
+diverges from the accepted no-hook path; it is not a compatible automatic repin.
+Exact sources and the separate non-PM limitation are recorded in
+[the contract](contracts/CHAT_CLARIFICATION_CONTRACT.md#external-pm-contract-divergence-11-october-2026).
+
+Workflow PR90 is merged as `ef2cf9e06aafe1b295f34dbdca3a432227195266`,
+with source `994bc8ee024bfd7f0d92cf02189daad417f19149`. It implements
+authenticated, role-scoped generic assignment, bind and step for Analyst,
+Architect, Developer, Reviewer, Tester and DevOps, not only a role/mode catalog.
+Workflow is the technical execution sink/cursor; these APIs do not supply
+Tracker-owned admission, heartbeat/fencing or verified-stop capacity release.
+Compatible Fleet consumption and live qualification remain required.
+PM continuation requires a genuine waiting checkpoint and answer event; an
+arbitrary idle PM turn must not fabricate them or use free-chat dispatch.
 
 Source wire compatibility and the eleven accepted Tracker metadata event types
 do not prove live admission. See [metadata compatibility](TRACKER_METADATA11_COMPATIBILITY.md)

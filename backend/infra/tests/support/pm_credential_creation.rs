@@ -14,14 +14,71 @@ use tokio::sync::Mutex;
 const PARENT: &str = "sdlc_pat_parent-test-secret-1234567890";
 const CHILD: &str = "sdlc_pat_child-test-secret-1234567890";
 
-#[tokio::test]
-async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_terminal_proof()
-{
-    use app::RuntimeSupervisor;
+// Distinct static panic sites are readable in the existing safe CI frame report.
+fn continuation_failure(error: shared::AppError) -> ! {
+    match error {
+        shared::AppError::Conflict(reason) => match reason.as_str() {
+            "PM original runtime context changed" => panic!("continuation_runtime_context_changed"),
+            "effective configuration readback failed" => {
+                panic!("continuation_effective_configuration_changed")
+            }
+            "saved answer or current Tracker assignment changed" => {
+                panic!("continuation_tracker_assignment_changed")
+            }
+            "PM original stream custody or owner binding changed" => {
+                panic!("continuation_original_stream_custody_changed")
+            }
+            "PM continuation custody changed" => panic!("continuation_intent_custody_changed"),
+            "PM dispatch key has a different payload" => {
+                panic!("continuation_dispatch_key_conflict")
+            }
+            "PM is draining or has an active/unresolved run" => {
+                panic!("continuation_capacity_held")
+            }
+            "PM is not waiting for this saved answer" => {
+                panic!("continuation_workflow_not_waiting")
+            }
+            "another PM continuation is reserved" => panic!("continuation_workflow_reservation"),
+            _ => panic!("continuation_other_conflict"),
+        },
+        shared::AppError::Forbidden => panic!("continuation_forbidden"),
+        shared::AppError::Database(_) => panic!("continuation_database_error"),
+        shared::AppError::Validation(_) => panic!("continuation_validation_error"),
+        shared::AppError::NotFound { .. } => panic!("continuation_not_found"),
+        _ => panic!("continuation_other_error"),
+    }
+}
+
+#[test]
+fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_terminal_proof() {
+    use app::{AgentProvisioner, RuntimeSupervisor};
     use axum::{http::Method, response::IntoResponse};
     use domain::*;
     use sha2::{Digest, Sha256};
-    for fault in ["none", "stop-not-terminal", "unknown-native-post"] {
+    for fault in [
+        "none",
+        "stop-not-terminal",
+        "unknown-native-post",
+        "invalid-terminal",
+        "lost-guidance-ack",
+        "draining",
+        "replacement",
+        "rollback",
+        "replacement-unknown-native-post",
+        "replacement-completed-uncommitted",
+    ] {
+        let replacement = matches!(
+            fault,
+            "replacement"
+                | "rollback"
+                | "replacement-unknown-native-post"
+                | "replacement-completed-uncommitted"
+        );
+        let case_runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        case_runtime.block_on(async {
         let mut fixture = fixture()
             .await
             .expect("isolated PostgreSQL required for PM tool integration");
@@ -53,6 +110,7 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
         ));
         let calls = Arc::new(Mutex::new(Vec::<String>::new()));
         let stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let retired = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         let state = (
@@ -63,9 +121,10 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             expected_native,
             assigned,
             phase_state.clone(),
+            retired.clone(),
         );
         let router=Router::new().fallback(move |method:Method,uri:axum::http::Uri,headers:HeaderMap,bytes:axum::body::Bytes|{
-            let (ledger,calls,stopped,reservation,expected_native,assigned,phase_state)=state.clone();
+            let (ledger,calls,stopped,reservation,expected_native,assigned,phase_state,retired)=state.clone();
             async move {
                 let path=uri.path(); calls.lock().await.push(format!("{method} {path}"));
                 let body:Value=if bytes.is_empty(){Value::Null}else{serde_json::from_slice(&bytes).unwrap()};
@@ -156,20 +215,32 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                     return Json(if snapshot["state"]=="active" {json!({"ok":true,"result":snapshot.clone(),"execution_token":"b".repeat(64)})}else{json!({"ok":true,"result":snapshot.clone()})}).into_response();
                 }
                 assert_eq!(headers["authorization"],expected_native);
+                if path=="/v1/runs/run_old" && retired.load(Ordering::SeqCst) {
+                    return StatusCode::GONE.into_response();
+                }
                 match path {
                     "/health"=>Json(json!({"status":"ok"})).into_response(),
-                    "/v1/capabilities"=>Json(super::hermes_protocol_fixture::capabilities()).into_response(),
+                    "/v1/capabilities"=>{
+                        let mut capabilities=super::hermes_protocol_fixture::capabilities();
+                        if matches!(fault,"lost-guidance-ack"|"draining") {
+                            capabilities["features"]["run_steer"]=json!(true);
+                            capabilities["endpoints"]["run_steer"]=json!({"method":"POST","path":"/v1/runs/{run_id}/steer"});
+                        }
+                        Json(capabilities).into_response()
+                    }
                     "/v1/runs/run_old/stop"=>{
                         assert_eq!(method,Method::POST);
-                        if fault!="stop-not-terminal" {stopped.store(true,Ordering::SeqCst);}
+                        if !matches!(fault,"stop-not-terminal"|"draining") {stopped.store(true,Ordering::SeqCst);}
                         Json(json!({"run_id":"run_old","status":"stopping"})).into_response()
                     }
-                    "/v1/runs/run_old"=>Json(if stopped.load(Ordering::SeqCst){json!({"object":"hermes.run","run_id":"run_old","session_id":"native-session",
+                    "/v1/runs/run_old"=>Json(if stopped.load(Ordering::SeqCst)&&fault=="invalid-terminal" {
+                        json!({"object":"hermes.run","run_id":"run_old","session_id":"native-session","status":"completed"})
+                    }else if stopped.load(Ordering::SeqCst){json!({"object":"hermes.run","run_id":"run_old","session_id":"native-session",
                         "status":"stopped","completed":false,"partial":true,"interrupted":true})}else{json!({"object":"hermes.run","run_id":"run_old","session_id":"native-session","status":"running"})}).into_response(),
                     "/v1/runs"=>{
                         assert_eq!(method,Method::POST);assert_eq!(headers["idempotency-key"],ledger.lock().await["resume_session_run_id"].as_str().unwrap());
                         assert!(stopped.load(Ordering::SeqCst));assert!(!body.to_string().contains(PARENT));assert!(!body.to_string().contains(CHILD));
-                        if fault=="unknown-native-post" {(StatusCode::SERVICE_UNAVAILABLE,Json(json!({"error":"unknown acceptance"}))).into_response()}
+                        if matches!(fault,"unknown-native-post"|"replacement-unknown-native-post") {(StatusCode::SERVICE_UNAVAILABLE,Json(json!({"error":"unknown acceptance"}))).into_response()}
                         else {(StatusCode::ACCEPTED,Json(json!({"run_id":"run_new","status":"started","replayed":false}))).into_response()}
                     }
                     "/v1/runs/run_new"=>Json(json!({"object":"hermes.run","run_id":"run_new","session_id":"native-session","status":"running"})).into_response(),
@@ -181,6 +252,17 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 }
             }
         });
+        // Reuse the same controlled peer at a new origin; the old run will be unavailable.
+        let replacement_peer = if replacement {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port = listener.local_addr().unwrap().port();
+            let router = router.clone();
+            Some((port, super::pm_dispatch::AbortServer(tokio::spawn(async move {
+                axum::serve(listener, router).await.unwrap()
+            }))))
+        } else {
+            None
+        };
         let _peer = super::pm_dispatch::AbortServer(tokio::spawn(async move {
             axum::serve(listener, router).await.unwrap()
         }));
@@ -193,15 +275,26 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
         let api_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let api_origin = format!("http://{}", api_listener.local_addr().unwrap());
         fixture.config.pm.dispatch.tool_origin = Some(api_origin.clone());
+        let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let seeded_skills = fixture.remote.repo.list_agent_skills(op.request.agent_id).await.unwrap();
+        assert_eq!(seeded_skills.iter().map(|skill| skill.name.as_str()).collect::<Vec<_>>(),
+            ["development", "gh-commit-pr", "project-workflow"]);
+        assert!(seeded_skills.iter().all(|skill|
+            skill.state == SkillState::Enabled && skill.content.is_none() && skill.source == "seed"));
+        // This controlled HOME intentionally installs no skills; future revisions must agree.
+        let removed = db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "DELETE FROM agent_skills WHERE agent_id=$1 AND source='seed'", [op.request.agent_id.into()]))
+            .await.unwrap();
+        assert_eq!(removed.rows_affected(), 3);
+        assert!(fixture.remote.repo.list_agent_skills(op.request.agent_id).await.unwrap().is_empty());
         let _home = super::pm_dispatch::install_tool_home(
             fixture.remote.repo.as_ref(),
             &op,
             &mut fixture.config,
         )
         .await;
-        let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
-            .await
-            .unwrap();
         db.execute(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "UPDATE agents SET api_port=$2,workflow_id='1' WHERE id=$1",
@@ -209,6 +302,14 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
         ))
         .await
         .unwrap();
+        let installed = fixture.remote.repo.get_effective_config_revision(op.request.agent_id)
+            .await.unwrap().unwrap();
+        assert!(installed.snapshot.skills.is_empty());
+        infra::FilesystemProvisioner.verify_effective_configuration(
+            &fixture.remote.repo.get_agent(op.request.agent_id).await.unwrap(),
+            &fixture.config,
+            &installed,
+        ).await.expect("controlled initial PM profile must match its snapshot");
         fixture
             .remote
             .repo
@@ -265,11 +366,15 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             .unwrap();
         let config = Arc::new(fixture.config.clone());
         let (events, _) = tokio::sync::broadcast::channel(32);
-        let runtime = Arc::new(infra::runtime::LocalRuntimeSupervisor::new(
-            config.clone(),
-            fixture.remote.repo.clone(),
-            events.clone(),
-        ));
+        let runtime = Arc::new(if replacement {
+            // These cases own repository activation claims; do not start a competing activator.
+            let config = config.clone();
+            let repo = fixture.remote.repo.clone();
+            let events = events.clone();
+            std::thread::spawn(move || infra::runtime::LocalRuntimeSupervisor::new(config, repo, events)).join().unwrap()
+        } else {
+            infra::runtime::LocalRuntimeSupervisor::new(config.clone(), fixture.remote.repo.clone(), events.clone())
+        });
         let (restart, _) = tokio::sync::mpsc::channel(1);
         let ctx = Arc::new(app::AppContext::new(
             config,
@@ -290,6 +395,269 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             axum::serve(api_listener, api_router).await.unwrap()
         }));
         let client = reqwest::Client::new();
+        if matches!(fault, "lost-guidance-ack" | "draining") {
+            let repo = &fixture.remote.repo;
+            repo.observe_pm_run(op.id, PmRuntimeStatus::Running)
+                .await
+                .unwrap();
+            // Keep the lost-ACK case; the drain case has delivered guidance before activation.
+            let guidance = json!({"input":"Original initial guidance"}).to_string();
+            assert!(matches!(
+                repo.claim_pm_guidance(op.id, guidance.clone())
+                    .await
+                    .unwrap(),
+                PmGuidancePermit::Claimed
+            ));
+            assert!(matches!(
+                repo.claim_pm_guidance(op.id, guidance).await.unwrap(),
+                PmGuidancePermit::Unknown
+            ));
+            let activation = if fault == "draining" {
+                repo.finish_pm_guidance(op.id).await.unwrap();
+                let effective = repo
+                    .get_effective_config_revision(op.request.agent_id)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let draft = repo
+                    .create_config_revision(
+                        op.request.agent_id,
+                        effective.snapshot.config,
+                        op.owner_user_id,
+                    )
+                    .await
+                    .unwrap();
+                repo.validate_config_revision(op.request.agent_id, draft.revision, vec![])
+                    .await
+                    .unwrap();
+                repo.request_config_activation(
+                    op.request.agent_id,
+                    draft.revision,
+                    op.owner_user_id,
+                )
+                .await
+                .unwrap();
+                assert!(repo.agent_is_draining(op.request.agent_id).await.unwrap());
+                assert!(repo.claim_config_activation().await.unwrap().is_none());
+                Some(draft.revision)
+            } else {
+                None
+            };
+            let agent = repo.get_agent(op.request.agent_id).await.unwrap();
+            let run = repo.get_session_agent_run(op.id).await.unwrap();
+            let owner = RuntimeControlActor {
+                user_id: op.owner_user_id,
+                idempotency_key: "owner-stop-after-lost-guidance".into(),
+            };
+            assert!(fixture.remote.questions.lock().await.is_empty());
+            assert_eq!(ledger.lock().await["state"], "active");
+            assert_eq!(ledger.lock().await["workflow_step_allowed"], true);
+            let coordinator = fixture.coordinator();
+            let credential = coordinator.runtime_credential(&op).await.unwrap();
+            assert!(matches!(
+                coordinator
+                    .machine_context(&op, &credential)
+                    .await
+                    .unwrap()
+                    .stage,
+                TrackerStage::Draft
+            ));
+            let scope = PmHumanControlScope {
+                record: repo.get_pm_run(op.id).await.unwrap(),
+                intent: repo.get_pm_dispatch(op.id).await.unwrap().unwrap(),
+                owner_user_id: owner.user_id,
+                owner_subject: op.owner_subject.clone(),
+            };
+            repo.check_pm_runtime_control(
+                &run,
+                owner.user_id,
+                RuntimeControlOperation::Stop,
+                &scope,
+            )
+            .await
+            .unwrap();
+            assert!(
+                repo.check_pm_runtime_control(
+                    &run,
+                    owner.user_id,
+                    RuntimeControlOperation::Steer,
+                    &scope
+                )
+                .await
+                .is_err()
+            );
+            let controls = runtime
+                .pm_human_controls(&agent, &run, owner.user_id)
+                .await
+                .unwrap();
+            assert!(controls.can_stop);
+            assert!(!controls.can_steer);
+            if activation.is_some() {
+                assert!(
+                    matches!(runtime.call_pm_tool(agent.id, "workflow_step", PmToolCall {
+                    operation_id: op.id, session_run_id: op.id,
+                    command: json!({"step_operation_key":"held-under-drain","report":null}),
+                }).await, Err(shared::AppError::Conflict(reason)) if reason == "PM configuration is draining")
+                );
+            }
+            assert!(
+                runtime
+                    .steer_run(
+                        &agent,
+                        &run,
+                        SteerSessionRunRequest {
+                            input: "Must remain held".into()
+                        },
+                        RuntimeControlActor {
+                            idempotency_key: "held-steer".into(),
+                            ..owner.clone()
+                        },
+                    )
+                    .await
+                    .is_err()
+            );
+            let mut stale = run.clone();
+            stale.runtime_run_id = Some("run_foreign".into());
+            assert!(
+                runtime
+                    .stop_run(&agent, &stale, owner.clone())
+                    .await
+                    .is_err()
+            );
+            assert!(
+                runtime
+                    .stop_run(
+                        &agent,
+                        &run,
+                        RuntimeControlActor {
+                            user_id: Uuid::new_v4(),
+                            ..owner.clone()
+                        }
+                    )
+                    .await
+                    .is_err()
+            );
+            fixture.remote.mode.store(3, Ordering::SeqCst);
+            assert!(runtime.stop_run(&agent, &run, owner.clone()).await.is_err());
+            fixture.remote.mode.store(0, Ordering::SeqCst);
+            let first = runtime.stop_run(&agent, &run, owner.clone()).await.unwrap();
+            let replay = runtime.stop_run(&agent, &run, owner).await.unwrap();
+            assert!(first.accepted && replay.accepted);
+            assert_eq!(first.command.unwrap().id, replay.command.unwrap().id);
+            assert_eq!(replay.state, SessionRunState::Stopping);
+            assert!(
+                repo.get_pm_run(op.id)
+                    .await
+                    .unwrap()
+                    .terminal_status
+                    .is_none()
+            );
+            assert_eq!(
+                repo.list_runtime_controls(run.session_id, run.id)
+                    .await
+                    .unwrap()
+                    .len(),
+                1
+            );
+            let runs = db
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT count(*) AS count FROM session_agent_runs WHERE session_id=$1",
+                    [run.session_id.into()],
+                ))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(runs.try_get::<i64>("", "count").unwrap(), 1);
+            let guidance = db.query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT guidance_attempted,guidance_delivered FROM pm_dispatch_journal WHERE session_run_id=$1",
+                [op.id.into()],
+            )).await.unwrap().unwrap();
+            assert!(guidance.try_get::<bool>("", "guidance_attempted").unwrap());
+            assert_eq!(
+                guidance.try_get::<bool>("", "guidance_delivered").unwrap(),
+                activation.is_some()
+            );
+            if let Some(revision) = activation {
+                assert!(
+                    repo.claim_config_activation().await.unwrap().is_none(),
+                    "Stop ACK is not terminal proof"
+                );
+                assert_eq!(
+                    runtime
+                        .probe_pm_run(&agent, &repo.get_pm_run(op.id).await.unwrap())
+                        .await
+                        .unwrap(),
+                    PmRuntimeStatus::Running
+                );
+                // Hold only the desired revision so the background activator cannot race these assertions.
+                let activation_guard = db.begin().await.unwrap();
+                activation_guard.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                    "SELECT revision FROM agent_config_revisions WHERE agent_id=$1 AND revision=$2 FOR UPDATE",
+                    [agent.id.into(),revision.into()])).await.unwrap().unwrap();
+                stopped.store(true, Ordering::SeqCst);
+                tokio::time::timeout(std::time::Duration::from_secs(15), async {
+                    loop {
+                        if repo.pm_stream_context(op.id).await.unwrap().1 {
+                            break;
+                        }
+                        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                    }
+                })
+                .await
+                .expect("original PM terminal follower must release activation");
+                assert_eq!(
+                    repo.get_pm_run(op.id).await.unwrap().terminal_status,
+                    Some(PmRuntimeStatus::Stopped)
+                );
+                assert!(
+                    matches!(
+                        repo.reserve_pm_run(PmRunReservation {
+                            session_run_id: Uuid::new_v4(),
+                            dispatch_operation_key: "held-new-dispatch-under-drain".into(),
+                            ..reservation.clone()
+                        })
+                        .await,
+                        Err(shared::AppError::Conflict(_))
+                    ),
+                    "drain still holds new dispatch after terminal frees capacity"
+                );
+                activation_guard.commit().await.unwrap();
+                let activated = tokio::time::timeout(std::time::Duration::from_secs(15), async {
+                    loop {
+                        let revision = repo.get_config_revision(agent.id, revision).await.unwrap();
+                        if revision.state != "activating" { break revision; }
+                        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                    }
+                }).await.expect("existing activator must claim only after terminal proof");
+                // The controlled HTTP runtime is deliberately not an owned OS child.
+                assert_eq!(activated.state, "failed");
+                assert_eq!(activated.last_error, Some(shared::AppError::conflict("untracked runtime must be reconciled before configuration activation").to_string()));
+                assert!(!repo.agent_is_draining(agent.id).await.unwrap());
+                let claimed = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                    "SELECT claimed_at IS NOT NULL AS claimed FROM agent_config_revisions WHERE agent_id=$1 AND revision=$2",
+                    [agent.id.into(),revision.into()])).await.unwrap().unwrap();
+                assert!(
+                    claimed.try_get::<bool>("", "claimed").unwrap(),
+                    "terminal proof permits activation claim"
+                );
+            }
+            let requests = calls.lock().await;
+            assert_eq!(
+                requests
+                    .iter()
+                    .filter(|r| r.as_str() == "POST /v1/runs/run_old/stop")
+                    .count(),
+                1
+            );
+            assert!(
+                !requests
+                    .iter()
+                    .any(|r| r == "POST /v1/runs" || r == "POST /v1/runs/run_old/steer")
+            );
+            return;
+        }
         let endpoint = format!("{api_origin}/mcp/{}", op.request.agent_id);
         let initialize = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1"}}});
         assert_eq!(
@@ -504,11 +872,15 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 .unwrap(),
         ));
         let (restart_events, _) = tokio::sync::broadcast::channel(32);
-        let restarted = infra::runtime::LocalRuntimeSupervisor::new(
-            Arc::new(fixture.config.clone()),
-            restarted_repo.clone(),
-            restart_events,
-        );
+        let restarted = if replacement {
+            let config = Arc::new(fixture.config.clone());
+            let repo = restarted_repo.clone();
+            std::thread::spawn(move || infra::runtime::LocalRuntimeSupervisor::new(config, repo, restart_events)).join().unwrap()
+        } else {
+            infra::runtime::LocalRuntimeSupervisor::new(
+                Arc::new(fixture.config.clone()), restarted_repo.clone(), restart_events,
+            )
+        };
         db.execute(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "UPDATE agent_config_heads SET draining=true WHERE agent_id=$1",
@@ -774,15 +1146,125 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             questions[0]["answer"] = serde_json::to_value(answer).unwrap();
             questions[0]["state"] = json!("answered");
         }
+        let original = fixture.remote.repo.get_pm_dispatch(op.id).await.unwrap().unwrap();
+        let old_reads = if replacement {
+            let repo = &fixture.remote.repo;
+            let agent = repo.get_agent(op.request.agent_id).await.unwrap();
+            stopped.store(true, Ordering::SeqCst);
+            if fault == "replacement-completed-uncommitted" {
+                // Reproduce legacy observation custody, which did not require completion flags.
+                repo.observe_pm_run(op.id, PmRuntimeStatus::Completed).await.unwrap();
+            } else {
+                let record = repo.get_pm_run(op.id).await.unwrap();
+                assert_eq!(runtime.probe_pm_run(&agent, &record).await.unwrap(), PmRuntimeStatus::Stopped);
+                repo.observe_pm_run(op.id, PmRuntimeStatus::Stopped).await.unwrap();
+            }
+            assert!(!repo.pm_stream_context(op.id).await.unwrap().1,
+                "terminal observation need not wait for assistant mirror commit");
+            let effective = repo.get_effective_config_revision(agent.id).await.unwrap().unwrap();
+            let draft = repo.create_config_revision(agent.id, effective.snapshot.config, op.owner_user_id).await.unwrap();
+            assert!(draft.snapshot.skills.is_empty());
+            repo.validate_config_revision(agent.id, draft.revision, vec![]).await.unwrap();
+            repo.request_config_activation(agent.id, draft.revision, op.owner_user_id).await.unwrap();
+            let claim = repo.claim_config_activation().await.unwrap().unwrap();
+            assert_eq!((claim.agent_id, claim.revision), (agent.id, draft.revision));
+            // Controlled repository publication, not physical Docker activation qualification.
+            repo.finish_config_activation(agent.id, draft.revision,
+                (fault == "rollback").then(|| "controlled rollback".into()), true).await.unwrap();
+            let effective = repo.get_effective_config_revision(agent.id).await.unwrap().unwrap();
+            assert_eq!(effective.revision, if fault == "rollback" {1} else {draft.revision});
+            assert_eq!(repo.get_config_revision(agent.id, draft.revision).await.unwrap().state,
+                if fault == "rollback" {"failed"} else {"active"});
+            assert!(!repo.agent_is_draining(agent.id).await.unwrap());
+            let marker = std::path::Path::new(&agent.paths.config).join(".fleet-config-revision.json");
+            let mut bytes: Value = serde_json::from_slice(&std::fs::read(&marker).unwrap()).unwrap();
+            bytes["revision"] = json!(effective.revision);
+            std::fs::write(&marker, serde_json::to_vec(&bytes).unwrap()).unwrap();
+            db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                "UPDATE agents SET api_port=$2 WHERE id=$1",
+                [agent.id.into(), i32::from(replacement_peer.as_ref().unwrap().0).into()])).await.unwrap();
+            assert!(effective.snapshot.skills.is_empty());
+            infra::FilesystemProvisioner.verify_effective_configuration(
+                &repo.get_agent(agent.id).await.unwrap(), &fixture.config, &effective,
+            ).await.expect("controlled replacement or rollback must match its snapshot");
+            retired.store(true, Ordering::SeqCst);
+            Some(calls.lock().await.iter().filter(|r| r.as_str()=="GET /v1/runs/run_old").count())
+        } else {
+            None
+        };
+        let resume_runtime = if replacement {
+            let repo = Arc::new(PostgresFleetRepository::new(
+                sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap()).await.unwrap(),
+            ));
+            let config = Arc::new(fixture.config.clone());
+            let (events, _) = tokio::sync::broadcast::channel(32);
+            Arc::new(std::thread::spawn(move || infra::runtime::LocalRuntimeSupervisor::new(config, repo, events)).join().unwrap())
+        } else {
+            runtime.clone()
+        };
+        let delivered = if replacement {
+            let reloaded = fixture.remote.repo.get_clarification_command(&actor, saved.id).await.unwrap();
+            assert_eq!(reloaded.id, delivered.id);
+            assert_eq!(reloaded.state, ClarificationDeliveryState::Delivered);
+            reloaded
+        } else {
+            delivered
+        };
+        if replacement && fault != "replacement-completed-uncommitted" {
+            let mut foreign = actor.clone();
+            foreign.subject = "foreign-owner".into();
+            assert!(resume_runtime.resume_pm_answer(&foreign, &delivered).await.is_err());
+            ledger.lock().await["fence"] = json!(2);
+            assert!(resume_runtime.resume_pm_answer(&actor, &delivered).await.is_err());
+            ledger.lock().await["fence"] = json!(1);
+            let agent = fixture.remote.repo.get_agent(op.request.agent_id).await.unwrap();
+            let marker = std::path::Path::new(&agent.paths.config).join(".fleet-config-revision.json");
+            let bytes = std::fs::read(&marker).unwrap();
+            let mut foreign: Value = serde_json::from_slice(&bytes).unwrap();
+            foreign["agent_id"] = json!(Uuid::new_v4());
+            std::fs::write(&marker, serde_json::to_vec(&foreign).unwrap()).unwrap();
+            assert!(resume_runtime.resume_pm_answer(&actor, &delivered).await.is_err());
+            std::fs::write(&marker, bytes).unwrap();
+            assert!(!calls.lock().await.iter().any(|r| r.as_str()=="POST /internal/runtime/v1/pm/resume" || r.as_str()=="POST /v1/runs"));
+            assert!(fixture.remote.repo.get_pm_run(saved.id).await.is_err());
+        }
         for _ in 0..2 {
+            if fault == "replacement-completed-uncommitted" {
+                assert!(resume_runtime.resume_pm_answer(&actor, &delivered).await.is_err());
+                continue;
+            }
             assert_eq!(
-                runtime.resume_pm_answer(&actor, &delivered).await.unwrap(),
-                if fault == "none" {
+                resume_runtime.resume_pm_answer(&actor, &delivered).await
+                    .unwrap_or_else(|error| continuation_failure(error)),
+                if matches!(fault, "none" | "replacement" | "rollback") {
                     PmContinuationOutcome::Confirmed
                 } else {
                     PmContinuationOutcome::Pending
                 }
             );
+        }
+        if replacement {
+            let preserved = fixture.remote.repo.get_pm_dispatch(op.id).await.unwrap().unwrap();
+            assert_eq!(serde_json::to_value(&preserved).unwrap(), serde_json::to_value(&original).unwrap(),
+                "replacement cannot rewrite predecessor custody");
+            assert_eq!(calls.lock().await.iter().filter(|r| r.as_str()=="GET /v1/runs/run_old").count(), old_reads.unwrap(),
+                "complete durable stopped proof must not probe the retired runtime");
+            if fault == "replacement-completed-uncommitted" {
+                assert!(fixture.remote.repo.get_pm_run(saved.id).await.is_err());
+                assert!(fixture.remote.repo.get_pm_dispatch(saved.id).await.unwrap().is_none());
+            } else {
+                let next = fixture.remote.repo.get_pm_dispatch(saved.id).await.unwrap().unwrap();
+                assert_eq!(next.origin, format!("http://127.0.0.1:{}", replacement_peer.as_ref().unwrap().0));
+                assert_ne!(next.origin, original.origin);
+                if fault == "replacement-unknown-native-post" {
+                    assert!(next.submitted && next.hermes_run_ref.is_none());
+                    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                        "UPDATE agents SET api_port=$2 WHERE id=$1", [op.request.agent_id.into(), i32::from(port).into()])).await.unwrap();
+                    assert!(resume_runtime.resume_pm_answer(&actor, &delivered).await.is_err());
+                    assert_eq!(serde_json::to_value(fixture.remote.repo.get_pm_dispatch(saved.id).await.unwrap().unwrap()).unwrap(), serde_json::to_value(next).unwrap(),
+                        "unknown new POST keeps its first frozen intent, not fresh replacement pins");
+                }
+            }
         }
         if fault == "none" {
             let resumed = fixture
@@ -875,38 +1357,85 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 "new run proof permits one original publication and its receipt replay"
             );
         }
+        if fault == "invalid-terminal" {
+            let record = fixture.remote.repo.get_pm_run(op.id).await.unwrap();
+            let agent = fixture
+                .remote
+                .repo
+                .get_agent(op.request.agent_id)
+                .await
+                .unwrap();
+            assert!(runtime.probe_pm_run(&agent, &record).await.is_err());
+        }
         let requests = calls.lock().await;
         assert_eq!(
             requests
                 .iter()
                 .filter(|r| r.as_str() == "POST /v1/runs/run_old/stop")
                 .count(),
-            1
+            usize::from(!replacement)
         );
         assert_eq!(
             requests
                 .iter()
                 .filter(|r| r.as_str() == "POST /v1/runs")
                 .count(),
-            usize::from(fault != "stop-not-terminal")
+            usize::from(matches!(fault, "none" | "unknown-native-post" | "replacement" | "rollback" | "replacement-unknown-native-post"))
         );
         assert_eq!(
             requests
                 .iter()
                 .filter(|r| r.as_str() == "POST /internal/runtime/v1/pm/rebind")
                 .count(),
-            usize::from(fault == "none")
+            usize::from(matches!(fault, "none" | "replacement" | "rollback"))
         );
         assert_eq!(
             ledger.lock().await["state"],
-            if fault == "none" {
+            if matches!(fault, "none" | "replacement" | "rollback") {
                 "active"
-            } else if fault == "stop-not-terminal" {
+            } else if matches!(fault, "stop-not-terminal" | "invalid-terminal" | "replacement-completed-uncommitted") {
                 "waiting"
             } else {
                 "resume_pending"
             }
         );
+        if fault == "invalid-terminal" {
+            assert!(
+                fixture
+                    .remote
+                    .repo
+                    .get_pm_run(op.id)
+                    .await
+                    .unwrap()
+                    .terminal_status
+                    .is_none()
+            );
+            assert!(fixture.remote.repo.get_pm_run(saved.id).await.is_err());
+            assert!(
+                fixture
+                    .remote
+                    .repo
+                    .get_pm_dispatch(saved.id)
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                !requests
+                    .iter()
+                    .any(|r| r.as_str() == "POST /internal/runtime/v1/pm/resume")
+            );
+            let runs = db
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT count(*) AS count FROM session_agent_runs WHERE session_id=$1",
+                    [actor.session_id.into()],
+                ))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(runs.try_get::<i64>("", "count").unwrap(), 1);
+        }
         if fault == "unknown-native-post" {
             let journal = fixture
                 .remote
@@ -919,6 +1448,7 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
         }
         let custody = serde_json::to_string(&fixture.operation().await).unwrap();
         assert!(!custody.contains(PARENT) && !custody.contains(CHILD));
+        });
     }
 }
 

@@ -27,8 +27,8 @@ SDK = Path(os.environ.get("FLEET_QA_SDK_REPO", ROOT / "services-base"))
 BASE = Path(os.environ.get("FLEET_QA_BASE_REPO", ROOT / "base-runtime.git"))
 HERMES = Path(os.environ.get("FLEET_QA_HERMES_REPO", ROOT.parent / "fleet-observer-hermes-bbaf7af-20261008"))
 SOURCE18 = "bde6486219b40571b9b31a2d6cbaa739aad2df32"
-SOURCE_MERGED = "5db4ff92d2168c46ce96b56f37acbbf7de92db33"
-SOURCE_PARENT = "e00b73070c327d28883c3f7a2a523b759df6662b"
+SOURCE_MERGED = "2dcff77e01dc957e3a1d2ffda39b309835ac8d19"
+SOURCE_PARENT = "febcb1757089255d0c11208ca1154f3faf789aa3"
 SOURCE_DRIVER_BASELINE = "bf27a1d782f87d6f03f728831e700fda78892c8c"
 SOURCE16_17 = "be1b040597a9ddd0847aca2c10fdaadb96e4c4a9"
 SOURCE_UI98 = "98d950eb618071de7647e56626ad991259058be2"
@@ -116,13 +116,13 @@ def qualify_utilities(text, blobs):
 def prerequisites(source):
     exact_sha(source)
     if source != SOURCE_MERGED:
-        raise ValueError("This successor requires exact reviewed 5db source")
+        raise ValueError("This successor requires exact reviewed 2dc source")
     clean(FLEET, source)
     clean(SDK, SDK_SHA)
     if git(FLEET, "show", source + ":.base-revision").decode().strip() != SDK_SHA:
         raise ValueError("SDK pin drift")
     if git(FLEET, "show", "-s", "--format=%P", source).decode().split() != [SOURCE_PARENT]:
-        raise ValueError("Exact 5db parent tuple required")
+        raise ValueError("Exact 2dc parent tuple required")
     import source_coverage
     source_coverage.qualify(FLEET, source)
     for root, commit in ((BASE, BASE_SHA), (HERMES, HERMES_SHA)):

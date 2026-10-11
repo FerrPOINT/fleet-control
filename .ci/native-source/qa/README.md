@@ -1,7 +1,7 @@
 # Genuine Docker/Hermes Protocol4 Preparation Successor
 
 **Historical document below, superseded for current execution.** Current source
-is `5db4ff92d2168c46ce96b56f37acbbf7de92db33`; current input/resource/command
+is `2dcff77e01dc957e3a1d2ffda39b309835ac8d19`; current input/resource/command
 instructions and coverage limits are in [../README.md](../README.md). Fresh
 source-built/offline-qualified images are mandatory, not the historical IDs.
 No native matrix has executed for this successor. The old content is retained

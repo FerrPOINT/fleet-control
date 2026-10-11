@@ -1,5 +1,11 @@
 # Hermes Adapter Contract
 
+Managed agent lifecycle Stop has a narrowly guarded never-started no-op in the
+Fleet source candidate. It preserves the creation witness and sends no Hermes or
+Docker command. Missing launch history alone is insufficient: DB and private
+custody checks must pass. This does not change native run Stop, terminal proof,
+Hermes APIs or the producer. See [runtime contract](AGENT_RUNTIME_CONTRACT.md#never-started-managed-stop-candidate).
+
 ## PM Integration Candidate
 
 PM consumes unchanged Hermes through the same native run/control protocol and
@@ -8,6 +14,21 @@ accepted run, not a Tracker clarification answer or another model run. Stop
 acknowledgement retains capacity until exact native terminal status and the
 committed Fleet mirror agree. Original-key control replay must not resend.
 
+The025 candidate permits owner Stop after lost initial guidance ACK only for the
+originally accepted PM run; Steer's guidance/checkpoint prerequisite and all
+other authority/custody guards remain unchanged. PM status readback now reuses
+the shared terminal validator: completed requires matching native identity and
+exact boolean completed=true/partial=false/interrupted=false. Unknown evidence
+does not release custody. No endpoint/schema change or Hermes producer patch is
+required; current-source PostgreSQL/native qualification remains pending.
+
+The026 Fleet source candidate permits only explicit PM Stop during config drain
+and skips the PM MCP profile verifier only for Stop. Steer retains both gates;
+owner/project/assignment, coordinator, Tracker/Workflow, native, credential and
+original-custody checks remain unchanged. Pending-PM activation409 and
+accepted-running drain remain; ACK is not terminal proof. The Hermes producer
+and wire protocol are unchanged; PostgreSQL/runtime qualification is pending.
+
 Saved-answer delivery and PM continuation have independent durable states.
 Continuation needs the original answer/checkpoint, prior-run terminal proof,
 verified Workflow rebind and exact native acceptance; EOF, unavailable runtime
@@ -15,6 +36,22 @@ or a successful Tracker answer cannot stand in for these receipts. Idle PM
 free-form launch remains unsupported under the inspected Workflow contract.
 This source integration is not native/live acceptance; no Hermes patch or
 custom pre-model handshake is required.
+
+The source-frozen shared-probe candidate retains strict original terminal custody for
+PM callback and continuation after successful replacement or rollback. It
+rechecks the original reservation, accepted dispatch/run/session mapping and
+current task custody; incomplete or nonterminal evidence still takes the strict
+native probe path. Fresh owner/project, Tracker/Workflow and configuration
+checks remain. Current runtime pins apply only before a new continuation intent's
+first prepare; persisted intents are not repinned. Historical terminal proof
+does not commit a missing transcript mirror or establish business success.
+Cached Stopped/Cancelled/Failed needs no mirror commit, but Completed may use
+the shortcut only with `terminal_committed=true`; otherwise its historical
+mandatory flags remain unproven and original strict native readback is required.
+Unavailable proof after replacement remains held, without fabricating a marker.
+Independent source review passed; PostgreSQL/native qualification remains pending.
+Controlled HTTP/repository activation and origin fixtures are not physical
+Docker generation/replacement qualification.
 
 Disabling new PM dispatch does not disable the read-only follower of an already
 submitted, acknowledged run. Original runtime/session pins and terminal-once

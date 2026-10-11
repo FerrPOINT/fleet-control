@@ -1719,18 +1719,121 @@ impl FleetRepository for PostgresFleetRepository {
         self.get_agent(id).await
     }
 
-    async fn archive_agent(&self, id: Uuid) -> Result<Agent, AppError> {
-        let mut model = agent::Entity::find_by_id(id)
-            .one(&self.db)
+    async fn try_stop_unstarted_container(&self, id: Uuid) -> Result<bool, AppError> {
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        container_runtime::lock(&txn, id).await?;
+        let changed = txn
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE agents a SET status='stopped',updated_at=now()
+             WHERE a.id=$1 AND a.kind='hermes' AND a.archived_at IS NULL
+             AND a.status IN ('ready','stopped')
+             AND EXISTS(SELECT 1 FROM agent_runtime r WHERE r.agent_id=a.id
+                 AND r.health_status='not_started' AND r.desired_state='stopped'
+                 AND r.pid IS NULL AND r.started_at IS NULL AND r.stopped_at IS NULL
+                 AND r.last_health_at IS NULL AND r.last_capabilities_json='{}'::jsonb)
+             AND NOT EXISTS(SELECT 1 FROM runtime_container_preparations WHERE agent_id=a.id)
+             AND NOT EXISTS(SELECT 1 FROM runtime_container_launches WHERE agent_id=a.id)
+             AND NOT EXISTS(SELECT 1 FROM runtime_container_activations WHERE agent_id=a.id)
+             AND NOT EXISTS(SELECT 1 FROM hermes_dispatch_journal WHERE agent_id=a.id)
+             AND NOT EXISTS(SELECT 1 FROM pm_run_bindings WHERE agent_id=a.id)
+             AND NOT EXISTS(SELECT 1 FROM session_agent_runs WHERE agent_id=a.id
+                 AND (runtime_session_id IS NOT NULL OR runtime_run_id IS NOT NULL))",
+                [id.into()],
+            ))
             .await
             .map_err(AppError::database)?
-            .ok_or_else(|| AppError::not_found("agent", id))?
-            .into_active_model();
+            .rows_affected();
+        if changed == 0 {
+            return Ok(false);
+        }
+        container_runtime::idle(&txn, id).await?;
+        txn.commit().await.map_err(AppError::database)?;
+        Ok(true)
+    }
+
+    async fn archive_agent(&self, id: Uuid) -> Result<Agent, AppError> {
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        txn.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM agents WHERE id = $1 FOR UPDATE",
+            [id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("agent", id))?;
+        let draining = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT draining FROM agent_config_heads WHERE agent_id = $1",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .map(|row| {
+                row.try_get::<bool>("", "draining")
+                    .map_err(AppError::database)
+            })
+            .transpose()?
+            .unwrap_or(false);
+        if draining {
+            return Err(AppError::conflict("agent configuration is draining"));
+        }
+        let current = agent::Entity::find_by_id(id)
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("agent", id))?;
+        if matches!(current.status.as_str(), "starting" | "running" | "degraded") {
+            return Err(AppError::conflict(
+                "agent runtime must be stopped before archival",
+            ));
+        }
+        let live_container = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT EXISTS(SELECT 1 FROM runtime_container_launches
+                 WHERE agent_id=$1 AND state<>'exited') AS live_container",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::internal("missing container archival check"))?;
+        if live_container
+            .try_get::<bool>("", "live_container")
+            .map_err(AppError::database)?
+        {
+            return Err(AppError::conflict(
+                "original container exit is not verified",
+            ));
+        }
+        let preparation_held = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT EXISTS(SELECT 1 FROM runtime_container_preparations p
+             WHERE p.agent_id=$1 AND NOT EXISTS(SELECT 1 FROM runtime_container_launches l
+                 WHERE l.agent_id=p.agent_id AND l.generation=p.generation
+                 AND l.state='exited' AND l.prepared=p.receipt)) AS held",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::internal("missing preparation archival check"))?;
+        if preparation_held
+            .try_get::<bool>("", "held")
+            .map_err(AppError::database)?
+        {
+            return Err(AppError::conflict(
+                "original container preparation remains held",
+            ));
+        }
+        let mut model = current.into_active_model();
         let ts = now();
         model.status = Set(AgentStatus::Archived.as_str().to_string());
         model.updated_at = Set(ts);
         model.archived_at = Set(Some(ts));
-        model.update(&self.db).await.map_err(AppError::database)?;
+        model.update(&txn).await.map_err(AppError::database)?;
+        txn.commit().await.map_err(AppError::database)?;
         self.get_agent(id).await
     }
 

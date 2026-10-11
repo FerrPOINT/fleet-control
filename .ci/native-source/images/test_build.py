@@ -32,9 +32,9 @@ class SourceTests(unittest.TestCase):
         return git(repo, "show", build.INPUTS["hermes"] + ":uv.lock")
 
     def test_exact_source_and_parent_tuple_are_frozen(self):
-        self.assertEqual(build.INPUTS["fleet"], "5db4ff92d2168c46ce96b56f37acbbf7de92db33")
-        self.assertEqual(build.INPUTS["fleet_parent"], "e00b73070c327d28883c3f7a2a523b759df6662b")
-        self.assertEqual(build.INPUTS["fleet_tree"], "5328b7de2d2e1922ae6748b02f974471a01d9de4")
+        self.assertEqual(build.INPUTS["fleet"], "2dcff77e01dc957e3a1d2ffda39b309835ac8d19")
+        self.assertEqual(build.INPUTS["fleet_parent"], "febcb1757089255d0c11208ca1154f3faf789aa3")
+        self.assertEqual(build.INPUTS["fleet_tree"], "46950f240c51c30bfb82ff13a1761770256937d0")
 
     def test_final_source_delta_is_only_exact_fixtures_and_docs(self):
         import source_coverage
@@ -94,8 +94,9 @@ class SourceTests(unittest.TestCase):
         self.assertNotIn("allow-unauthenticated", raw)
 
     def test_existing_offline_qualifier_remains_exact_lf_bytes(self):
-        original = HERE.parent.parent / "fleet-native-image-build-successor-20261009/qualify.py"
-        self.assertEqual((HERE / "qualify.py").read_bytes(), original.read_bytes().replace(b"\r\n", b"\n"))
+        # Frozen original LF Git bytes, independent of a developer's sibling layout.
+        self.assertEqual(sha(HERE / "qualify.py"),
+                         "d090961833030d426485456f59746c424e8e97fd734a9a189a24b0ad6f723b10")
 
     def test_compose_only_two_existing_build_roles_no_runtime_or_socket(self):
         spec = build.compose(Path("/owned/sdlc-build-fleet-native-0123456789ab"))

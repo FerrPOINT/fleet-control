@@ -2,10 +2,11 @@
 import hashlib
 from packet import git
 
-SOURCE = "5db4ff92d2168c46ce96b56f37acbbf7de92db33"
-REVIEWED_PRODUCTION = "e80cb9e3a54cb1feeed509fd2d67d09b9bd8c5a4"
-FINAL_DELTA = ["backend/infra/tests/sdlc_foundation.rs", "backend/infra/tests/support/pm_dispatch.rs",
-               "backend/infra/tests/support/pm_events.rs", "docs/CURRENT_STATE.md", "docs/GAP_REGISTER.md"]
+SOURCE = "2dcff77e01dc957e3a1d2ffda39b309835ac8d19"
+REVIEWED_PRODUCTION = "aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba"
+FINAL_DELTA = ["backend/infra/tests/support/pm_credential_creation.rs", "docs/CURRENT_STATE.md",
+               "docs/GAP_REGISTER.md", "docs/REMAINING_DELIVERY_WORK.md",
+               "docs/contracts/CHAT_CLARIFICATION_CONTRACT.md"]
 OLD = "b249bc895e5160fe13383c49d42a24c9308852b3"
 CHECKS = {
     "backend/domain/src/lib.rs": ["pub task_bound: Option<bool>", "pub request_payload_hash: Option<String>"],
@@ -17,7 +18,7 @@ CHECKS = {
     "backend/infra/src/runtime/container_activation.rs": ["async fn activation_configuration_binding(",
                                                            "activation_binding_target(revision, Some(&record))?"],
     "backend/shared/src/config.rs": ["pub struct PmDispatchConfig", "pub configuration_readback_enabled: bool"],
-    "backend/migration/src/lib.rs": ["m20261010_000024"],
+    "backend/migration/src/lib.rs": ["m20261011_000026"],
 }
 
 

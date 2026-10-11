@@ -2,7 +2,8 @@
 
 ## Current Integration Candidate
 
-The current registry contains25 canonical or28 split entries. The unit18 paragraph
+The current source candidate appends026, yielding27 canonical or30 split entries; its
+current-source PostgreSQL qualification remains pending. The unit18 paragraph
 below retains its original release-unit context, not the current registry count.
 Pending Docker migrations15/16/19 use parameterized `to_regprocedure`/
 `to_regclass` readback, so cached statements resolve current objects after a QA
@@ -11,6 +12,40 @@ timestamps remain unchanged; these three sources are absent from current main.
 This is a candidate source correction, not evidence of successful PostgreSQL
 execution or permission to downgrade populated production history. See
 [TESTING](TESTING.md) and [current gates](CURRENT_STATE.md).
+
+## PM Stop Under Drain026 Candidate
+
+`m20261011_000026_pm_stop_drain` is additive;010-025 remain unchanged.
+Up locks `runtime_control_commands`, renames the025 custody function to
+`admit_runtime_control_custody_v25` preserving its OID, and rebinds the existing
+trigger to a replacement. Only PM Stop is exempt from the draining predicate;
+Steer and all other custody predicates remain guarded. No table, backfill or
+receipt rewrite is introduced.
+
+Down locks `runtime_control_commands` and `pm_run_bindings`. Any retained Stop
+joined to a PM binding, regardless of control state, refuses downgrade with
+`PM stop custody prevents drain prerequisite downgrade`. Otherwise down restores
+the025 function with its original OID and rebinds the trigger; re-up reinstalls026.
+Do not delete receipts to force downgrade. Both lineages require PostgreSQL
+up/down/re-up and refusal/unchanged-ledger qualification; source review is not
+execution evidence.
+
+## PM Stop Custody025 Candidate
+
+`m20261011_000025_pm_stop_custody` is additive;010-024 remain unchanged.
+Up locks `runtime_control_commands`, preserves the original023 custody function
+as `admit_runtime_control_custody_v23`, and rebinds the existing trigger to its
+replacement. Only Stop is exempt from the checkpoint/guidance-ACK prerequisite;
+Steer and all other original custody predicates remain guarded. No new table,
+backfill or rewrite of existing control receipts is introduced.
+
+Down locks the control and original dispatch/binding journals. It refuses retained
+PM Stop history lacking both a checkpoint and acknowledged guidance with
+`PM stop custody prevents guidance prerequisite downgrade`, before restoring
+the original function/trigger. Compatible history permits exact function restore;
+re-up reinstalls025. Never delete receipts or edit guidance to force downgrade.
+Both lineages require down/up and refusal/unchanged-ledger PostgreSQL rehearsal.
+Source-authored tests are not executed migration evidence.
 
 ## PM ACK Bounds Repair024
 

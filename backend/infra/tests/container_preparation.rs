@@ -204,6 +204,8 @@ async fn preparation_ack_is_atomic_original_and_immutable() {
 async fn preparation_cannot_launch_without_exact_ack_or_create_replacement() {
     let (repo, db, a, c) = fixture().await;
     repo.claim_container_preparation(&c).await.unwrap();
+    assert!(!repo.try_stop_unstarted_container(a.id).await.unwrap());
+    assert!(repo.archive_agent(a.id).await.is_err());
     let l = ContainerLaunch {
         prepared: receipt(&c),
         controller_id: Uuid::new_v4(),
@@ -214,9 +216,12 @@ async fn preparation_cannot_launch_without_exact_ack_or_create_replacement() {
     };
     assert!(repo.claim_container_launch(&l).await.is_err());
     repo.claim_container_preparation_delivery(&c).await.unwrap();
+    assert!(!repo.try_stop_unstarted_container(a.id).await.unwrap());
+    assert!(repo.archive_agent(a.id).await.is_err());
     repo.acknowledge_container_preparation(&c, &l.prepared)
         .await
         .unwrap();
+    assert!(repo.archive_agent(a.id).await.is_err());
     let mut changed = l.clone();
     changed.prepared.container.context = "foreign".into();
     assert!(repo.claim_container_launch(&changed).await.is_err());
@@ -266,6 +271,121 @@ async fn preparation_cannot_launch_without_exact_ack_or_create_replacement() {
             .unwrap()
             .to_string()
             .contains("API_SERVER_KEY")
+    );
+    let r = &l.prepared.container.registration;
+    let snapshot = json!({"contract_version":2,"container_id":r.container_id,
+        "engine":r.engine,"policy_sha256":r.policy_sha256,
+        "inventory_sha256":r.running_inventory_sha256,"network_sha256":r.network_sha256,
+        "init_pid":123,"started_at":"2026-10-09T12:00:00.123456789Z"});
+    let origin = format!("http://172.18.0.2:{}", a.api_port.unwrap());
+    let mut l = l;
+    for state in ["running", "stopping", "exited"] {
+        repo.advance_container_launch(&l, state, Some(snapshot.clone()), Some(origin.clone()))
+            .await
+            .unwrap();
+        l.state = state.into();
+        l.snapshot = Some(snapshot.clone());
+        l.origin = Some(origin.clone());
+    }
+    assert!(!repo.try_stop_unstarted_container(a.id).await.unwrap());
+    let before = repo.get_container_preparation(a.id).await.unwrap().unwrap();
+    let before =
+        json!({"claim":before.claim,"attempted":before.attempted,"receipt":before.receipt});
+    assert_eq!(
+        repo.archive_agent(a.id).await.unwrap().status,
+        AgentStatus::Archived
+    );
+    let after = repo.get_container_preparation(a.id).await.unwrap().unwrap();
+    assert_eq!(
+        json!({"claim":after.claim,"attempted":after.attempted,"receipt":after.receipt}),
+        before
+    );
+    db.close().await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_CONTAINER_PREPARATION_TEST_DATABASE_URL"]
+async fn unstarted_stop_and_archive_serialize_preparation_claims() {
+    use sea_orm::TransactionTrait;
+    use std::sync::Arc;
+
+    let (repo, db, a, c) = fixture().await;
+    let repo = Arc::new(repo);
+    assert!(repo.try_stop_unstarted_container(a.id).await.unwrap());
+    assert_eq!(
+        repo.get_agent(a.id)
+            .await
+            .unwrap()
+            .runtime
+            .health_status
+            .as_deref(),
+        Some("not_started")
+    );
+    let tx = db.begin().await.unwrap();
+    tx.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agents WHERE id=$1 FOR UPDATE",
+        [a.id.into()],
+    ))
+    .await
+    .unwrap()
+    .unwrap();
+    let blocker: i32 = tx
+        .query_one(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT pg_backend_pid() AS pid".to_string(),
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "pid")
+        .unwrap();
+    let waiting = {
+        let repo = repo.clone();
+        let id = a.id;
+        tokio::spawn(async move { repo.try_stop_unstarted_container(id).await })
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            let blocked: bool = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))
+                    AND query LIKE 'SELECT kind,status,archived_at,%') AS blocked",
+                [blocker.into()])).await.unwrap().unwrap().try_get("", "blocked").unwrap();
+            if blocked { break; }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }).await.expect("the Stop CAS must wait for the actual agent-row lock");
+    // The same valid immutable claim that the production preparation transaction inserts.
+    tx.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO runtime_container_preparations(agent_id,generation,operation_id,claim) VALUES($1,$2,$3,$4)",
+        [c.agent_id.into(),c.generation.into(),c.operation_id.into(),serde_json::to_value(&c).unwrap().into()]))
+        .await.unwrap();
+    tx.commit().await.unwrap();
+    assert!(!waiting.await.unwrap().unwrap());
+    let before = repo.get_container_preparation(a.id).await.unwrap().unwrap();
+    let before =
+        json!({"claim":before.claim,"attempted":before.attempted,"receipt":before.receipt});
+    assert!(repo.archive_agent(a.id).await.is_err());
+    let after = repo.get_container_preparation(a.id).await.unwrap().unwrap();
+    assert_eq!(
+        json!({"claim":after.claim,"attempted":after.attempted,"receipt":after.receipt}),
+        before
+    );
+    assert!(repo.claim_container_preparation_delivery(&c).await.unwrap());
+    assert!(repo.archive_agent(a.id).await.is_err());
+    drop(repo);
+    db.close().await.unwrap();
+
+    let (repo, db, a, c) = fixture().await;
+    assert!(repo.try_stop_unstarted_container(a.id).await.unwrap());
+    repo.archive_agent(a.id).await.unwrap();
+    assert!(repo.claim_container_preparation(&c).await.is_err());
+    assert!(repo.claim_container_preparation_delivery(&c).await.is_err());
+    assert!(
+        repo.get_container_preparation(a.id)
+            .await
+            .unwrap()
+            .is_none()
     );
     db.close().await.unwrap();
 }

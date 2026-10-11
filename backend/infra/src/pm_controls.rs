@@ -52,16 +52,16 @@ pub(super) async fn current(
            AND a.status='running' AND a.archived_at IS NULL AND a.sdlc_role='project_manager'
            AND s.user_id=$4 AND u.is_active AND u.central_sub=$5 AND t.owner_subject=$5
            AND b.terminal_status IS NULL AND j.submitted AND j.hermes_run_ref=b.hermes_run_ref
-           AND (b.reservation->>'checkpoint_ref' IS NOT NULL OR j.guidance_delivered)
+           AND ($6='stop' OR b.reservation->>'checkpoint_ref' IS NOT NULL OR j.guidance_delivered)
            AND NOT EXISTS(SELECT 1 FROM pm_tool_commands WHERE session_run_id=b.session_run_id AND kind='stop' AND attempted)
            AND NOT EXISTS(SELECT 1 FROM runtime_control_commands WHERE session_run_id=b.session_run_id AND operation='stop' AND state='acknowledged')
-           AND NOT EXISTS(SELECT 1 FROM agent_config_heads WHERE agent_id=b.agent_id AND draining)
+           AND ($6='stop' OR NOT EXISTS(SELECT 1 FROM agent_config_heads WHERE agent_id=b.agent_id AND draining))
            AND b.reservation->'identity'->>'task_ref'=t.task_id::text
            AND b.reservation->'identity'->>'root_ref'=t.root_task_id::text
            AND b.reservation->'identity'->>'tracker_project_ref'=t.project_id::text
            AND b.reservation->'identity'->>'tracker_instance_ref'=t.tracker_instance_id
          FOR SHARE OF b,j,t",
-        [expected.id.into(),expected.session_id.into(),expected.agent_id.into(),scope.owner_user_id.into(),scope.owner_subject.clone().into()])).await.map_err(AppError::database)?
+        [expected.id.into(),expected.session_id.into(),expected.agent_id.into(),scope.owner_user_id.into(),scope.owner_subject.clone().into(),op.as_str().into()])).await.map_err(AppError::database)?
         .ok_or_else(||AppError::conflict("PM control custody changed"))?;
     let reservation: Value = row.try_get("", "reservation").map_err(AppError::database)?;
     let intent: domain::PmDispatchIntent =
