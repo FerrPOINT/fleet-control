@@ -106,8 +106,8 @@ prevents success output; terminal VM teardown is not cleanup evidence.
 The authored caller requires parent/independent review before publication. Its
 public preflight verifies the exact source tuple and additions before any private
 Base token use. All35 copied QA/image files match component
-`5ac37daf3b58b310f6f10dd5f69d8b6475b10ecc`; their compact path/SHA256 map digest is
-`068113506b29ffe6e5430e47dfd5a53b958462647ee9c57c345fea5b37932e39`.
+`cf0edd25139cc12cd379c3085ac7c60beefe4369`; their compact path/SHA256 map digest is
+`be370b367f3b7d58a5eb0f5bf658e669126daa3d1b274c755e694a2585c789c6`.
 Only this README and the workflow are caller-specific. No cache, Git donor,
 credentials or prepared packet is included. In that one host job, set absolute
 exact Git input directories (no dependency copies):
@@ -184,6 +184,11 @@ evidence stays null/unknown; old receipt shapes, categories, bounds and timeout
 behavior remain compatible. These are diagnostic observations, not a cause or
 native acceptance proof. Publication and execution require final independent
 review and explicit authorization; acceptance requires validated run receipts.
+
+Original-nine failed output exposes only fixed first-failure phase/class and
+matrix cleanup proof (true/false/null); terminal-save failure uses the same
+projection, never the private report. Successful output and all runtime checks
+are unchanged. This does not recover the cause of prior failed attempts.
 
 The caller's only artifact is a success-only `receipt.json` (maximum64KiB).
 It revalidates existing original-nine and cut reports, actual compile proofs,

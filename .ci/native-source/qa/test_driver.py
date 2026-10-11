@@ -1,4 +1,5 @@
 """Pure/read-only Git qualification. No daemon, Rust compiler, PG or network."""
+import ast
 import copy
 import hashlib
 import io
@@ -173,6 +174,84 @@ class DriverTests(unittest.TestCase):
         run.remember_failure(report,"initial",ValueError("secret-path-or-arg"))
         run.remember_failure(report,"native_cleanup",RuntimeError("other-secret"))
         self.assertEqual(report,dict(failure_phase="initial",failure_class="ValueError"))
+
+    def test_failure_projection_accepts_only_fixed_phase_and_class(self):
+        phases = ("maintenance", "source-check", "volume-init", "build", "compile_qualification",
+                  "startup", "scenario", "initial", "physical_controller_restart", "recover", "native_cleanup")
+        classes = ("ValueError", "RuntimeError", "AssertionError", "KeyError", "TypeError", "OSError",
+                   "FileNotFoundError", "PermissionError", "TimeoutExpired", "CalledProcessError")
+        for phase in phases:
+            for kind in classes:
+                self.assertEqual(run.failure_projection(dict(failure_phase=phase, failure_class=kind)),
+                                 dict(state="failed", failure_phase=phase, failure_class=kind, cleanup_verified=None))
+        for value in (None, True, 1, [], {}, "", "private-value", "initial/private", "ValueError: secret"):
+            self.assertEqual(run.failure_projection(dict(failure_phase=value, failure_class=value)),
+                             dict(state="failed", failure_phase="unknown", failure_class="OtherError", cleanup_verified=None))
+
+    def test_failure_projection_cleanup_requires_exact_matrix_parity(self):
+        for value, expected in (("passed", True), ("failed", False), (None, None), (True, None),
+                                (1, None), ([], None), ({}, None), ("cleaned", None), ("passed private", None)):
+            report = dict(parity=dict(cleanup_inventory=value), cleanup=dict(journal_phase="cleaned"))
+            self.assertIs(run.failure_projection(report)["cleanup_verified"], expected)
+        for parity in (None, True, [], "passed", {}, {"candidate_alias_cleanup": "passed"}):
+            self.assertIsNone(run.failure_projection(dict(parity=parity))["cleanup_verified"])
+
+    def test_failure_projection_retains_first_failure_without_private_values(self):
+        report = dict(state="failed", parity=dict(cleanup_inventory="failed"),
+                      artifact_hashes={"private-path": "private-hash"}, scenario={"body": "private-body"},
+                      cleanup={"containers": ["private-container"]}, terminal_report="private-report")
+        run.remember_failure(report, "initial", ValueError("private-error"))
+        run.remember_failure(report, "native_cleanup", RuntimeError("private-cleanup-error"))
+        result = run.failure_projection(report)
+        self.assertEqual(result, dict(state="failed", failure_phase="initial", failure_class="ValueError", cleanup_verified=False))
+        raw = json.dumps(result)
+        self.assertNotIn("private", raw)
+        self.assertLess(len(raw), 512)
+
+    def test_execute_failure_and_save_failure_share_closed_projection(self):
+        manifest = dict(execute_eligible=True, fleet_commit=run.SOURCE_MERGED, source_count=1,
+                        prerequisite_checks={"ready": True})
+        for save_fails in (False, True):
+            with self.subTest(save_fails=save_fails), tempfile.TemporaryDirectory() as temp:
+                saved = []
+                def write(path, value):
+                    if path.name == "terminal-report.json":
+                        saved.append(copy.deepcopy(value))
+                        if save_fails:
+                            raise OSError("private-save-error")
+                with patch.object(run, "require_candidates"), \
+                     patch.object(run, "verify", return_value=manifest), \
+                     patch.object(run, "prerequisites", return_value={"ready": True}), \
+                     patch.object(run.hosted_policy, "phase_preflight"), \
+                     patch.object(run, "sha", return_value="a" * 64), \
+                     patch.object(run, "write_json", side_effect=write), \
+                     patch.object(run, "checked", side_effect=ValueError("private-command-error")), \
+                     patch.object(run, "maintenance"), patch.object(run, "services_images", return_value={}), \
+                     patch.object(run, "inventory", return_value={"private-path": "private-hash"}), \
+                     patch("builtins.print") as output:
+                    code = run.execute(Path(temp), "exclusive native4 " + run.SOURCE_MERGED[:12], "unused")
+                self.assertEqual(code, 1)
+                output.assert_called_once()
+                line = output.call_args.args[0]
+                prefix = "TERMINAL_REPORT_UNSAVED " if save_fails else ""
+                self.assertTrue(line.startswith(prefix))
+                self.assertEqual(json.loads(line.removeprefix(prefix)),
+                                 dict(state="failed", failure_phase="maintenance", failure_class="ValueError", cleanup_verified=None))
+                self.assertNotIn("private", line)
+                self.assertNotIn(temp, line)
+                self.assertEqual(saved[0]["failure_phase"], "maintenance")
+                self.assertEqual(saved[0]["failure_class"], "ValueError")
+
+    def test_successful_terminal_output_is_unchanged(self):
+        tree = ast.parse((run.HERE / "run.py").read_bytes())
+        execute = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "execute")
+        output = execute.body[-2].value
+        self.assertEqual(output.func.id, "print")
+        report = dict(state="scoped_native_matrix_passed_not_sdlc_acceptance")
+        packet_path = Path("owned-packet")
+        raw = eval(compile(ast.Expression(output.args[0]), "terminal-output", "eval"),
+                   dict(json=json, report=report, packet=packet_path, failure_projection=run.failure_projection))
+        self.assertEqual(json.loads(raw), dict(state=report["state"], terminal_report=str(packet_path / "terminal-report.json")))
 
     def test_physical_generation_inventory_is_closed_without_raw_environment(self):
         operation = Mock(project=PROJECT)

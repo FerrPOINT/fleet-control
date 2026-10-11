@@ -310,6 +310,21 @@ def remember_failure(report, phase, error):
     report.setdefault("failure_class", type(error).__name__)
 
 
+def failure_projection(report):
+    phase, kind = report.get("failure_phase"), report.get("failure_class")
+    phases = {"maintenance", "source-check", "volume-init", "build", "compile_qualification",
+              "startup", "scenario", "initial", "physical_controller_restart", "recover", "native_cleanup"}
+    classes = {"ValueError", "RuntimeError", "AssertionError", "KeyError", "TypeError", "OSError",
+               "FileNotFoundError", "PermissionError", "TimeoutExpired", "CalledProcessError"}
+    parity = report.get("parity")
+    cleanup = parity.get("cleanup_inventory") if type(parity) is dict else None
+    return dict(state="failed",
+                failure_phase=phase if type(phase) is str and phase in phases else "unknown",
+                failure_class=kind if type(kind) is str and kind in classes else "OtherError",
+                cleanup_verified=True if type(cleanup) is str and cleanup == "passed" else
+                                 False if type(cleanup) is str and cleanup == "failed" else None)
+
+
 def verify_compile_proof(packet, manifest):
     proof = json.loads((packet / "output/compile-proof.json").read_text())
     expected = {"source_main_sha256":"live/src/main.rs", "qa_lock_sha256":"live/Cargo.lock",
@@ -690,9 +705,10 @@ def execute(packet, ack, context, *, scenario_runner=None, services_provider=Non
         try:
             write_json(packet / "terminal-report.json",report)
         except BaseException:
-            print("TERMINAL_REPORT_UNSAVED " + json.dumps(dict(report,state="failed")))
+            print("TERMINAL_REPORT_UNSAVED " + json.dumps(failure_projection(report)))
             return 1
-    print(json.dumps(dict(state=report["state"],terminal_report=str(packet / "terminal-report.json"))))
+    print(json.dumps(failure_projection(report) if report["state"] == "failed" else
+                     dict(state=report["state"],terminal_report=str(packet / "terminal-report.json"))))
     return 0 if report["state"] == "scoped_native_matrix_passed_not_sdlc_acceptance" else 1
 
 
