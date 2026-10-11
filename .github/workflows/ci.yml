@@ -131,7 +131,6 @@ jobs:
         with:
           workspaces: fleet-control/backend
       - run: cargo fmt --all -- --check
-      - run: cargo check --locked --workspace --all-targets
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace -- --test-threads=1
       - name: Configuration foundation focused API regressions
