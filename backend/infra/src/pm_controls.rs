@@ -55,7 +55,7 @@ pub(super) async fn current(
            AND ($6='stop' OR b.reservation->>'checkpoint_ref' IS NOT NULL OR j.guidance_delivered)
            AND NOT EXISTS(SELECT 1 FROM pm_tool_commands WHERE session_run_id=b.session_run_id AND kind='stop' AND attempted)
            AND NOT EXISTS(SELECT 1 FROM runtime_control_commands WHERE session_run_id=b.session_run_id AND operation='stop' AND state='acknowledged')
-           AND NOT EXISTS(SELECT 1 FROM agent_config_heads WHERE agent_id=b.agent_id AND draining)
+           AND ($6='stop' OR NOT EXISTS(SELECT 1 FROM agent_config_heads WHERE agent_id=b.agent_id AND draining))
            AND b.reservation->'identity'->>'task_ref'=t.task_id::text
            AND b.reservation->'identity'->>'root_ref'=t.root_task_id::text
            AND b.reservation->'identity'->>'tracker_project_ref'=t.project_id::text

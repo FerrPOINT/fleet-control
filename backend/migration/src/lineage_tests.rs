@@ -13,9 +13,9 @@ async fn empty_pm_custody_downgrade_and_reupgrade_preserve_older_lineage() {
     for legacy in [false, true] {
         let fixture = Fixture::new().await;
         if legacy {
-            LegacyMigrator::up(&fixture.db, None).await.unwrap();
+            LegacyMigrator::up(&fixture.db, Some(29)).await.unwrap();
         } else {
-            Migrator::up(&fixture.db, None).await.unwrap();
+            Migrator::up(&fixture.db, Some(26)).await.unwrap();
         }
         let before = ledger(&fixture.db).await;
         assert_eq!(before.last().unwrap().0, "m20261011_000025_pm_stop_custody");
@@ -39,7 +39,7 @@ async fn empty_pm_custody_downgrade_and_reupgrade_preserve_older_lineage() {
             ledger(&fixture.db).await,
             at_dispatch[..at_dispatch.len() - 1]
         );
-        Migrator::up(&fixture.db, None).await.unwrap();
+        Migrator::up(&fixture.db, Some(4)).await.unwrap();
         let after = ledger(&fixture.db).await;
         assert_eq!(&after[..after.len() - 4], &before[..before.len() - 2]);
         assert_eq!(after[after.len() - 4].0, "m20261010_000022_pm_dispatch");
@@ -70,8 +70,8 @@ const JOURNAL_TIME: &str = "m20261005_000014_hermes_journal_time_order";
 fn registered_versions_match_lineage_discriminators() {
     let canonical = Migrator::migrations();
     let legacy = LegacyMigrator::migrations();
-    assert_eq!(canonical.len(), 26);
-    assert_eq!(legacy.len(), 29);
+    assert_eq!(canonical.len(), 27);
+    assert_eq!(legacy.len(), 30);
     assert_eq!(legacy.len(), canonical.len() + 3);
     assert_eq!(canonical[9].name(), COMBINED);
     assert_eq!(canonical[10].name(), TASK_CHATS);
@@ -106,6 +106,8 @@ fn registered_versions_match_lineage_discriminators() {
     assert_eq!(legacy[27].name(), "m20261010_000024_pm_ack_bounds");
     assert_eq!(canonical[25].name(), "m20261011_000025_pm_stop_custody");
     assert_eq!(legacy[28].name(), "m20261011_000025_pm_stop_custody");
+    assert_eq!(canonical[26].name(), "m20261011_000026_pm_stop_drain");
+    assert_eq!(legacy[29].name(), "m20261011_000026_pm_stop_drain");
     assert_eq!(
         legacy
             .iter()
