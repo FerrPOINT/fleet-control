@@ -24,11 +24,13 @@ live-region update barrier and corrects the browser fixture to read the existing
 The integration also includes exact-run PM instruction receipts in the existing
 tool journal. New question/revision claims require a validated matching receipt;
 continuation cannot reuse the old run's proof. This is not proof that the model
-read the instructions or completed the workflow. Latest backend38112575090/1
-on a78/sourcec3fc is terminal FAILURE at config_revision_pg: gate exit1,
-command exitnull, UNKNOWN with no retained test/frame. Source inspection finds
-three expected selectors versus four selected source tests; the receipt does not
-prove four PG passes or diagnose the c3fc guard. Prior9e/source2dc38110519035/1
+read the instructions or completed the workflow. Latest backend38114888529/1
+on02b/sourcec3fc is terminal FAILURE at pm_ack_migration, gate exit101, named
+ACK repair test and frame pm_ack_bounds.rs:169:52; both scoped cleanups passed.
+Source inspection proves the fixture upgraded through025/026 before its
+down-one assertion, testing026 rather than repair024. The parent's bounded024
+fixture correction is pending PG qualification, not a migration-guard failure
+or a new test PASS. Prior9e/source2dc38110519035/1
 failed the fence-negative assertion at1218:13. Published c3fc changes that custody
 refusal to Conflict and asserts no new run/control/workflow mutations; PG
 qualification remains open, distinct from the separate Linux201 pure-controls PASS.
@@ -70,16 +72,16 @@ new acceptance here; exact dependency provenance is in the verification ledger.
 
 ## Current Evidence
 
-| Scope                    | Verified evidence                                                                                                                                                                                                                                                                                                                                                  | Still open                                                                                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust OpenAPI, sourceaabe | [38107719356](https://github.com/FerrPOINT/fleet-control/actions/runs/38107719356)/1 SUCCESS on controls12de; artifact11689594281; original strict readback independently verified. Schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`, unchanged; genuine307-input export includes the changed app trait                            | Complete backend/DB/native checks remain separate from schema generation                                                                                                         |
-| Backend                  | [38112575090](https://github.com/FerrPOINT/fleet-control/actions/runs/38112575090)/1 FAIL on a78/sourcec3fc at config_revision_pg; original strict artifact11692069237 readback: gate exit1, command exitnull, UNKNOWN, empty diagnostics/failed_tests, readable/untruncated, harnessnull; both scoped cleanups true                                               | Source count drift3 expected/4 selected is proven, not four PG PASS, credentials PG PASS or a failure of the c3fc fix; final backend/API/native/live qualification remains open  |
-| Backend pure controls    | [38112684097](https://github.com/FerrPOINT/fleet-control/actions/runs/38112684097)/1 SUCCESS on3b379; exacta78 checkout authenticated; native Ubuntu24 original suite201 PASS,0 skips/failures/errors,8.895s, exit0                                                                                                                                                | Pure controls only, not backend/PG/native PM acceptance. Prior [38111234565](https://github.com/FerrPOINT/fleet-control/actions/runs/38111234565)/1 201/0 skips qualifies only9e |
-| Frontend, sourceaca/fc0  | [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687) SUCCESS; original strict readback verifies artifact11677891567. All23 gates,461 units,135 catalogue/186 fixture images; all three browsers47 passed/zero flaky with nine opt-in live skips each. 135 catalogue and9 PM views imported, selected corrected captures reviewed     | Complete live PM acceptance; fixture success does not qualify backend or installed runtime                                                                                       |
-| PM execution             | Supported MCP tools, checkpoint continuation, controls, stream recovery and instruction receipts are integrated; historical source5bc passed PM recovery13 before failing runtime stream bounds51                                                                                                                                                                  | Latest a78/sourcec3fc config_revision_pg UNKNOWN does not qualify the PM/PG matrix or owner flow; current source corrections remain unqualified                                  |
-| Native candidate build   | [38113987817](https://github.com/FerrPOINT/fleet-control/actions/runs/38113987817)/1 FAIL onf876/sourcec3fc, step9 Hermes candidate build outer exit1/UNKNOWN/FULL; closed recipe_instruction=uv_sync, inner_exit_code=2; five parities true, guarded cleanup passed, artifacts0; native-nine/cuts skipped                                                         | Identifies the grouped RUN only, not root cause, failed subcommand or receipt acceptance; no offline/native qualification or runtime promotion                                   |
-| Forge                    | [38109147644](https://github.com/FerrPOINT/CI-CD/actions/runs/38109147644)/1 on030/source756 FAIL: A5 PASS; B PG5/24 negatives/14 cleaned journals PASS; C OCI7 rollback assertion oci_delivery.rs:625:5, then secondary cleanup assertion477:17, closed child ValueError; stages8-12 NOT_RUN; original aggregate rejects C, owned cleanup/zero remaining verified | Published source84f QA rollback fix has Linux81+43 pure PASS only; native/full12 pending. Neither the closed class nor pure tests establish actual root cause or acceptance      |
-| Base                     | [PR183](https://github.com/FerrPOINT/services-base/pull/183) merged externally as66b7faf; three maintenance helper blobs match the previously qualified payload and the Forge successor pins that merged object                                                                                                                                                    | Consumer/native checks remain separate; no silent SDK or installed-packet promotion                                                                                              |
+| Scope                    | Verified evidence                                                                                                                                                                                                                                                                                                                                              | Still open                                                                                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust OpenAPI, sourceaabe | [38107719356](https://github.com/FerrPOINT/fleet-control/actions/runs/38107719356)/1 SUCCESS on controls12de; artifact11689594281; original strict readback independently verified. Schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`, unchanged; genuine307-input export includes the changed app trait                        | Complete backend/DB/native checks remain separate from schema generation                                                                                   |
+| Backend                  | [38114888529](https://github.com/FerrPOINT/fleet-control/actions/runs/38114888529)/1 FAIL on02b/sourcec3fc at pm_ack_migration; original strict artifact11693008835 readback retains gate exit101, named ACK repair test, pm_ack_bounds.rs:169:52, readable/untruncated log and both scoped cleanups true                                                      | Source-proven fixture target drift, not a migration-guard failure; parent's bounded024 correction and final backend/PG/native qualification remain pending |
+| Backend pure controls    | [38114924292](https://github.com/FerrPOINT/fleet-control/actions/runs/38114924292)/1 SUCCESS onbf4; authenticated exact02b, original Linux suite201 PASS,0 skips/failures/errors,8.558s, exit0                                                                                                                                                                 | Pure controls only, not backend/PG/native PM acceptance. Prior3b379/38112684097 qualifies onlya78; eb2/38111234565 only9e                                  |
+| Frontend, sourceaca/fc0  | [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687) SUCCESS; original strict readback verifies artifact11677891567. All23 gates,461 units,135 catalogue/186 fixture images; all three browsers47 passed/zero flaky with nine opt-in live skips each. 135 catalogue and9 PM views imported, selected corrected captures reviewed | Complete live PM acceptance; fixture success does not qualify backend or installed runtime                                                                 |
+| PM execution             | Supported MCP tools, checkpoint continuation, controls, stream recovery and instruction receipts are integrated; historical source5bc passed PM recovery13 before failing runtime stream bounds51                                                                                                                                                              | Latest02b/sourcec3fc fails pm_ack_migration; complete PM/PG matrix and owner flow remain unqualified                                                       |
+| Native candidate QA      | [38116254698](https://github.com/FerrPOINT/fleet-control/actions/runs/38116254698)/1 on3c244/sourcec3fc FAIL; original closed readback verifies step9 cold/offline qualification and builder cleanup PASS, step10 original-nine wrapper state=failed, cuts skipped, exact alias cleanup PASS, artifacts0                                                       | Inner phase/class/cause and per-matrix cleanup unknown; no successful native scenario, cut acceptance or runtime promotion inferred                        |
+| Forge                    | [38114891349](https://github.com/FerrPOINT/CI-CD/actions/runs/38114891349)/1 on c633/source84f is live at the latest metadata snapshot: A SUCCESS with original strict stages1-5 readback, B in progress                                                                                                                                                       | Fresh B/C receipts and original full12 aggregate pending; no native/full12 acceptance or old030 receipt reuse                                              |
+| Base                     | [PR183](https://github.com/FerrPOINT/services-base/pull/183) merged externally as66b7faf; three maintenance helper blobs match the previously qualified payload and the Forge successor pins that merged object                                                                                                                                                | Consumer/native checks remain separate; no silent SDK or installed-packet promotion                                                                        |
 
 Source8f/025 and fixture949 require qualification on their final inputs; passing
 PM recovery on older5bc does not qualify these later changes. afab and Forge20e
@@ -159,29 +161,41 @@ The regression requires that exact refusal, unchanged predecessor/ledger and no
 new saved-run/dispatch custody. Credential coordination/preparation precedes the
 guard; this is not proof of zero side effects. It does not change the API closure
 or relax a fence.
-The later a78/sourcec3fc38112575090/1 is terminal FAILURE at config_revision_pg.
-Original strict artifact11692069237 readback verifies ZIP SHA256
-`47e2b32a00f3956d0002a2b2fbab556b7e8d4b43f724b24dbc65f60f4153f996`;
-gate exit1, command exitnull, UNKNOWN, no retained diagnostics/failed tests,
-readable/untruncated log, null harness result and both scoped cleanups true.
-Canonical a78 inventory expects3 config_revision_pg tests while its filter
-selects4 in c3fc, including the archive recheck regression. This source-proven
-qualification drift does not establish all four PG passes, credentials PG PASS
-or a c3fc fix failure. Linux201 pure-controls PASS is a separate result.
+Historical a78/sourcec3fc38112575090/1 failed config_revision_pg UNKNOWN;
+its three-selector inventory versus four selected tests is source-proven drift,
+not proof of four PG PASS or a c3fc guard failure. It is not the latest backend result.
+Latest02b/sourcec3fc38114888529/1 fails pm_ack_migration, gate exit101, test
+`pm_ack_bounds_repairs_installed_022_preserving_custody_and_empty_roundtrip`,
+frame `backend/migration/tests/pm_ack_bounds.rs:169:52`. Parent and Pascal original
+strict readbacks verify artifact11693008835, ZIP SHA256
+`66addc20dddcbff38129b1d7e0cedd34cdcedf11a3fcb16933f060b827fdd99f` and safe JSON
+SHA256 `e0ece117ab3fa555a336606159fdfd8b59f22de28b7a41eceed6f98de0b12c6a`.
+The log is untruncated; both scoped cleanups are true. No error body is retained.
+Source inspection proves `up(None)` installed025/026 before `down(1)`, so the
+fixture did not exercise024's downgrade guard. The parent-owned correction
+bounds upgrade to REPAIR024 and asserts the ledger's last key. Its PG result is
+pending; no production migration guard was weakened or shown faulty by this drift.
+Separate bf4/38114924292/1 authenticates exact02b and passes Linux201/0 skips
+in8.558s, not PostgreSQL or native acceptance. API reuse still requires exact
+unchanged dependency closure and original sourceaabe codegen provenance.
 Published source candidatec976c27 rejects config activation with409 before
 drain when a bound PM run is pending, including no-journal/prepared/unknown
 acceptance. Accepted-running PM retains normal drain. It adds no migration;
 its PG regression is pending and the source8f receipts do not qualify it.
 
-Native [38113987817](https://github.com/FerrPOINT/fleet-control/actions/runs/38113987817)/1
-fails onf876/sourcec3fc at step9 Hermes candidate build: outer exit1, UNKNOWN/FULL,
-closed `recipe_instruction=uv_sync`, `inner_exit_code=2`. Original frozen readback
-identifies the grouped hash-checked RUN, not a failed subcommand or root cause.
-Five parities true, builder cleanup cleaned and exact-owned alias cleanup passed;
-artifacts0, native-nine/cuts skipped. This authorized isolated QA is not offline/
-native acceptance or runtime promotion. Historical4a/source2dc38111540024 remains
-UNKNOWN/FULL without recipe attribution;257/source5db38081865039 remains
-UNKNOWN/TAIL. Neither is reclassified. Exact receipts and earlier
+Native [38116254698](https://github.com/FerrPOINT/fleet-control/actions/runs/38116254698)/1
+on3c244/sourcec3fc follows corrected two-phase UV component5ac37 (115 pure PASS).
+Original closed readback verifies step9 cold build/offline qualification and
+builder cleanup PASS. Step10 original-nine wrapper emitted `state=failed`;
+no inner phase, class, cause, compile proof or scenario PASS is exposed. Cuts
+were skipped; exact-owned alias cleanup passed and artifacts0. Alias absence
+does not prove per-matrix volume cleanup or a complete daemon audit. Retained
+receipt SHA256 `3d1d65106006c5c873b151adaaf16170c69bc829be1229843d59db8ff70eda46`.
+This authorized isolated QA is not native acceptance or runtime promotion. Historical
+f876/38113987817 remains Hermes UNKNOWN/FULL, outer1, grouped uv_sync/inner2,
+five parities/guarded cleanup true, artifacts0 and native matrices skipped, not
+root-cause proof. Historical4a UNKNOWN/FULL and257 UNKNOWN/TAIL are unchanged.
+Exact receipts and earlier
 431/579/1fa/bb failures remain in the
 [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#current-hosted-qualification-2026-10-10).
 
@@ -190,8 +204,8 @@ C:53.760GiB free against30GiB, available physical memory18.664GiB and available
 commit2.990GiB, below the unchanged6GiB floor; this is not a fresh-now readback.
 Daemon free disk is unconfirmed. Historical grouping audit35/0/0 passes with only
 permanent projects, not capacity admission.
-No local QA was launched under that capacity observation; hosted candidate-build
-failure above supplies no native qualification.
+No local QA was launched under that capacity observation; the hosted wrapper
+failure above supplies no native acceptance.
 
 Base main was rechecked as380c66e on11 October04:00UTC. The three maintenance
 helpers remain byte-identical to66b7; Auth cookie-isolation changes do not promote
