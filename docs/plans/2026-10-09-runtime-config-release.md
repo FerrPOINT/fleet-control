@@ -4,9 +4,33 @@ Status: exact-source Linux backend gates PASS; configuration-only Draft
 publication authorized, with foundation47 as a blocking dependency.
 No new migration, deployment, runtime readiness or completion is claimed.
 
-## Parent And Scope
+## Current Integration Verification 2026-10-11
 
-The release branch is `feat/runtime-config-release-20261009`, based exactly on
+Candidate `f1b08acff5ba434e4d46477ad149224d01b9dd87` integrates current
+Fleet47 `219f94ae04a352fcaec6483ac199b220341b6ced`, including current main
+`c39ff84d82277004bf8170fbac2f3b122ea6bcad`. The dependency merge is clean;
+the configuration-owned diff against Fleet47 remains 32 files. Frontend,
+migrations, Cargo lockfile and build SDK pin are identical to that parent.
+
+On Git-exported sources with Rust 1.88, pinned Base SDK `19a7a381` and real
+package objects `4b9b4c9`, workspace fmt and strict Clippy passed. Workspace
+tests passed 222 cases; 15 opt-in cases remain ignored. All 48 foundation
+integration cases used disposable PostgreSQL 17.6; all seven package roles
+used real Git objects. Eight machine configuration API cases passed again.
+The real `gen-openapi` output matches the checked-in schema. The first QA
+harness named that binary incorrectly after successful tests; only generator
+and drift were repeated. Both QA projects removed their own containers,
+networks and disposable volumes through journal v2; permanent runtime
+identities were unchanged and the external Cargo cache was preserved.
+
+These results qualify backend integration only. Fleet47 native upstream
+acceptance, applicable frontend/browser gates, live Workflow readback,
+package installation and physical runtime admission remain required.
+This PR stays Draft; `runtime_ready=false` is unchanged.
+
+## Initial Parent And Scope
+
+The release branch `feat/runtime-config-release-20261009` was initially based on
 foundation47 `8befcb6ba34c58d2d146403cdd683dbf1dafbce3`, not bare main or `4cc9a8a`.
 The parent includes normal merge `87c5d08` of foundation and accepted main
 `2fad13115f3cb8341cd46679691438b24a1c8ee8`. Foundation47's evidence and reported
@@ -49,8 +73,9 @@ actual Rust-generated OpenAPI byte parity passed in the backend packet below.
 
 ## Dependencies (Distinct Pins And Authorities)
 
-1. Release depends on [Fleet47](https://github.com/FerrPOINT/fleet-control/pull/47)
-   at exact reviewed parent `8befcb6ba34c58d2d146403cdd683dbf1dafbce3`, then the
+1. Release depends on [Fleet47](https://github.com/FerrPOINT/fleet-control/pull/47).
+   The original parent was `8befcb6ba34c58d2d146403cdd683dbf1dafbce3`; current
+   integration uses `219f94ae04a352fcaec6483ac199b220341b6ced`, then the
    usual main compatibility and PR review. The separate Draft targets `main`,
    not the dependency branch. Until Fleet47 merges, the main comparison includes
    its inherited foundation changes; the owned configuration diff is measured
