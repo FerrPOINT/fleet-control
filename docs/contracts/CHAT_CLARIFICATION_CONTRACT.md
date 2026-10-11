@@ -19,6 +19,40 @@ not require modifications to Hermes internals. Existing missing Fleet wiring
 must be implemented and tested; this decision does not turn held source paths
 into working runs or waive clarification/confirmation business gates.
 
+## External PM Contract Divergence: 11 October 2026
+
+Read-only source and authenticated PR metadata were checked after the following
+external merges. Neither PR merged into its product's main branch:
+
+- Fleet [PR65](https://github.com/FerrPOINT/fleet-control/pull/65), source
+  `498d8d4ecfd7ff5e53eef116d02a2d3bc978967a`, merged as
+  `ee53c8da9e08e6cbf4aff4a002afa6f1e3503949` into
+  `feat/chats-pm-consumer-20261008`.
+- Tracker [PR127](https://github.com/FerrPOINT/task-tracker/pull/127), source
+  `481c07680dfc3b3755bbf991f2c3e3ee349cfa6e`, merged as
+  `87cd86e8bbe02ea0fa384920e4d4a93e6e01a59c` into
+  `feat/shared-namespace-20261008`.
+
+That Fleet plugin registers mandatory `llm_execution` admission middleware.
+Tracker requires fresh Fleet native admission for PM machine writes through
+`/internal/runtime/v1/pm/executions/{id}/admission`. Our qualified API sourceaabe
+does not provide that endpoint or middleware contract. Importing the plugin or
+repinning Tracker alone is therefore not a compatible integration. The runtime
+custody models also differ; this is not resolved by renumbering migrations.
+
+The newer Tracker PM implementation must not be described as only a prepared
+reservation. However, its non-PM Analysis execution still reports not ready and
+does not grant dispatch or verified-stop release authority. Its claimed PM live
+acceptance uses a different Fleet/Tracker assembly and is not evidence for ours.
+Workflow [PR99](https://github.com/FerrPOINT/project-workflow/pull/99) is merged
+into master as `728dd5f860d799b4ecbd9934fb88201d0a297353`; that does not supply
+Tracker-owned authority or resolve the PM contract divergence.
+
+Keep existing source pins and the runtime scope decision above until producer
+owners reconcile the contract. Do not fabricate an admission receipt, bypass
+their machine-write checks or silently add the rejected pre-model hook. These
+source observations establish an integration gap, not deployed acceptance.
+
 ## Source Compatibility Evidence (2026-10-10)
 
 All seven DTOs were rechecked against clean Tracker source

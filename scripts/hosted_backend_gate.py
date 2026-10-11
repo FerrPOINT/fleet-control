@@ -27,7 +27,7 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/config-union-backend-20261010"
-SOURCE_SHA = "aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba"
+SOURCE_SHA = "2dcff77e01dc957e3a1d2ffda39b309835ac8d19"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 UTILITY_SHA = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
@@ -35,7 +35,7 @@ UTILITY_INVENTORY_SHA = "8e727d1d2ba02941dc176f26945d25593068fc593cb619928538129
 PACKAGE_SHA = "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58"
 PACKAGE_TREE = "96d9a7453744fd09f9ee3ba3b2c20f6b3d389b85"
 PACKAGE_INVENTORY_SHA = "1bdf56b21b0b97ec4a5a6303b04ecdda1b6609164aa018acc830187ca124f827"
-# Authentic AABE codegen: run38107719356/1, artifact11689594281.
+# Authentic AABE codegen reused only through exact API dependency closure parity.
 OPENAPI_SHA = "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501"
 SWAGGER_SHA = "481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc"
 WORKFLOW = ".github/workflows/backend-build-only.yml"
@@ -46,7 +46,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "99a07af6f8341bcdccdcc08948dcef6a6721f71cd34ef650e423cfc43d587acb"
+SOURCE_INVENTORY_SHA = "048bb2afe607922ff0306b498e0983693b0f4e9f390b3002f3879f3d4889be1e"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024

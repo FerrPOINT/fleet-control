@@ -50,6 +50,11 @@ Tracker and Workflow are read-only dependencies; full non-PM execution authority
 remains a producer dependency. Java lifecycle exists, but automatic Java SDLC
 requires separate compatible chat/control evidence.
 
+External Fleet PR65 and Tracker PR127 merged into feature branches, not main,
+on11 October. Their mandatory native/model admission contract differs from
+this assembly's unchanged-Hermes decision. They are not imported or runtime
+qualification here; see [external contract status](contracts/CHAT_CLARIFICATION_CONTRACT.md#external-pm-contract-divergence-11-october-2026).
+
 Workflow [PR90](https://github.com/FerrPOINT/project-workflow/pull/90) is merged
 asef2cf9e with new source994bc8e, including a checkpoint fix; PM OpenAPI is
 unchanged. Authenticated generic assign/bind/step exists for Analyst, Architect,
@@ -63,7 +68,7 @@ new acceptance here; exact dependency provenance is in the verification ledger.
 
 | Scope                    | Verified evidence                                                                                                                                                                                                                                                                                                                                              | Still open                                                                                                                                                       |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust OpenAPI, sourceaa11 | [38066257094](https://github.com/FerrPOINT/fleet-control/actions/runs/38066257094) SUCCESS; artifact11674599663; original strict readback verified; schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`. Schema bytes equal the actuala5f schema compared against seven immutable Tracker357 DTOs; eight verifier units pass      | Complete backend/DB/native checks remain separate from schema generation                                                                                         |
+| Rust OpenAPI, sourceaabe | [38107719356](https://github.com/FerrPOINT/fleet-control/actions/runs/38107719356)/1 SUCCESS on controls12de; artifact11689594281; original strict readback independently verified. Schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`, unchanged; genuine307-input export includes the changed app trait                        | Complete backend/DB/native checks remain separate from schema generation                                                                                         |
 | Backend                  | [38105834026](https://github.com/FerrPOINT/fleet-control/actions/runs/38105834026)/1 FAIL on8411/source729 at credentials_pg10/84, exit101; artifact11689882691 strict readback retains test_failure and pm_credential_creation.rs:1178:75, readable/untruncated, both scoped cleanups true                                                                    | Assertion reason not retained. Foundation/later gates and final API comparison were not reached; current-source/native/live acceptance remain open               |
 | Frontend, sourceaca/fc0  | [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687) SUCCESS; original strict readback verifies artifact11677891567. All23 gates,461 units,135 catalogue/186 fixture images; all three browsers47 passed/zero flaky with nine opt-in live skips each. 135 catalogue and9 PM views imported, selected corrected captures reviewed | Complete live PM acceptance; fixture success does not qualify backend or installed runtime                                                                       |
 | PM execution             | Structured tools, checkpoint continuation, controls, stream recovery and instruction receipts are integrated; historical source5bc passed PM recovery13 before failing runtime stream bounds51                                                                                                                                                                 | Source729 failed credentials_pg10 before foundation/PM13. Complete PG/HTTP, compatible service calls and owner flow remain required                              |
@@ -113,7 +118,13 @@ The separate never-started Stop candidate preserves the creation witness under
 the same agent-row lock and rejects private/DB custody. Archival also rejects
 unresolved preparation, allowing only a matching exited generation/receipt.
 It adds no migration or controller; new API/repository regressions and fresh
-Rust OpenAPI generation (changed internal app trait) remain unqualified.
+Rust OpenAPI generation (changed internal app trait) are separate gates.
+Sourceaabe now has authentic generation38107719356/1, including the changed
+dependency closure. Controls138342ee normally merge8411+aabe, retain all84
+backend stages and add both Stop/archive regressions to the existing selections.
+The new [backend run38108696548](https://github.com/FerrPOINT/fleet-control/actions/runs/38108696548)
+was confirmed running after normal publication. Its eventual terminal receipt,
+not this launch observation, determines PostgreSQL/backend qualification.
 Published source candidatec976c27 rejects config activation with409 before
 drain when a bound PM run is pending, including no-journal/prepared/unknown
 acceptance. Accepted-running PM retains normal drain. It adds no migration;

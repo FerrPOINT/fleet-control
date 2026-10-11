@@ -66,7 +66,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual((ROOT / gate.INIT).read_bytes(), self.source_blob(gate.INIT, frozen))
         self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(), self.source_blob(gate.WORKFLOW, frozen).replace(
             b"5bc0fd3fd92a11a6957858525d9b124be00c1644", gate.SOURCE_SHA.encode()).replace(
-                b"# AA11 codegen reused via exact API dependency closure parity.", b"# Authentic codegen38107719356/1 bound to this exact source."))
+                b"# AA11 codegen reused via exact API dependency closure parity.", b"# Authentic AABE codegen reused via exact API dependency closure parity."))
         shell = self.source_blob(gate.GATE, "36fac86c7cdd945f8614fbaa6b7e302989b1a71d")
         shell = shell.replace(b"ignored=125", b"ignored=124")
         shell = shell.replace(b"  cargo run --locked -p migration -- down -n 1\n  migration_snapshot down_stop\n", b"")
@@ -911,10 +911,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba")
+        self.assertEqual(gate.SOURCE_SHA, "2dcff77e01dc957e3a1d2ffda39b309835ac8d19")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "a9365932df8463a88bd0eced39335d8668967865")
+        self.assertEqual(tree, "46950f240c51c30bfb82ff13a1761770256937d0")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -944,14 +944,36 @@ class HostedBackendTests(unittest.TestCase):
                 gate.verify_test_log("container_preparation_pg", bad, REVIEWED)
         self.assertEqual(REVIEWED["openapi_binding"], dict(status="verified", sha256=gate.OPENAPI_SHA))
         preparation = REVIEWED["config_union_preparation"]
-        self.assertEqual(preparation["codegen_evidence"], dict(
-            source_commit=gate.SOURCE_SHA, artifact_bound_source_commit=gate.SOURCE_SHA,
+        original = json.loads(self.source_blob(gate.INVENTORY,
+            "138342ee0a19e3dcd5db2ca90a59eebac9da2994"))["config_union_preparation"]["codegen_evidence"]
+        self.assertEqual(original, dict(
+            source_commit="aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba",
+            artifact_bound_source_commit="aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba",
             workflow_commit="12de63eca6f458de1412bb0562c960d3ee201e46", run_id=38107719356,
             run_attempt=1, artifact_id=11689594281,
             artifact_zip_sha256="09539a222f8fb0bb75b660f2ca21355700bc7571c8752a6c6a51aef627c9ea2a",
             reported_by_parent=False, schema_sha256=gate.OPENAPI_SHA, source_file_count=307,
             source_inventory_sha256="205edcde1a1a6b45481817583bbdfcb0599cef0b7799cb18e40ccafa616fde5f",
             source_tree="a9365932df8463a88bd0eced39335d8668967865"))
+        closure = [".base-revision", "backend/.cargo", "backend/Cargo.toml", "backend/Cargo.lock",
+            "backend/api", "backend/app", "backend/domain", "backend/shared"] + [
+            "backend/" + member + "/Cargo.toml"
+            for member in ("api", "app", "domain", "shared", "infra", "migration", "server", "cli")]
+        listing = lambda pin: subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT),
+            "ls-tree", "-r", "-z", pin, "--", *closure], capture_output=True, check=True, timeout=30).stdout
+        accepted = listing(original["source_commit"])
+        self.assertEqual(len(accepted.rstrip(b"\0").split(b"\0")), 76)
+        self.assertEqual(accepted, listing(gate.SOURCE_SHA))
+        self.assertEqual(gate.digest(accepted), "0d22170992190d7735249345d3a959cdba9b010772161afd3a7e5576335be520")
+        source_delta = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
+            original["source_commit"], gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+        self.assertEqual({path for path in source_delta if path.startswith("backend/")},
+                         {"backend/infra/tests/support/pm_credential_creation.rs"})
+        self.assertTrue(all(path.startswith("docs/") or path == "backend/infra/tests/support/pm_credential_creation.rs"
+                            for path in source_delta))
+        self.assertEqual(preparation["codegen_evidence"], dict(original,
+            artifact_bound_source_commit=gate.SOURCE_SHA, binding_kind="verified_api_dependency_closure_parity",
+            api_dependency_closure=closure, api_dependency_closure_git_sha256=gate.digest(accepted), source_delta=source_delta))
         self.assertFalse(preparation["authentic_union_codegen_pending"])
         self.assertFalse(preparation["compiled_inventory_includes_pre_regen_schema"])
         self.assertEqual(preparation["prior_729_codegen_evidence"], previous["config_union_preparation"]["codegen_evidence"])
@@ -961,7 +983,7 @@ class HostedBackendTests(unittest.TestCase):
             gate.require_codegen_binding(pending)
         self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(), self.source_blob(gate.WORKFLOW,
             "8411d523856f7eef08dbaf010b79ba8bcd48ffd1").replace(previous["source_commit"].encode(), gate.SOURCE_SHA.encode()).replace(
-                b"# AA11 codegen reused via exact API dependency closure parity.", b"# Authentic codegen38107719356/1 bound to this exact source."))
+                b"# AA11 codegen reused via exact API dependency closure parity.", b"# Authentic AABE codegen reused via exact API dependency closure parity."))
         for path in (gate.GATE, gate.INIT):
             self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, "8411d523856f7eef08dbaf010b79ba8bcd48ffd1"))
         historical_controls = "8411d523856f7eef08dbaf010b79ba8bcd48ffd1"
@@ -1986,7 +2008,7 @@ class HostedBackendTests(unittest.TestCase):
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
             actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.GATE, gate.INVENTORY) else (ROOT / path).read_bytes()
             self.assertEqual(actual, expected, path)
-        self.assertEqual(gate.SOURCE_SHA, "aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba")
+        self.assertEqual(gate.SOURCE_SHA, "2dcff77e01dc957e3a1d2ffda39b309835ac8d19")
         self.assertEqual(len(gate.GATES), 84)
 
     def test_hosted_six_gib_policy_is_exact_and_retains_three_gib_reserve(self):
@@ -2439,7 +2461,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual((ROOT / gate.INIT).read_bytes(), self.source_blob(gate.INIT, frozen))
         self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(), self.source_blob(gate.WORKFLOW, frozen).replace(
             previous["source_commit"].encode(), gate.SOURCE_SHA.encode()).replace(
-                b"# AA11 codegen reused via exact API dependency closure parity.", b"# Authentic codegen38107719356/1 bound to this exact source."))
+                b"# AA11 codegen reused via exact API dependency closure parity.", b"# Authentic AABE codegen reused via exact API dependency closure parity."))
         shell = (ROOT / gate.GATE).read_bytes().replace(b"ignored=126", b"ignored=125")
         shell = shell.replace(b"  cargo run --locked -p migration -- down -n 1\n  migration_snapshot down_stop_drain\n", b"")
         shell = shell.replace(b"  cargo run --locked -p migration -- up -n 1\n  migration_snapshot drain_reapply\n", b"")

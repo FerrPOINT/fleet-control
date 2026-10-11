@@ -34,6 +34,12 @@ intent/reservation/heartbeat, not completed execution admission or safe-stop
 release/reacquire. Architect, Developer, Reviewer, Tester and DevOps execution
 lifecycles remain missing producer dependencies.
 
+Newer Tracker PR127 is merged into a feature branch, not main, and implements
+PM native admission beyond that pinned baseline. Its required Fleet/model hook
+diverges from the accepted no-hook path; it is not a compatible automatic repin.
+Exact sources and the separate non-PM limitation are recorded in
+[the contract](contracts/CHAT_CLARIFICATION_CONTRACT.md#external-pm-contract-divergence-11-october-2026).
+
 Workflow PR90 is merged as `ef2cf9e06aafe1b295f34dbdca3a432227195266`,
 with source `994bc8ee024bfd7f0d92cf02189daad417f19149`. It implements
 authenticated, role-scoped generic assignment, bind and step for Analyst,

@@ -243,7 +243,7 @@
     "fleet-control/backend/infra/tests/support/clarification_custody.rs": "142c92494640f5e9c7d06e61bc5ac5a17508a0a24406a8e19fc49bef04a90081",
     "fleet-control/backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "fleet-control/backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
-    "fleet-control/backend/infra/tests/support/pm_credential_creation.rs": "9e56b8f89f90bdfd4ed5b1a9087b9087e96f100cdc05b1cd300acc04050909c5",
+    "fleet-control/backend/infra/tests/support/pm_credential_creation.rs": "62ea98ca1ef8acecc7196e6adc8058f92fcff10e0c44b4323ed69ef820aa56c7",
     "fleet-control/backend/infra/tests/support/pm_dispatch.rs": "784d9ef439e4b31339e98f9022df1de75d5a36eba02d138b9695ac8f348dd1c5",
     "fleet-control/backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "fleet-control/backend/infra/tests/support/pm_events.rs": "fad553bf7e2a57fee29203028db5dad7efc9365d6acdebc5c3de228414765c30",
@@ -421,14 +421,41 @@
     "activation_intent_cases": 20,
     "authentic_union_codegen_pending": false,
     "codegen_evidence": {
-      "artifact_bound_source_commit": "aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba",
+      "api_dependency_closure": [
+        ".base-revision",
+        "backend/.cargo",
+        "backend/Cargo.toml",
+        "backend/Cargo.lock",
+        "backend/api",
+        "backend/app",
+        "backend/domain",
+        "backend/shared",
+        "backend/api/Cargo.toml",
+        "backend/app/Cargo.toml",
+        "backend/domain/Cargo.toml",
+        "backend/shared/Cargo.toml",
+        "backend/infra/Cargo.toml",
+        "backend/migration/Cargo.toml",
+        "backend/server/Cargo.toml",
+        "backend/cli/Cargo.toml"
+      ],
+      "api_dependency_closure_git_sha256": "0d22170992190d7735249345d3a959cdba9b010772161afd3a7e5576335be520",
+      "artifact_bound_source_commit": "2dcff77e01dc957e3a1d2ffda39b309835ac8d19",
       "artifact_id": 11689594281,
       "artifact_zip_sha256": "09539a222f8fb0bb75b660f2ca21355700bc7571c8752a6c6a51aef627c9ea2a",
+      "binding_kind": "verified_api_dependency_closure_parity",
       "reported_by_parent": false,
       "run_attempt": 1,
       "run_id": 38107719356,
       "schema_sha256": "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501",
       "source_commit": "aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba",
+      "source_delta": [
+        "backend/infra/tests/support/pm_credential_creation.rs",
+        "docs/CURRENT_STATE.md",
+        "docs/GAP_REGISTER.md",
+        "docs/REMAINING_DELIVERY_WORK.md",
+        "docs/contracts/CHAT_CLARIFICATION_CONTRACT.md"
+      ],
       "source_file_count": 307,
       "source_inventory_sha256": "205edcde1a1a6b45481817583bbdfcb0599cef0b7799cb18e40ccafa616fde5f",
       "source_tree": "a9365932df8463a88bd0eced39335d8668967865",
@@ -744,7 +771,7 @@
       "workflow_commit": "eed4bc54149e1b317c5eb3e3e7c628eeaffbdea4"
     },
     "prior_stages_preserved": 74,
-    "source_commit": "aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba"
+    "source_commit": "2dcff77e01dc957e3a1d2ffda39b309835ac8d19"
   },
   "default_foundation_ignored": 126,
   "executed": false,
@@ -3292,7 +3319,7 @@
     "backend/infra/tests/support/clarification_custody.rs": "142c92494640f5e9c7d06e61bc5ac5a17508a0a24406a8e19fc49bef04a90081",
     "backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
-    "backend/infra/tests/support/pm_credential_creation.rs": "9e56b8f89f90bdfd4ed5b1a9087b9087e96f100cdc05b1cd300acc04050909c5",
+    "backend/infra/tests/support/pm_credential_creation.rs": "62ea98ca1ef8acecc7196e6adc8058f92fcff10e0c44b4323ed69ef820aa56c7",
     "backend/infra/tests/support/pm_dispatch.rs": "784d9ef439e4b31339e98f9022df1de75d5a36eba02d138b9695ac8f348dd1c5",
     "backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "backend/infra/tests/support/pm_events.rs": "fad553bf7e2a57fee29203028db5dad7efc9365d6acdebc5c3de228414765c30",
@@ -3366,7 +3393,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "aabe7885c1bc0521dc2521bb9c82fc1f19cf9bba",
+  "source_commit": "2dcff77e01dc957e3a1d2ffda39b309835ac8d19",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
@@ -5819,105 +5846,105 @@
     },
     {
       "ignored": false,
-      "line": 1895,
+      "line": 1919,
       "name": "pm_credentials_pg_changed_valid_child_uuid_replay_conflicts_without_context_or_mutation",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 1900,
+      "line": 1924,
       "name": "pm_credentials_pg_changed_valid_child_expiry_replay_conflicts_without_context_or_mutation",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 1906,
+      "line": 1930,
       "name": "pm_credentials_pg_parent_principal_mismatch_prevents_first_post",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 1959,
+      "line": 1983,
       "name": "pm_credentials_pg_parent_principal_mismatch_retains_ack_without_another_post",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2012,
+      "line": 2036,
       "name": "pm_credentials_pg_child_principal_mismatch_retains_ack_without_usable_credential",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2065,
+      "line": 2089,
       "name": "pm_credentials_pg_lost_ack_restart_replays_exact_child_without_run_or_secret",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2118,
+      "line": 2142,
       "name": "pm_credentials_pg_partial_success_keeps_receipt_and_checks_current_context_on_replay",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2139,
+      "line": 2163,
       "name": "pm_credentials_pg_rotated_parent_origins_or_ttl_conflict_before_external_request",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2171,
+      "line": 2195,
       "name": "pm_credentials_pg_concurrent_preparation_freezes_one_receipt_and_rejects_payload_conflict",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2201,
+      "line": 2225,
       "name": "pm_credentials_pg_revoked_child_cannot_be_used",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2217,
+      "line": 2241,
       "name": "pm_credentials_pg_expired_receipt_stops_before_external_renewal",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2233,
+      "line": 2257,
       "name": "pm_credentials_pg_database_guards_monotonic_journal_and_single_redacted_audit",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2326,
+      "line": 2350,
       "name": "pm_credentials_pg_first_intent_and_ack_require_readable_strict_shapes",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2430,
+      "line": 2454,
       "name": "pm_credentials_pg_revoked_parent_prevents_post_and_does_not_erase_ack",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 2446,
+      "line": 2470,
       "name": "pm_credentials_pg_audit_failure_rolls_back_journal_and_recovers_original_child",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
