@@ -31,7 +31,7 @@ class HostedBackendTests(unittest.TestCase):
         import ast
         frozen = "50cb550af47e06530997fc1f84a5562fd4503b9e"
         old = self.source_blob(gate.HELPER, frozen).decode()
-        current = (ROOT / gate.HELPER).read_text()
+        current = self.source_blob(gate.HELPER, "36fac86c7cdd945f8614fbaa6b7e302989b1a71d").decode()
         normalized = current.replace(gate.SOURCE_SHA, "5bc0fd3fd92a11a6957858525d9b124be00c1644")
         normalized = normalized.replace(gate.SOURCE_INVENTORY_SHA,
             "0f55274de1a4b602e0378eb47db48ee23aedd731b4e3d4782f01db811f48e5c0")
@@ -183,7 +183,8 @@ class HostedBackendTests(unittest.TestCase):
             self.assertNotIn(name, {row["name"] for row in REVIEWED["ignored"]})
         functions = lambda tree: {n.name: ast.dump(n) for n in tree.body
             if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
-        before, after = functions(old), functions(ast.parse((ROOT / gate.HELPER).read_bytes()))
+        before, after = functions(old), functions(ast.parse(self.source_blob(gate.HELPER,
+            "36fac86c7cdd945f8614fbaa6b7e302989b1a71d")))
         self.assertEqual(before.keys(), after.keys())
         self.assertEqual({name for name in before if before[name] != after[name]}, {
             "reviewed_inventory", "expected_migration_receipt", "verify_migration_snapshots",
@@ -2281,6 +2282,30 @@ class HostedBackendTests(unittest.TestCase):
                           spans=[dict(file_name=file, line_start=line, column_start=column, is_primary=primary,
                                       text=[dict(text="PRIVATE_SENTINEL_SOURCE")], label="PRIVATE_SENTINEL_LABEL")]))) + "\n").encode()
 
+    def test_compiler_category_slice_preserves_frozen36_execution_and_200_identities(self):
+        import ast
+        frozen = "36fac86c7cdd945f8614fbaa6b7e302989b1a71d"
+        before = ast.parse(self.source_blob(gate.HELPER, frozen))
+        after = ast.parse((ROOT / gate.HELPER).read_bytes())
+        functions = lambda tree: {n.name: ast.dump(n) for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
+        old, new = functions(before), functions(after)
+        self.assertEqual(old.keys(), new.keys())
+        self.assertEqual({name for name in old if old[name] != new[name]}, {"safe_compiler_diagnostics"})
+        other_nodes = lambda tree: [ast.dump(n) for n in tree.body if not isinstance(n, (ast.FunctionDef, ast.ClassDef))
+            and not (isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name) and n.targets[0].id == "CATEGORY_PATTERNS")]
+        self.assertEqual(other_nodes(before), other_nodes(after))
+        patterns = next(ast.literal_eval(n.value) for n in before.body if isinstance(n, ast.Assign)
+                        and isinstance(n.targets[0], ast.Name) and n.targets[0].id == "CATEGORY_PATTERNS")
+        self.assertEqual(gate.CATEGORY_PATTERNS, dict(patterns, network=patterns["network"] +
+            ("download of config.json failed", "failed to get successful http response")))
+        names = lambda tree: {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name.startswith("test_")}
+        old_names = names(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)))
+        self.assertEqual(len(old_names), 200)
+        self.assertEqual(names(ast.parse(Path(__file__).read_bytes())) - old_names, {self._testMethodName})
+        self.assertTrue(old_names <= names(ast.parse(Path(__file__).read_bytes())))
+        for path in gate.WRITE_SET - {gate.HELPER, "scripts/tests/test_hosted_backend_gate.py"}:
+            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen), path)
+
     def diagnostics(self, out, err=b""):
         return gate.safe_compiler_diagnostics((io.BytesIO(out), io.BytesIO(err)), REVIEWED["rust_source_sha256"], "/owned/src/fleet-control/backend")
 
@@ -2289,6 +2314,18 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(result, dict(diagnostics=[dict(error_code="E0308", file="backend/api/src/routes/sessions.rs", line=17, column=9)],
                                       categories=[], truncated=False))
         self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
+        for category, patterns in gate.CATEGORY_PATTERNS.items():
+            for pattern in patterns:
+                with self.subTest(category=category, pattern=pattern):
+                    value = json.loads(self.compiler_line())
+                    value["message"]["message"] = pattern.upper() + " PRIVATE_SENTINEL /private/base/token"
+                    result = self.diagnostics((json.dumps(value) + "\n").encode())
+                    self.assertEqual(result["categories"], [category])
+                    self.assertEqual(len(result["diagnostics"]), 1)
+                    self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
+                    value["message"]["spans"] = []
+                    self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode()),
+                                     dict(diagnostics=[], categories=[category], truncated=False))
 
     def test_compiler_paths_only_exact_fleet_allowlist_no_private_prefix_or_traversal(self):
         for file in ("api/src/routes/sessions.rs", "backend/api/src/routes/sessions.rs", "/owned/src/fleet-control/backend/api/src/routes/sessions.rs"):
@@ -2324,6 +2361,14 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(self.diagnostics(self.compiler_line(primary=False))["diagnostics"], [])
         value["reason"], value["message"]["level"] = "compiler-artifact", "error"
         self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"], [])
+        for reason, level in (("compiler-message", "warning"), ("compiler-message", "note"),
+                              ("compiler-message", "help"), ("compiler-artifact", "error"), (None, "error")):
+            value = json.loads(self.compiler_line())
+            value["reason"], value["message"]["level"] = reason, level
+            value["message"]["message"] = "download of config.json failed PRIVATE_SENTINEL"
+            result = self.diagnostics((json.dumps(value) + "\n").encode())
+            self.assertEqual(result, dict(diagnostics=[], categories=["unknown"], truncated=False))
+            self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
 
     def test_nonjson_categories_fixed_allowlist_never_echo_raw(self):
         for category, patterns in gate.CATEGORY_PATTERNS.items():
@@ -2331,11 +2376,26 @@ class HostedBackendTests(unittest.TestCase):
             self.assertEqual(result, dict(diagnostics=[], categories=[category], truncated=False))
             self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
         self.assertEqual(self.diagnostics(b"PRIVATE_SENTINEL\n")["categories"], ["unknown"])
+        for marker in ("download of config.json failed", "failed to get successful http response"):
+            with self.subTest(marker=marker):
+                result = self.diagnostics(b"", (marker + " PRIVATE_SENTINEL /private/base/token\n").encode())
+                self.assertEqual(result, dict(diagnostics=[], categories=["network"], truncated=False))
+                self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
 
     def test_malformed_json_wrong_shapes_and_nested_context_fail_closed(self):
         for raw in (b"{malformed PRIVATE_SENTINEL\n", b"[]\n", b"null\n", b'{"reason":"compiler-message","message":"PRIVATE_SENTINEL"}\n',
                     b'{"reason":"compiler-message","message":{"level":"error","spans":"PRIVATE_SENTINEL"}}\n'):
             self.assertEqual(self.diagnostics(raw), dict(diagnostics=[], categories=["unknown"], truncated=False))
+        marker = "download of config.json failed PRIVATE_SENTINEL"
+        for message in (marker, None, [], {"level": "error", "message": [marker]},
+                        {"level": "error", "message": {"private": marker}}):
+            raw = (json.dumps(dict(reason="compiler-message", message=message)) + "\n").encode()
+            self.assertEqual(self.diagnostics(raw), dict(diagnostics=[], categories=["unknown"], truncated=False))
+        value = json.loads(self.compiler_line())
+        value["message"]["rendered"] = marker
+        value["message"]["children"] = [dict(message=marker)]
+        value["private"] = marker
+        self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["categories"], [])
 
     def test_compiler_deduplication_and_record_limit_are_bounded(self):
         same = self.compiler_line()
@@ -2350,6 +2410,12 @@ class HostedBackendTests(unittest.TestCase):
             result = self.diagnostics(b"PRIVATE_SENTINEL" * 100 + b"\n" + self.compiler_line())
         self.assertTrue(result["truncated"])
         self.assertEqual(result["diagnostics"], [])
+        self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
+        value = json.loads(self.compiler_line())
+        value["message"]["message"] = "download of config.json failed PRIVATE_SENTINEL" * 20
+        with mock.patch.object(gate, "DIAGNOSTIC_LINE_LIMIT", 64), mock.patch.object(gate, "DIAGNOSTIC_INPUT_LIMIT", 256):
+            result = self.diagnostics((json.dumps(value) + "\n").encode())
+        self.assertEqual(result, dict(diagnostics=[], categories=["unknown"], truncated=True))
         self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
 
     def test_compiler_log_io_failure_does_not_echo_or_lose_recorded_exit(self):

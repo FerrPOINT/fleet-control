@@ -52,7 +52,8 @@ DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
 FAILURE_SIZE_LIMIT = 16 * 1024
 CATEGORY_PATTERNS = {
-    "network": ("failed to download", "could not resolve host", "timeout was reached", "network failure", "failed to fetch"),
+    "network": ("failed to download", "could not resolve host", "timeout was reached", "network failure", "failed to fetch",
+                "download of config.json failed", "failed to get successful http response"),
     "dependency": ("failed to select a version", "no matching package named", "requires rustc", "failed to load source for dependency"),
     "build-script": ("failed to run custom build command",),
     "linker": ("linking with", "linker command failed",),
@@ -660,6 +661,11 @@ def safe_compiler_diagnostics(streams, allowed, fleet_backend):
             message = value.get("message")
             if not isinstance(message, dict) or message.get("level") != "error":
                 continue
+            text = message.get("message")
+            if isinstance(text, str):
+                text = text.lower()
+                categories.update(category for category, patterns in CATEGORY_PATTERNS.items()
+                                  if any(pattern in text for pattern in patterns))
             code = message.get("code")
             code = code.get("code") if isinstance(code, dict) else None
             code = code if isinstance(code, str) and re.fullmatch(r"E[0-9]{4}", code) else None
