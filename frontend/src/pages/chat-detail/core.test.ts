@@ -27,7 +27,7 @@ describe('core contract guards', () => {
       expect(chatBackTo(value)).toBe('/chats')
   })
   it('keeps server order and excludes other agents and sessions', () => {
-    const session = { id: 's', primary_agent_id: 'a' } as AgentSession
+    const session = { id: 's', primary_agent_id: 'a', pending_delivery: false } as AgentSession
     const messages = [
       { id: 'z', session_id: 's', author_type: 'user', created_at: '2099-01-01' },
       {
@@ -54,7 +54,7 @@ describe('core contract guards', () => {
     (state) => {
       expect(
         chatActivity(
-          { id: 's', primary_agent_id: 'a' } as AgentSession,
+          { id: 's', primary_agent_id: 'a', pending_delivery: false } as AgentSession,
           [],
           [{ session_id: 's', agent_id: 'a', state } as SessionAgentRun],
         ).busy,
@@ -66,13 +66,62 @@ describe('core contract guards', () => {
     (delivery_state) => {
       expect(
         chatActivity(
-          { id: 's', primary_agent_id: 'a' } as AgentSession,
+          { id: 's', primary_agent_id: 'a', pending_delivery: false } as AgentSession,
           [{ session_id: 's', delivery_state } as SessionMessage],
           [],
         ).busy,
       ).toBe(true)
     },
   )
+  it('allows the unbound preparation slot of a new chat', () => {
+    expect(
+      chatActivity(
+        { id: 's', primary_agent_id: 'a', pending_delivery: false } as AgentSession,
+        [],
+        [
+          {
+            session_id: 's',
+            agent_id: 'a',
+            state: 'pending',
+            runtime_session_id: null,
+            runtime_run_id: null,
+          } as SessionAgentRun,
+        ],
+      ).busy,
+    ).toBe(false)
+  })
+  it('holds delivery beyond the visible history window', () => {
+    expect(
+      chatActivity(
+        { id: 's', primary_agent_id: 'a', pending_delivery: true } as AgentSession,
+        [],
+        [],
+      ).busy,
+    ).toBe(true)
+  })
+  it.each(['runtime_session_id', 'runtime_run_id'] as const)(
+    'holds a pending slot bound by %s',
+    (field) => {
+      expect(
+        chatActivity(
+          { id: 's', primary_agent_id: 'a', pending_delivery: false } as AgentSession,
+          [],
+          [
+            {
+              session_id: 's',
+              agent_id: 'a',
+              state: 'pending',
+              runtime_session_id: field === 'runtime_session_id' ? 'bound-runtime' : null,
+              runtime_run_id: field === 'runtime_run_id' ? 'bound-runtime' : null,
+            } as SessionAgentRun,
+          ],
+        ).busy,
+      ).toBe(true)
+    },
+  )
+  it('holds sending when the complete delivery projection is absent', () => {
+    expect(chatActivity({ id: 's', primary_agent_id: 'a' } as AgentSession, [], []).busy).toBe(true)
+  })
   it('treats transport, malformed success and server failure as unknown', () => {
     for (const failure of [
       new Error('offline'),

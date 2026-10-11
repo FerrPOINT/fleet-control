@@ -3178,6 +3178,12 @@
             ],
             "format": "uuid"
           },
+          "pending_delivery": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "primary_agent_id": {
             "type": "string",
             "format": "uuid"

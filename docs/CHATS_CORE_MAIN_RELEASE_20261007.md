@@ -4,7 +4,7 @@ This Chats package is integrated with Fleet `main` at
 `b750e7b69cb359fbe7c7fd13647882c7ae8472bb` and its Base pin
 `19a7a381ae6dbea61a643bb96189e483fa64df5c`. It includes the message-receipt
 producer fix required by the new consumer and optional POST receipt digest in
-OpenAPI. Database migrations, runtime configuration and dependency lockfiles
+OpenAPI and optional full-session pending delivery in detail. Database migrations, runtime configuration and dependency lockfiles
 remain unchanged relative to that main. The PM runtime integration branch is
 separate from this package.
 
@@ -41,6 +41,13 @@ digest. A valid redacted body can confirm the same command; missing or mismatche
 digests retain its key. Producer acknowledgement and replay return the specific
 persisted row independently of the bounded history page. The backend must
 provide this POST receipt contract when deploying the new Chats consumer.
+
+The initial unbound pending run is a preparation slot; it permits the first
+prompt. Session detail supplies `pending_delivery` from the entire transcript,
+including rows outside the first 500. A missing projection, pending delivery,
+bound pending run or active primary runtime holds sending. Native acceptance
+identified this distinction after the fixture suite had passed; the original
+pending run was preserved rather than rewritten to repair the UI.
 
 ## Contract limits and separate PM package
 
@@ -111,8 +118,12 @@ acceptance of missing/wrong request digests. All three pass after the consumer
 change. The cross-language protocol fixture includes explicit nulls and the
 original idempotency key in its digest. The final real PostgreSQL regression
 passed, including POST-only digest projection and omitted digests in history and
-runtime input. Rust regenerated OpenAPI with one optional field; generated client
-types, TypeScript and compatibility checks passed. The frontend gate passed 176
-unit tests, build, lint, format and UI contract. All 48 Chats cases passed across
+runtime input. Native acceptance additionally found the initial unbound pending
+slot blocking the first prompt. Its valid data was preserved; detail now supplies
+complete pending delivery, and the consumer distinguishes preparation from bound
+execution. PostgreSQL verifies false for new detail and true after a prompt
+outside the history page. Rust regenerated OpenAPI with additive optional fields;
+generated client types, TypeScript and compatibility checks passed.
+The final frontend gate passed 181 unit tests, build, lint, format and UI contract. All 57 Chats cases passed across
 Chromium/Firefox/WebKit on the development test server. Final hosted CI and
 native application/browser acceptance remain pending for this review revision.
