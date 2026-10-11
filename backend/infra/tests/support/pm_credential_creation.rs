@@ -369,14 +369,14 @@ fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_and_te
             assert_eq!(ledger.lock().await["workflow_step_allowed"], true);
             let coordinator = fixture.coordinator();
             let credential = coordinator.runtime_credential(&op).await.unwrap();
-            assert_eq!(
+            assert!(matches!(
                 coordinator
                     .machine_context(&op, &credential)
                     .await
                     .unwrap()
                     .stage,
                 TrackerStage::Draft
-            );
+            ));
             let scope = PmHumanControlScope {
                 record: repo.get_pm_run(op.id).await.unwrap(),
                 intent: repo.get_pm_dispatch(op.id).await.unwrap().unwrap(),
