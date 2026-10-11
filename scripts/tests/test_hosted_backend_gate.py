@@ -893,10 +893,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "df52da81d0221dbe051ee9f1010389149737037f")
+        self.assertEqual(gate.SOURCE_SHA, "729bb4bfa508df203fb5cf36316dcdc8f2d9f02c")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "10bbd3dc4022c370a92312ca48fe31104daa326e")
+        self.assertEqual(tree, "1296e92a0116fd077e7528d6bb8a5706313d6f51")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -1918,7 +1918,7 @@ class HostedBackendTests(unittest.TestCase):
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
             actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.GATE, gate.INVENTORY) else (ROOT / path).read_bytes()
             self.assertEqual(actual, expected, path)
-        self.assertEqual(gate.SOURCE_SHA, "df52da81d0221dbe051ee9f1010389149737037f")
+        self.assertEqual(gate.SOURCE_SHA, "729bb4bfa508df203fb5cf36316dcdc8f2d9f02c")
         self.assertEqual(len(gate.GATES), 84)
 
     def test_hosted_six_gib_policy_is_exact_and_retains_three_gib_reserve(self):

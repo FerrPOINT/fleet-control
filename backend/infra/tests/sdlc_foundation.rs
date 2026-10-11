@@ -3842,6 +3842,21 @@ async fn config_revision_archive_rechecks_drain_after_stop_and_preserves_activat
             agent_before,
             "rejected operation changed agent archival state"
         );
+        if activation_first {
+            // Retire only this fixture's queued activation after custody assertions.
+            repo.finish_config_activation(
+                agent_id,
+                draft.revision,
+                Some("archive fixture activation not executed".into()),
+                false,
+            )
+            .await
+            .unwrap();
+            assert_eq!(
+                repo.list_config_revisions(agent_id).await.unwrap()[0].state,
+                "failed"
+            );
+        }
     }
     for status in [
         AgentStatus::Starting,

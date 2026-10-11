@@ -238,7 +238,7 @@
     "fleet-control/backend/infra/tests/managed_settings.rs": "a00d900832fae3193dfded72f3abc92ef27dd1e2c7d0014f55aee07e8338fbeb",
     "fleet-control/backend/infra/tests/pm_credentials_real_auth.rs": "61b8267f53fa1dc3f16336b24fe438a061319c9c0ed190579c9f741f3e7182ec",
     "fleet-control/backend/infra/tests/runtime_approval_events.rs": "462727f4a50969e0f971de209c8972c5194136b528d8236c901f127ec038a7b5",
-    "fleet-control/backend/infra/tests/sdlc_foundation.rs": "76a44df8cd0aaf3ff738e03d28e05720b37113e8352c95ada54c5b361cd300d0",
+    "fleet-control/backend/infra/tests/sdlc_foundation.rs": "47173a701f3b722e769569e6221bdcb80e058abdd023120b6e2b4d55094744a1",
     "fleet-control/backend/infra/tests/support/base_package.rs": "a9fa2da281182dd2685dfeaa89c9bf052b604a757285a6028b8d8a83119d4b75",
     "fleet-control/backend/infra/tests/support/clarification_custody.rs": "142c92494640f5e9c7d06e61bc5ac5a17508a0a24406a8e19fc49bef04a90081",
     "fleet-control/backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
@@ -440,7 +440,7 @@
         "backend/cli/Cargo.toml"
       ],
       "api_dependency_closure_git_sha256": "721d0adcd6a5c08d362ea5e25535173333aeac74173608009184818fc30c4159",
-      "artifact_bound_source_commit": "df52da81d0221dbe051ee9f1010389149737037f",
+      "artifact_bound_source_commit": "729bb4bfa508df203fb5cf36316dcdc8f2d9f02c",
       "artifact_id": 11674599663,
       "artifact_zip_sha256": "8e1284e91d778d99281b1fa27df8b5dd7887679dd1068d023ae50a84f6fb1cbb",
       "binding_kind": "verified_api_dependency_closure_parity",
@@ -730,7 +730,7 @@
       "workflow_commit": "eed4bc54149e1b317c5eb3e3e7c628eeaffbdea4"
     },
     "prior_stages_preserved": 74,
-    "source_commit": "df52da81d0221dbe051ee9f1010389149737037f"
+    "source_commit": "729bb4bfa508df203fb5cf36316dcdc8f2d9f02c"
   },
   "default_foundation_ignored": 126,
   "executed": false,
@@ -1619,7 +1619,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 4326,
+      "line": 4341,
       "name": "runtime_http_eof_without_terminal_status_keeps_run_waiting",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1628,7 +1628,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 4332,
+      "line": 4347,
       "name": "runtime_http_terminal_readback_persists_one_answer",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1637,7 +1637,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 4338,
+      "line": 4353,
       "name": "runtime_http_empty_terminal_output_never_uses_nested_metadata_as_assistant",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1646,7 +1646,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 4358,
+      "line": 4373,
       "name": "runtime_http_interrupted_is_failed_without_fabricated_reply",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1655,7 +1655,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 4364,
+      "line": 4379,
       "name": "runtime_http_foreign_or_inconsistent_terminal_readback_retains_capacity",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1664,7 +1664,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 4381,
+      "line": 4396,
       "name": "runtime_http_foreign_or_partial_terminal_sse_retains_capacity",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1673,7 +1673,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 4398,
+      "line": 4413,
       "name": "runtime_http_nested_or_unknown_events_do_not_complete_the_run",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -1682,7 +1682,7 @@
     },
     {
       "gate": "hermes_terminal",
-      "line": 4417,
+      "line": 4432,
       "name": "runtime_http_exact_terminal_sse_persists_one_answer_and_ignores_late_errors",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs",
@@ -3262,7 +3262,7 @@
     "backend/infra/tests/managed_settings.rs": "a00d900832fae3193dfded72f3abc92ef27dd1e2c7d0014f55aee07e8338fbeb",
     "backend/infra/tests/pm_credentials_real_auth.rs": "61b8267f53fa1dc3f16336b24fe438a061319c9c0ed190579c9f741f3e7182ec",
     "backend/infra/tests/runtime_approval_events.rs": "462727f4a50969e0f971de209c8972c5194136b528d8236c901f127ec038a7b5",
-    "backend/infra/tests/sdlc_foundation.rs": "76a44df8cd0aaf3ff738e03d28e05720b37113e8352c95ada54c5b361cd300d0",
+    "backend/infra/tests/sdlc_foundation.rs": "47173a701f3b722e769569e6221bdcb80e058abdd023120b6e2b4d55094744a1",
     "backend/infra/tests/support/base_package.rs": "a9fa2da281182dd2685dfeaa89c9bf052b604a757285a6028b8d8a83119d4b75",
     "backend/infra/tests/support/clarification_custody.rs": "142c92494640f5e9c7d06e61bc5ac5a17508a0a24406a8e19fc49bef04a90081",
     "backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
@@ -3341,7 +3341,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "df52da81d0221dbe051ee9f1010389149737037f",
+  "source_commit": "729bb4bfa508df203fb5cf36316dcdc8f2d9f02c",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
@@ -5682,42 +5682,42 @@
     },
     {
       "ignored": false,
-      "line": 3968,
+      "line": 3983,
       "name": "config_revision_identity_guard_fences_rebind_active_runs_and_unknown_dispatch",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 4433,
+      "line": 4448,
       "name": "task_binding_is_immutable_unique_and_replays_concurrent_requests",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 4511,
+      "line": 4526,
       "name": "task_binding_rejects_foreign_subject_and_legacy_transcript",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 4562,
+      "line": 4577,
       "name": "task_binding_and_generic_prompt_are_mutually_exclusive_under_concurrency",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 4612,
+      "line": 4627,
       "name": "long_history_creation_replay_dispatch_and_terminal_mirror_return_exact_message",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
     },
     {
       "ignored": false,
-      "line": 4673,
+      "line": 4688,
       "name": "message_history_returns_latest_page_and_scopes_cursor",
       "package": "infra",
       "source": "backend/infra/tests/sdlc_foundation.rs"
