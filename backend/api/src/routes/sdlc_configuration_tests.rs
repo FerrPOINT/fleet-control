@@ -41,6 +41,87 @@ fn principal() -> serde_json::Value {
     ]})
 }
 
+fn effective_revision(
+    agent_id: Uuid,
+    workflow_binding: serde_json::Value,
+) -> domain::AgentConfigRevision {
+    domain::AgentConfigRevision {
+        agent_id,
+        revision: 7,
+        state: "effective".into(),
+        snapshot: domain::AgentConfigurationSnapshot {
+            config: domain::UpdateAgentConfigRequest {
+                config_json: json!({"fleet_sdlc_workflow_binding": workflow_binding}),
+                soul_md: "fixture".into(),
+                env_json: json!({}),
+            },
+            skills: vec![],
+        },
+        validation_errors: vec![],
+        last_error: None,
+        is_desired: true,
+        is_effective: true,
+        draining: false,
+        created_at: "2026-10-11T00:00:00Z".into(),
+    }
+}
+
+fn workflow_binding() -> serde_json::Value {
+    json!({
+        "schema":"base-sdlc/workflow-binding/v1",
+        "namespace_id":"123",
+        "namespace_name":"hermes-developer",
+        "workflow_id":"456",
+        "workflow_key":"hermes-sdlc:developer",
+        "role_key":"developer",
+        "profile":"hermes-sdlc-developer",
+        "catalog_version":3,
+        "catalog_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "skills_revision":"0123456789abcdef0123456789abcdef01234567",
+        "runtime_ready":false
+    })
+}
+
+#[test]
+fn sdlc_configuration_observation_contains_only_verified_contract_state() {
+    let id = Uuid::new_v4();
+    let package = json!({"commit":"0123456789abcdef0123456789abcdef01234567"});
+    let revision = effective_revision(id, workflow_binding());
+    let observed = observation(id, domain::SdlcRole::Developer, &revision, &package).unwrap();
+
+    assert_eq!(observed.contract_version, 1);
+    assert_ne!(observed.observation_ref, Uuid::nil());
+    assert_eq!(observed.agent_id, id);
+    assert_eq!(observed.sdlc_role, domain::SdlcRole::Developer);
+    assert_eq!(observed.effective_revision, 7);
+    assert_eq!(observed.package, package);
+    assert_eq!(observed.workflow_binding.workflow_id, "456");
+    assert!(!observed.observed_at.is_empty());
+    assert!(observed.managed_files_verified);
+    assert!(!observed.runtime_ready);
+    assert_eq!(
+        observed.blockers,
+        [
+            "runtime_skill_inventory_not_verified",
+            "workflow_assignment_protocol_not_verified",
+        ]
+    );
+
+    let missing = effective_revision(id, serde_json::Value::Null);
+    let mut missing = missing;
+    missing.snapshot.config.config_json = json!({});
+    assert!(matches!(
+        observation(id, domain::SdlcRole::Developer, &missing, &package),
+        Err(AppError::Unavailable(_))
+    ));
+
+    let invalid = effective_revision(id, json!({"unexpected":"field"}));
+    assert!(matches!(
+        observation(id, domain::SdlcRole::Developer, &invalid, &package),
+        Err(AppError::Unavailable(_))
+    ));
+}
+
 async fn service(
     status: StatusCode,
     body: String,

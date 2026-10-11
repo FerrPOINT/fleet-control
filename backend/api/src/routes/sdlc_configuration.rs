@@ -26,6 +26,37 @@ pub struct ConfigurationObservation {
     pub blockers: Vec<String>,
 }
 
+fn observation(
+    agent_id: Uuid,
+    sdlc_role: domain::SdlcRole,
+    revision: &domain::AgentConfigRevision,
+    package: &serde_json::Value,
+) -> Result<ConfigurationObservation, AppError> {
+    let workflow_binding = revision
+        .snapshot
+        .config
+        .config_json
+        .get("fleet_sdlc_workflow_binding")
+        .cloned()
+        .ok_or_else(unavailable)?;
+    Ok(ConfigurationObservation {
+        contract_version: 1,
+        observation_ref: Uuid::new_v4(),
+        agent_id,
+        sdlc_role,
+        effective_revision: revision.revision,
+        package: package.clone(),
+        workflow_binding: serde_json::from_value(workflow_binding).map_err(|_| unavailable())?,
+        observed_at: shared::now().to_rfc3339(),
+        managed_files_verified: true,
+        runtime_ready: false,
+        blockers: vec![
+            "runtime_skill_inventory_not_verified".into(),
+            "workflow_assignment_protocol_not_verified".into(),
+        ],
+    })
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Principal {
@@ -225,25 +256,7 @@ pub async fn readback(
     );
     Ok((
         response_headers,
-        Json(ConfigurationObservation {
-            contract_version: 1,
-            observation_ref: Uuid::new_v4(),
-            agent_id: id,
-            sdlc_role: role,
-            effective_revision: revision.revision,
-            package: package.clone(),
-            workflow_binding: serde_json::from_value(
-                revision.snapshot.config.config_json["fleet_sdlc_workflow_binding"].clone(),
-            )
-            .map_err(|_| unavailable())?,
-            observed_at: shared::now().to_rfc3339(),
-            managed_files_verified: true,
-            runtime_ready: false,
-            blockers: vec![
-                "runtime_skill_inventory_not_verified".into(),
-                "workflow_assignment_protocol_not_verified".into(),
-            ],
-        }),
+        Json(observation(id, role, &revision, package)?),
     ))
 }
 
