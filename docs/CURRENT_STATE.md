@@ -93,6 +93,9 @@ first20-item page. The test-only candidate6c5c89c uses keyset membership checks
 and a22-fixture page-boundary case; product query/timeouts are unchanged.
 PG validation is pending; the retained receipt has no assertion reason proving
 this was the actual failure cause.
+The archive candidate rechecks drain, current runtime status and non-exited
+container custody under the agent-row lock after Stop. Rejected archival leaves
+history/configuration unchanged; its authored regression awaits PG/native checks.
 Published source candidatec976c27 rejects config activation with409 before
 drain when a bound PM run is pending, including no-journal/prepared/unknown
 acceptance. Accepted-running PM retains normal drain. It adds no migration;

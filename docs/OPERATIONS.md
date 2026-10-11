@@ -194,6 +194,15 @@ retained; its chat/control and config activation remain phase 2.
 
 ## Agent File Purge
 
+The source candidate rechecks archival under the existing agent-row lock after
+runtime Stop. A draining configuration, Starting/Running/Degraded status or any
+non-exited container journal returns409 without changing archival/configuration
+custody. Stop may already have completed before that conflict; refresh runtime
+and configuration state instead of treating the delete as successful or deleting
+journals to retry. Repository admission permits unstarted/stopped records without
+live journals and retains exited container history. Coverage is authored, not PG/native
+qualification of physical Stop or concurrent runtime replacement.
+
 Default agent delete archives the agent and leaves files intact. Physical purge
 is a separate operator action:
 
