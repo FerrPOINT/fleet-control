@@ -31,6 +31,8 @@ PULL_LOG_LIMIT = 65536
 PULL_CATEGORIES = frozenset(("rate_limit", "registry_denied", "manifest_unavailable", "dns", "tls", "timeout", "unknown"))
 CANDIDATE_KINDS = frozenset(("controller", "hermes"))
 BUILD_LOG_LIMIT = 65536
+BUILD_SCAN_LIMIT = 8 * 1024 ** 2
+BUILD_LINE_LIMIT = 65536
 BUILD_CATEGORIES = PULL_CATEGORIES | {"rust_compile", "no_space", "dependency_resolution",
     "docker_cli_refused", "compose_config_refused", "pinned_fetch_refused", "pinned_hash_refused", "apt_refused", "account_refused",
     "uv_build_refused", "uv_download_build_refused", "uv_no_solution", "uv_no_platform_distribution"}
@@ -133,9 +135,12 @@ def parent_pull_category(raw):
 
 
 def candidate_build_diagnostic(raw, *, tail=False):
-    """A tail proves only complete anchored frames/refusals, never an inferred whole-log cause."""
-    if type(raw) is not bytes or len(raw) > BUILD_LOG_LIMIT or type(tail) is not bool:
+    """Bounded complete frames only; large logs do not enable broad legacy heuristics."""
+    if (type(raw) is not bytes or type(tail) is not bool
+            or len(raw) > (BUILD_LOG_LIMIT if tail else BUILD_SCAN_LIMIT)
+            or raw.count(b"\n") > BUILD_LINE_LIMIT):
         return dict(category="unknown", log_scope="unavailable")
+    legacy_full = not tail and len(raw) <= BUILD_LOG_LIMIT
     if tail:
         raw = raw.partition(b"\n")[2]
     complete = [line.removesuffix(b"\r") for line in raw.split(b"\n")[:-1]]
@@ -184,7 +189,7 @@ def candidate_build_diagnostic(raw, *, tail=False):
     for category, pattern in refusals.items():
         if any(re.fullmatch(pattern, line) for line in lines):
             matches.add(category)
-    if not tail:
+    if legacy_full:
         network = parent_pull_category(raw)
         if network != "unknown":
             matches.add(network)
@@ -193,7 +198,7 @@ def candidate_build_diagnostic(raw, *, tail=False):
         "dependency_resolution": rb"error: failed to select a version for|no solution found when resolving dependencies",
     }
     for category, pattern in patterns.items():
-        if not tail and re.search(pattern, raw.lower()):
+        if legacy_full and re.search(pattern, raw.lower()):
             matches.add(category)
     if uv_reasons == {"uv_no_solution"} and matches == {"dependency_resolution"}:
         matches.clear()  # The paired UV header is the same resolution symptom.
@@ -230,10 +235,8 @@ def logged(args, path, timeout=1800, *, parent_kind=None, candidate_kind=None):
             if candidate_kind is not None:
                 diagnostic = dict(category="unknown", log_scope="unavailable")
                 try:
-                    output.seek(0, os.SEEK_END)
-                    size = output.tell()
-                    output.seek(max(0, size - BUILD_LOG_LIMIT))
-                    diagnostic = candidate_build_diagnostic(output.read(BUILD_LOG_LIMIT), tail=size > BUILD_LOG_LIMIT)
+                    output.seek(0)
+                    diagnostic = candidate_build_diagnostic(output.read(BUILD_SCAN_LIMIT + 1))
                 except OSError:
                     pass
                 error.candidate_build = dict(kind=candidate_kind, exit_code=result.returncode, **diagnostic)

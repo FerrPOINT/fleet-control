@@ -95,8 +95,8 @@ prevents success output; terminal VM teardown is not cleanup evidence.
 The authored caller requires parent/independent review before publication. Its
 public preflight verifies the exact source tuple and additions before any private
 Base token use. All35 copied QA/image files match component
-`d8c969d0f902e9d538cf158aa818222cdd715da3`; their compact path/SHA256 map digest is
-`ba09822efa657fd0a10eb254e66200f5aa07aab054661d5ab9adb480ece35fd7`.
+`799ecf60d38117372dd7c355a888be499ec10b2d`; their compact path/SHA256 map digest is
+`9dce353967eec2517e939a787fb6581c6a354216188e4875961e7092712aaaa7`.
 Only this README and the workflow are caller-specific. No cache, Git donor,
 credentials or prepared packet is included. In that one host job, set absolute
 exact Git input directories (no dependency copies):
@@ -191,9 +191,12 @@ specific parent or registry cause. Neither past report is retroactively changed.
 A failed candidate build now optionally adds `candidate_build`: exact source
 role controller/hermes, actual numeric return code (null on real process
 timeout), fixed symptom category and `log_scope=full|tail|unavailable`. Only its
-same exclusively created build-log handle is read, at most64KiB. Long logs use
-the tail, discard its first line conservatively and ignore an unterminated last
-line. This is not whole-log diagnosis. Up to8 distinct complete anchored Rust
+same exclusively created build-log handle is read from the beginning, at most
+8MiB+1. Files above8MiB, more than65536 complete lines or failed reads stay
+unknown/unavailable without classifying a partial prefix or tail. Within those
+bounds the complete captured log is scanned; an unterminated last line is
+ignored. This is a symptom projection, not root-cause diagnosis. Up to8 distinct
+complete anchored Rust
 `error[E####]:` frames are retained as codes only, with existing BuildKit
 prefixes; the list is a bounded subset, not a complete compiler inventory.
 
@@ -204,9 +207,10 @@ Only the current or retained historical build flags, Compose build shape and UID
 recognized. The existing fetch script's closed ValueError proves a fetch
 refusal, not a hash mismatch; only the explicit checksum-check diagnostic maps
 to pinned_hash_refused. Generic summaries, incomplete lines or conflicting
-symptoms stay unknown. Full logs may additionally expose fixed network,
-no_space or dependency_resolution symptoms; a tail alone never promotes those
-fragmentary clues. No text, path, URL, body, argv, env or token is projected.
+symptoms stay unknown. Only original-size full logs of at most64KiB may
+additionally expose legacy network, no_space or dependency_resolution symptoms;
+larger logs and explicit tail inputs use only existing anchored complete frames.
+No text, path, URL, body, argv, env or token is projected.
 The combined extension remains within1KiB, preserves first failure and does not
 read success/qualification/cleanup logs. Controller image construction installs
 tools and does not compile Fleet: a Rust cause is never assumed from the role.
@@ -243,7 +247,7 @@ Evidence: [actual runner software manifest](https://github.com/actions/runner-im
 
 ## Paired UV fatal symptoms
 
-Within the same existing64KiB failed-build log window, a complete anchored
+Within the bounded fully captured failed-build log, a complete anchored
 UV0.11.6 fatal header is recognized only with a later complete
 `#N ERROR: process ... exit code: N` for the SAME vertex. Vertex correlation
 occurs before prefix stripping; the nonzero inner exit must be1..255 and is
@@ -255,8 +259,9 @@ These are observed UV symptoms, NOT root-cause or authenticity claims.
 Partial/ANSI/quoted/source-gutter/mismatched/reversed or malformed pairs do not
 qualify. Identical pairs deduplicate; conflicting reasons stay unknown. A paired
 uv_no_solution supersedes only the equivalent generic dependency_resolution
-label; independent Rust/CLI reasons remain conflicts. Unpaired full-log generic
-resolution behavior is unchanged. Existing first-failure/scope/1KiB projection
-and partial-line handling are preserved, without extra reads/scans/artifacts,
-progress flags, recipe/lock/pin/resource changes. Actual38079988227 remains
-UNKNOWN/TAIL; this extension cannot reconstruct its omitted private cause.
+label; independent Rust/CLI reasons remain conflicts. Unpaired original-size
+full-log generic resolution behavior is unchanged. Existing first-failure,
+1KiB projection and explicit-tail partial-line handling are preserved. No extra
+artifact, progress flag, recipe, lock, input pin or resource admission change.
+Actual38079988227 and38081865039 remain UNKNOWN/TAIL; this extension cannot
+reconstruct their omitted private cause or qualify a native scenario.

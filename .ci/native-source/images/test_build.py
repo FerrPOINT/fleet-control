@@ -708,7 +708,7 @@ class CandidateBuildDiagnosticTests(unittest.TestCase):
                          dict(category="rust_compile", log_scope="tail", rust_codes=["E0432"]))
         for raw in (b"error[E0001]: partial SECRET", b"unknown flag: --provenance\n", b"partial\nerror[E0001]: incomplete"):
             self.assertEqual(build.candidate_build_diagnostic(raw, tail=True), dict(category="unknown", log_scope="tail"))
-        for raw in (b"x" * (build.BUILD_LOG_LIMIT + 1), "SECRET", None):
+        for raw in (b"x" * (build.BUILD_SCAN_LIMIT + 1), "SECRET", None):
             self.assertEqual(build.candidate_build_diagnostic(raw), dict(category="unknown", log_scope="unavailable"))
 
     def failed_build(self, raw, kind="controller", code=23):
@@ -735,14 +735,14 @@ class CandidateBuildDiagnosticTests(unittest.TestCase):
             self.assertNotIn("SECRET", json.dumps(report))
             self.assertNotIn("SECRET", json.dumps(public))
 
-    def test_long_owned_log_reads_at_most_64k_tail_and_not_the_whole_log(self):
+    def test_long_owned_log_reads_bounded_whole_log_not_tail(self):
         raw = b"SECRET" * 20000 + b"\n#8 9.1 error[E0308]: SECRET\n"
         with patch.object(build, "candidate_build_diagnostic", wraps=build.candidate_build_diagnostic) as classify:
             _, public = self.failed_build(raw)
-        self.assertEqual(len(classify.call_args.args[0]), build.BUILD_LOG_LIMIT)
-        self.assertEqual(classify.call_args.kwargs, {"tail": True})
+        self.assertEqual(classify.call_args.args[0], raw)
+        self.assertEqual(classify.call_args.kwargs, {})
         self.assertEqual(public["candidate_build"], dict(kind="controller", exit_code=23, category="rust_compile",
-                                                       log_scope="tail", rust_codes=["E0308"]))
+                                                       log_scope="full", rust_codes=["E0308"]))
 
     def test_success_parent_and_other_logs_never_read_candidate_diagnostics(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -899,7 +899,7 @@ class UvFatalDiagnosticTests(unittest.TestCase):
         raw = b"SECRET" * 20000 + b"\n" + self.header() + footer * 3
         report, public = CandidateBuildDiagnosticTests().failed_build(raw, kind="hermes", code=37)
         self.assertEqual(public["candidate_build"], dict(kind="hermes", exit_code=37,
-                         category="uv_build_refused", log_scope="tail"))
+                         category="uv_build_refused", log_scope="full"))
         self.assertNotIn("SECRET", json.dumps(report))
         self.assertNotIn("SECRET", json.dumps(public))
         self.assertLessEqual(len(json.dumps(public).encode("ascii")), 1024)
@@ -926,6 +926,142 @@ class UvFatalDiagnosticTests(unittest.TestCase):
         self.assertEqual(build.candidate_build_diagnostic(self.header("uv_no_solution")),
                          dict(category="dependency_resolution", log_scope="full"))
         self.assertEqual(self.diagnostic(self.header("uv_no_solution")), dict(category="unknown", log_scope="tail"))
+
+
+class FullBuildDiagnosticTests(unittest.TestCase):
+    FILLER = b"SECRET progress URL/token/env/body\n" * 3000
+
+    def test_early_complete_existing_refusals_and_rust_frames_survive_long_progress(self):
+        samples = {
+            "docker_cli_refused": b"unknown flag: --provenance\n",
+            "compose_config_refused": b"validating /SECRET/build-compose.json: services.hermes-image.build Additional property SECRET is not allowed\n",
+            "pinned_fetch_refused": b'{"state": "withheld", "failure_class": "ValueError"}\n',
+            "pinned_hash_refused": b"sha256sum: WARNING: 1 computed checksum did NOT match\n",
+            "apt_refused": b"E: Unable to locate package SECRET\n",
+            "account_refused": b"groupadd: GID '999' already exists\n",
+            "rust_compile": b"#17 1.234 error[E0432]: SECRET\n",
+        }
+        for category, frame in samples.items():
+            raw = frame + self.FILLER
+            self.assertGreater(len(raw), build.BUILD_LOG_LIMIT)
+            report, public = CandidateBuildDiagnosticTests().failed_build(raw, kind="hermes", code=37)
+            value = public["candidate_build"]
+            self.assertEqual(value["category"], category)
+            self.assertEqual((value["kind"], value["exit_code"], value["log_scope"]), ("hermes", 37, "full"))
+            self.assertEqual(set(value), {"kind", "exit_code", "category", "log_scope"}
+                             | ({"rust_codes"} if category == "rust_compile" else set()))
+            if category == "rust_compile":
+                self.assertEqual(value["rust_codes"], ["E0432"])
+            self.assertNotIn("SECRET", json.dumps(report))
+            self.assertNotIn("SECRET", json.dumps(public))
+            self.assertLessEqual(len(json.dumps(public).encode("ascii")), 1024)
+
+    def test_early_and_straddling_same_vertex_uv_pairs_survive_all_four_symptoms(self):
+        uv = UvFatalDiagnosticTests()
+        for category in uv.HEADERS:
+            for raw in (uv.header(category) + uv.footer() + self.FILLER,
+                        uv.header(category) + self.FILLER + uv.footer(),
+                        self.FILLER + uv.header(category) + uv.footer()):
+                self.assertEqual(build.candidate_build_diagnostic(raw), dict(category=category, log_scope="full"))
+
+    def test_conflicting_categories_across_long_log_remain_unknown(self):
+        uv = UvFatalDiagnosticTests()
+        pair = uv.header() + uv.footer()
+        for raw in (pair + self.FILLER + b"unknown flag: --provenance\n",
+                    b"unknown flag: --provenance\n" + self.FILLER + b"groupadd: GID '999' already exists\n",
+                    pair + self.FILLER + uv.header("uv_no_solution", b"18") + uv.footer(b"18")):
+            self.assertEqual(build.candidate_build_diagnostic(raw), dict(category="unknown", log_scope="full"))
+        value = build.candidate_build_diagnostic(pair + self.FILLER + b"error[E0432]: SECRET\n")
+        self.assertEqual(value, dict(category="unknown", log_scope="full", rust_codes=["E0432"]))
+        self.assertEqual(build.candidate_build_diagnostic(pair + self.FILLER + pair),
+                         dict(category="uv_build_refused", log_scope="full"))
+
+    def test_large_log_does_not_enable_broad_small_full_log_heuristics(self):
+        uv = UvFatalDiagnosticTests()
+        for line, small_category in ((b"lookup registry.example: no such host\n", "dns"),
+                                     (b"write SECRET: no space left on device\n", "no_space"),
+                                     (b"error: failed to select a version for SECRET\n", "dependency_resolution"),
+                                     (uv.header("uv_no_solution"), "dependency_resolution")):
+            raw = b"x" * (build.BUILD_LOG_LIMIT - len(line) - 1) + b"\n" + line
+            self.assertEqual(len(raw), build.BUILD_LOG_LIMIT)
+            self.assertEqual(build.candidate_build_diagnostic(raw)["category"], small_category)
+            self.assertEqual(build.candidate_build_diagnostic(raw + b"\n"),
+                             dict(category="unknown", log_scope="full"))
+
+    def test_large_log_rejects_partial_wrong_vertex_ansi_quoted_and_embedded_frames(self):
+        uv = UvFatalDiagnosticTests()
+        invalid = [uv.header(), uv.footer(), uv.header() + uv.footer(b"18"),
+                   uv.footer() + uv.header(), uv.header() + uv.footer().rstrip(b"\n"),
+                   uv.header().rstrip(b"\n") + uv.footer(),
+                   b"\x1b[31m" + uv.header() + uv.footer(),
+                   b'"' + uv.header().rstrip(b"\n") + b'"\n' + uv.footer(),
+                   b"echo " + uv.header() + uv.footer(),
+                   uv.header() + b"\x1b[31m" + uv.footer(),
+                   uv.header() + b'"' + uv.footer().rstrip(b"\n") + b'"\n',
+                   b'RUN echo "error[E0432]: SECRET"\n', b"  | error[E0432]: SECRET\n",
+                   b"error[E0432]: SECRET"]
+        for suffix in invalid:
+            self.assertEqual(build.candidate_build_diagnostic(self.FILLER + suffix),
+                             dict(category="unknown", log_scope="full"))
+
+    def test_full_byte_cap_is_inclusive_and_excess_discards_all_partial_evidence(self):
+        frame = b"error[E0432]: SECRET\n"
+        raw = frame + b"x" * (build.BUILD_SCAN_LIMIT - len(frame) - 1) + b"\n"
+        self.assertEqual(len(raw), build.BUILD_SCAN_LIMIT)
+        self.assertEqual(build.candidate_build_diagnostic(raw),
+                         dict(category="rust_compile", log_scope="full", rust_codes=["E0432"]))
+        self.assertEqual(build.candidate_build_diagnostic(raw + b"\n"),
+                         dict(category="unknown", log_scope="unavailable"))
+        self.assertEqual(build.candidate_build_diagnostic(b"x" * (build.BUILD_LOG_LIMIT + 1), tail=True),
+                         dict(category="unknown", log_scope="unavailable"))
+
+    def test_line_count_bound_is_checked_before_split_and_drops_early_symptom_on_excess(self):
+        frame = b"error[E0432]: SECRET\n"
+        raw = frame + b"\n" * (build.BUILD_LINE_LIMIT - 1)
+        self.assertEqual(build.candidate_build_diagnostic(raw),
+                         dict(category="rust_compile", log_scope="full", rust_codes=["E0432"]))
+        self.assertEqual(build.candidate_build_diagnostic(raw + b"\n"),
+                         dict(category="unknown", log_scope="unavailable"))
+
+    def test_logged_read_is_capped_at_eight_mib_plus_one_and_never_falls_back_to_tail(self):
+        class BoundedLog(io.BytesIO):
+            def read(self, size=-1):
+                self.requested = size
+                return super().read(size)
+            def close(self):
+                pass
+        raw = b"error[E0432]: SECRET\n" + b"x" * build.BUILD_SCAN_LIMIT
+        stream = BoundedLog(raw)
+        with patch.object(Path, "open", return_value=stream), \
+             patch.object(build.subprocess, "run", return_value=types.SimpleNamespace(returncode=37)), \
+             self.assertRaises(build.BuildFailure) as raised:
+            build.logged(["SECRET"], Path("unused"), candidate_kind="hermes")
+        self.assertEqual(stream.requested, build.BUILD_SCAN_LIMIT + 1)
+        report = {}
+        build.remember_failure(report, raised.exception, "candidate_build")
+        self.assertEqual(build.failure_projection(report)["candidate_build"],
+                         dict(kind="hermes", exit_code=37, category="unknown", log_scope="unavailable"))
+        self.assertNotIn("SECRET", json.dumps(report))
+
+    def test_failed_read_keeps_actual_exit_with_no_private_exception_payload(self):
+        class Unreadable(io.BytesIO):
+            def read(self, size=-1):
+                raise OSError("SECRET URL/token/body")
+        with patch.object(Path, "open", return_value=Unreadable()), \
+             patch.object(build.subprocess, "run", return_value=types.SimpleNamespace(returncode=37)), \
+             self.assertRaises(build.BuildFailure) as raised:
+            build.logged(["SECRET"], Path("unused"), candidate_kind="hermes")
+        report = {}
+        build.remember_failure(report, raised.exception, "candidate_build")
+        self.assertEqual(build.failure_projection(report)["candidate_build"],
+                         dict(kind="hermes", exit_code=37, category="unknown", log_scope="unavailable"))
+        self.assertNotIn("SECRET", json.dumps(report))
+
+    def test_large_input_rust_codes_keep_first_eight_unique_without_messages(self):
+        frames = b"".join(f"#17 1.234 error[E{i:04}]: SECRET\n".encode() for i in range(12))
+        value = build.candidate_build_diagnostic(frames + self.FILLER + frames)
+        self.assertEqual(value, dict(category="rust_compile", log_scope="full", rust_codes=[f"E{i:04}" for i in range(8)]))
+        self.assertNotIn("SECRET", json.dumps(value))
 
 
 class ContextTests(unittest.TestCase):
