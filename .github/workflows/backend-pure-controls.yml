@@ -1,0 +1,37 @@
+name: Backend Pure Controls
+
+on:
+  push:
+    branches: [build-only/fleet-backend-pure-20261011]
+
+permissions:
+  contents: read
+
+jobs:
+  pure-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+        working-directory: controls
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Check out exact reviewed controls
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: 9e37bdb6a66e0c024177176a993aa1c9c40f2f14
+          path: controls
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install pinned system PyYAML
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends python3-yaml=6.0.1-2build2
+          /usr/bin/python3 -c "import yaml; assert yaml.__version__ == '6.0.1'"
+      - name: Verify exact controls and run original pure suite
+        run: |
+          test "$(git rev-parse HEAD)" = 9e37bdb6a66e0c024177176a993aa1c9c40f2f14
+          test "$(git rev-parse --is-shallow-repository)" = false
+          /usr/bin/python3 -m unittest discover -s scripts/tests -p test_hosted_backend_gate.py -v
