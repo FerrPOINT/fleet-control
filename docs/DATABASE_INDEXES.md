@@ -12,6 +12,9 @@ Required index coverage:
   `agent_sessions.state`, `agent_sessions.task_key`.
 - unique `(agent_sessions.user_id, idempotency_key)` where key is not null.
 - `session_messages.session_id, created_at`.
+- Pending migration 000010 adds `session_messages(session_id, append_sequence DESC)`
+  for history pagination and a unique index on the immutable global identity
+  `append_sequence`. The timestamp index is legacy, not the history order contract.
 - unique message idempotency index by session/user/key where key is not null.
 - `session_agent_runs.session_id`, `session_agent_runs.agent_id`,
   `session_agent_runs.state`.

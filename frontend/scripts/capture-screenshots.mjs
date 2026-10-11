@@ -744,6 +744,7 @@ async function mockSso(context) {
 }
 
 async function mockApi(context) {
+  const unhandledRoutes = new Set()
   await context.route('**/api/v1/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -787,6 +788,29 @@ async function mockApi(context) {
     if (pathName === '/api/v1/runtime-templates') return json(route, runtimeTemplates)
     if (pathName === '/api/v1/agent-directory') {
       return json(route, agents.map(agentDirectoryItem))
+    }
+    if (pathName === '/api/v1/chats/directory') {
+      const owners = (url.searchParams.get('user_id') ?? user.id).split(',')
+      const search = (url.searchParams.get('q') ?? '').toLowerCase()
+      const visible = sessions.filter(
+        (session) =>
+          (owners.includes('all') || owners.includes(session.user_id)) &&
+          (session.visibility !== 'private' || session.user_id === user.id) &&
+          [session.title, session.task_key, session.user_display_name].some((value) =>
+            value?.toLowerCase().includes(search),
+          ),
+      )
+      const selected = url.searchParams.get('agent_id') ?? agents[0].id
+      return json(route, {
+        agents: agents.map((item) => ({
+          agent: agentDirectoryItem(item),
+          matching_session_count: visible.filter((session) => session.primary_agent_id === item.id)
+            .length,
+        })),
+        selected_agent_id: selected,
+        items: visible.filter((session) => session.primary_agent_id === selected),
+        next_before: null,
+      })
     }
     if (pathName === '/api/v1/leaders') {
       return json(
@@ -987,6 +1011,28 @@ async function mockApi(context) {
         : byAgent
       return json(route, byUser)
     }
+    const chatViewMatch = pathName.match(
+      /^\/api\/v1\/sessions\/([^/]+)\/(task-context|history|chat-controls|stream)$/,
+    )
+    if (chatViewMatch) {
+      const [, sessionId, section] = chatViewMatch
+      if (section === 'task-context') return json(route, { binding: null, tracker: null })
+      if (section === 'history')
+        return json(route, { items: sessionMessages[sessionId] ?? [], next_before: null })
+      if (section === 'stream')
+        return route.fulfill({ contentType: 'text/event-stream', body: ': fixture stream\n\n' })
+      const active = (sessionRuns[sessionId] ?? []).find((run) => run.state === 'running')
+      const owned = sessions.find((session) => session.id === sessionId)?.user_id === user.id
+      return json(route, {
+        can_send: owned && !active,
+        can_steer: false,
+        can_stop: false,
+        active_run_id: active?.id ?? null,
+        blocked_reason: !owned ? 'read_only' : active ? 'dispatch_pending_or_uncertain' : null,
+      })
+    }
+    if (pathName === '/api/v1/events/stream')
+      return route.fulfill({ contentType: 'text/event-stream', body: ': fixture stream\n\n' })
     const sessionMessagesMatch = pathName.match(/^\/api\/v1\/sessions\/([^/]+)\/messages$/)
     if (sessionMessagesMatch) {
       return json(route, sessionMessages[sessionMessagesMatch[1]] ?? [])
@@ -1007,15 +1053,36 @@ async function mockApi(context) {
       const session = sessions.find((item) => item.id === sessionLeaderMatch[1]) ?? sessions[0]
       return json(route, session)
     }
+    if (/^\/api\/v1\/sessions\/[^/]+\/approvals$/.test(pathName)) return json(route, [])
     const sessionMatch = pathName.match(/^\/api\/v1\/sessions\/([^/]+)(?:\/handoff)?$/)
     if (sessionMatch) {
       const session = sessions.find((item) => item.id === sessionMatch[1]) ?? sessions[0]
       return json(
         route,
-        pathName.endsWith('/handoff') ? { ...session, state: 'handoff_requested' } : session,
+        pathName.endsWith('/handoff')
+          ? { ...session, state: 'handoff_requested' }
+          : {
+              ...session,
+              task_bound: false,
+              pending_delivery: (sessionMessages[session.id] ?? []).some((message) =>
+                ['pending', 'dispatched'].includes(message.delivery_state),
+              ),
+            },
       )
     }
 
+    if (pathName === '/api/v1/workflow-catalog')
+      return json(route, {
+        namespaces: workflowBindings.map((binding) => ({
+          id: binding.namespace_id,
+          name: binding.namespace_name,
+          workflow_id: binding.workflow_id,
+        })),
+        workflows: workflowBindings.map((binding) => ({
+          id: binding.workflow_id,
+          name: binding.workflow_name,
+        })),
+      })
     if (pathName === '/api/v1/workflow-bindings') return json(route, workflowBindings)
     if (pathName === '/api/v1/logs') {
       const agentId = url.searchParams.get('agent_id')
@@ -1058,8 +1125,10 @@ async function mockApi(context) {
     }
     if (pathName === '/api/v1/health') return json(route, { status: 'ok' })
 
+    unhandledRoutes.add(pathName)
     return json(route, { error: `Unhandled screenshot mock route: ${pathName}` }, 404)
   })
+  return unhandledRoutes
 }
 
 const coreScreens = [
@@ -1126,7 +1195,7 @@ try {
       deviceScaleFactor: 1,
     })
     await mockSso(context)
-    await mockApi(context)
+    const unhandledRoutes = await mockApi(context)
 
     const page = await context.newPage()
     const outputDir = path.join(outputRoot, viewport.name)
@@ -1156,6 +1225,12 @@ try {
         throw new Error(`Screenshot route ${urlPath} escaped to Central Auth: ${page.url()}`)
       }
       await page.waitForTimeout(1000)
+      if (unhandledRoutes.size)
+        throw new Error(`Unhandled screenshot fixture API: ${[...unhandledRoutes].join(', ')}`)
+      if (fileName === '44-chats.png')
+        await page.getByRole('link', { name: new RegExp(sessions[0].title) }).waitFor()
+      if (fileName === '45-chat-private-detail.png')
+        await page.getByText(sessionMessages[ids.sessionDev][0].body, { exact: true }).waitFor()
       await page.screenshot({
         path: path.join(outputDir, fileName),
         fullPage: true,

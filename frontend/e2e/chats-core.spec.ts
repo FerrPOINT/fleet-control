@@ -65,6 +65,9 @@ type State = {
   receiptBody: string | null
   receiptHash: 'correct' | 'missing' | 'wrong'
   pendingDelivery: boolean | null
+  controlRunId: string | null
+  controlCapabilities: boolean
+  controlUnknown: boolean
 }
 type Stream = { url: string; emit: (data: unknown) => void; connected: () => number }
 const test = base.extend<{ stream: Stream }>({
@@ -134,6 +137,9 @@ async function install(page: Page, stream: Stream, overrides: Partial<State> = {
     receiptBody: null,
     receiptHash: 'correct',
     pendingDelivery: false,
+    controlRunId: null,
+    controlCapabilities: false,
+    controlUnknown: false,
     preflightDenied: false,
     creates: 0,
     createdTitle: null,
@@ -184,6 +190,16 @@ async function install(page: Page, stream: Stream, overrides: Partial<State> = {
     if (path.endsWith('/users/me')) return reply(user)
     if (path === '/api/v1/users') return reply({ users: [user] })
     if (path === '/api/v1/agent-directory') return reply([agent])
+    if (path === '/api/v1/chats/directory') {
+      const title = state.createdTitle ?? session.title
+      const matches = title.toLowerCase().includes((url.searchParams.get('q') ?? '').toLowerCase())
+      return reply({
+        agents: [{ agent, matching_session_count: matches ? 1 : 0 }],
+        selected_agent_id: agentId,
+        items: matches ? [{ ...session, title }] : [],
+        next_before: null,
+      })
+    }
     if (path === '/api/v1/sessions' && req.method() === 'GET') return reply([session])
     if (path === `/api/v1/sessions/${sessionId}`)
       return reply(
@@ -193,15 +209,39 @@ async function install(page: Page, stream: Stream, overrides: Partial<State> = {
               ...session,
               title: state.createdTitle ?? session.title,
               pending_delivery: state.pendingDelivery,
+              task_bound: false,
             },
         state.denied || state.preflightDenied ? 403 : 200,
       )
     if (path === `/api/v1/sessions/${sessionId}/messages` && req.method() === 'GET')
       return reply(state.messages)
     if (path.endsWith('/runs')) return reply(state.runs)
+    if (path.endsWith('/history')) return reply({ items: state.messages, next_before: null })
+    if (path.endsWith('/chat-controls'))
+      return reply({
+        active_run_id: state.controlRunId,
+        can_send: !state.controlRunId && state.pendingDelivery === false,
+        can_steer: state.controlCapabilities && Boolean(state.controlRunId),
+        can_stop: state.controlCapabilities && Boolean(state.controlRunId),
+        blocked_reason: null,
+      })
     if (req.method() === 'POST') {
       const body = req.postDataJSON() as Record<string, string>
       state.posts.push({ path, body })
+      if (
+        state.controlRunId &&
+        path.startsWith(`/api/v1/sessions/${sessionId}/runs/${state.controlRunId}/`)
+      ) {
+        if (state.controlUnknown) return route.abort('failed')
+        return reply({
+          session_id: sessionId,
+          run_id: state.controlRunId,
+          runtime_run_id: 'controlled-runtime-run',
+          accepted: true,
+          state: 'running',
+          message: 'Accepted',
+        })
+      }
       if (state.rejection)
         return reply({ error: { message: 'Conflicting original key' } }, state.rejection)
       if (state.unknown) return route.abort('failed')
@@ -244,6 +284,41 @@ const sizes = [
   { width: 1920, height: 1080 },
   { width: 2560, height: 1440 },
 ]
+
+test('unknown steer stays held after reload and never becomes an ordinary prompt', async ({
+  page,
+  stream,
+}) => {
+  const state = await install(page, stream, {
+    controlRunId: 'controlled-run',
+    controlCapabilities: true,
+    controlUnknown: true,
+    runs: [
+      {
+        id: 'controlled-run',
+        session_id: sessionId,
+        agent_id: agentId,
+        state: 'running',
+        runtime_session_id: 'controlled-session',
+        runtime_run_id: 'controlled-runtime-run',
+      },
+    ],
+  })
+  await page.goto(`/chats/${sessionId}`)
+  await page.getByLabel('Уточнение активному запуску').fill('Original private steer')
+  await page.getByRole('button', { name: 'Передать уточнение запуску' }).click()
+  await expect(page.getByText(/Исходная команда требует сверки/)).toBeVisible()
+  expect(state.posts).toHaveLength(1)
+  expect(state.posts[0].body).toEqual({ input: 'Original private steer' })
+  state.runs = []
+  state.controlRunId = null
+  state.controlCapabilities = false
+  await page.reload()
+  await expect(page.getByLabel('Сообщение', { exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Отправить', exact: true })).toBeDisabled()
+  expect(state.posts).toHaveLength(1)
+  expect(state.posts[0].path).toMatch(/\/runs\/controlled-run\/steer$/)
+})
 async function capture(page: Page, info: TestInfo, name: string) {
   if (info.project.name !== 'chromium') return
   const viewport = page.viewportSize()!
@@ -292,7 +367,7 @@ test('dialogue and unavailable PM tabs fit all sizes and keep context accessible
   expect(state.posts).toEqual([])
   expect(
     state.requests.some((path) =>
-      /task-context|clarifications|requirements|chat-controls|controls\/lookup/.test(path),
+      /task-context|clarifications|requirements|controls\/lookup/.test(path),
     ),
   ).toBe(false)
   expect(errors).toEqual([])
@@ -499,7 +574,7 @@ test('list search and agent filters survive dialogue and browser return', async 
 }) => {
   await install(page, stream)
   await page.goto(`/chats?agent=${agentId}&q=Production&users=${userId}`)
-  await expect(page.getByText(/Загружено сессий: 1/)).toBeVisible()
+  await expect(page.getByLabel('Количество сессий')).toHaveText('1')
   await page.getByRole('link', { name: /Production Chats core/ }).click()
   await page.getByRole('link', { name: 'Назад к чатам' }).click()
   await expect(page.getByRole('textbox', { name: /Поиск/ })).toHaveValue('Production')

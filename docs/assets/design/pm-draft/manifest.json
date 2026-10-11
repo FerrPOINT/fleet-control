@@ -1,0 +1,152 @@
+{
+  "generatedAt": "2026-10-02T13:58:14.058Z",
+  "evidence": "isolated fictional design proposal",
+  "approved": false,
+  "liveAcceptance": false,
+  "entries": [
+    {
+      "file": "form-375x812.png",
+      "route": "/pm-draft-preview.html#/?state=form",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "265164c885ce05a7f7b606f47c1f6c0a6c9e641dbb8bcb9da6da2b2d4142d8d5"
+    },
+    {
+      "file": "uncertain-375x812.png",
+      "route": "/pm-draft-preview.html#/?state=uncertain",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "80ce4329aad9bd7791aadcc1d964471b3374bd6ef676e9e66f69edb4b55e430f"
+    },
+    {
+      "file": "incomplete-375x812.png",
+      "route": "/pm-draft-preview.html#/?state=incomplete",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "a326f3b2c9ffe11f41e33dd91a67e35ba70cac60eed3052c75dd62275dfe15e0"
+    },
+    {
+      "file": "awaiting-375x812.png",
+      "route": "/pm-draft-preview.html#/?state=awaiting",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "6d5236fc290d6603a4209eb16ab5a3a21da5f65cadf7dc792c0eb42eeeca065a"
+    },
+    {
+      "file": "form-768x1024.png",
+      "route": "/pm-draft-preview.html#/?state=form",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "da796066022fca2360e7c5d7533547aa505e7e4f082c7702d66d4290f41b0c2b"
+    },
+    {
+      "file": "uncertain-768x1024.png",
+      "route": "/pm-draft-preview.html#/?state=uncertain",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "38ade4d38bb388d44d7c8770a91070669b9456d14ddd941e7fa0712ca7cb697c"
+    },
+    {
+      "file": "incomplete-768x1024.png",
+      "route": "/pm-draft-preview.html#/?state=incomplete",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "273f9a4a11595e1c700d375c44e4194d458df47df638751f4f4a790a902fdeff"
+    },
+    {
+      "file": "awaiting-768x1024.png",
+      "route": "/pm-draft-preview.html#/?state=awaiting",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "sha256": "6add63267f490bab841b3ad6d75c9b648b9b0920cb9941160ac684a5f4a8316b"
+    },
+    {
+      "file": "form-1920x1080.png",
+      "route": "/pm-draft-preview.html#/?state=form",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "01f90a7f4e22e1b6a2b8307d9e260155c7dbd6049d7a9419b6a2235b66f66c22"
+    },
+    {
+      "file": "uncertain-1920x1080.png",
+      "route": "/pm-draft-preview.html#/?state=uncertain",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "c3361a22287037296612a1ca3eb16329a07d8409ea06eb3f48cb8666b8c2ddea"
+    },
+    {
+      "file": "incomplete-1920x1080.png",
+      "route": "/pm-draft-preview.html#/?state=incomplete",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "8a9c6b42260ad553d7bf8d3c4cd4ba239bbb2eb4603fa45a95496a23281de191"
+    },
+    {
+      "file": "awaiting-1920x1080.png",
+      "route": "/pm-draft-preview.html#/?state=awaiting",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "75e1628cbead4ac26f1f47234e38a886d9acd262f3491011bb71eb6dbcde4125"
+    },
+    {
+      "file": "form-2560x1440.png",
+      "route": "/pm-draft-preview.html#/?state=form",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "e57865af5280a87c8dfb10a2a6382bee41a4112731c5cbbdde9ed9d5be5e0ebd"
+    },
+    {
+      "file": "uncertain-2560x1440.png",
+      "route": "/pm-draft-preview.html#/?state=uncertain",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "6f63198feae87ce8d3ca511100175ac03e875b498acad3e9215e1c4d83338458"
+    },
+    {
+      "file": "incomplete-2560x1440.png",
+      "route": "/pm-draft-preview.html#/?state=incomplete",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "2d8d5a8ea1da264e32a62c3e8698791134a6858618c3d72325081533d42cbe8b"
+    },
+    {
+      "file": "awaiting-2560x1440.png",
+      "route": "/pm-draft-preview.html#/?state=awaiting",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "e793a630609430b9c541a971745cf4dbdf2d28d63416a73de1df27f8df2ee3e5"
+    }
+  ]
+}

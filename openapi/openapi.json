@@ -272,6 +272,55 @@
         }
       }
     },
+    "/api/v1/agents/{agent_id}/config/base-package": {
+      "post": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "prepare_base_package",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfigRevision"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Operator access required"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "409": {
+            "description": "Configuration or agent identity changed"
+          },
+          "422": {
+            "description": "Pinned package or agent configuration is invalid"
+          },
+          "503": {
+            "description": "Workflow owner binding readback unavailable"
+          }
+        }
+      }
+    },
     "/api/v1/agents/{agent_id}/config/revisions": {
       "get": {
         "tags": [
@@ -846,6 +895,83 @@
         }
       }
     },
+    "/api/v1/chats/directory": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "directory",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "query",
+            "description": "Concrete non-archived agent",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "description": "Omit for mine; all or comma-separated UUIDs requires read_all for other users",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Literal case-insensitive title, task-key or owner search, at most 200 characters",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Session cursor in this agent/user/search scope; ordered by created_at DESC, id DESC",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page size 1..100, default 50",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatsDirectoryPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Scope denied"
+          },
+          "422": {
+            "description": "Invalid filter or cursor"
+          }
+        }
+      }
+    },
     "/api/v1/dashboard": {
       "get": {
         "tags": [
@@ -1278,6 +1404,279 @@
         }
       }
     },
+    "/api/v1/pm-drafts/operations/{operation_id}": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "read_pm_draft_creation",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmDraftCreationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/pm-drafts/operations/{operation_id}/continue": {
+      "post": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "continue_pm_draft_creation",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContinuePmDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmDraftCreationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/pm-drafts/projects": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "pm_draft_projects",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmDraftProjectDirectory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/pm-drafts": {
+      "post": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "create_pm_draft",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePmDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmDraftCreationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/pm-drafts/operation": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "read_pm_draft_creation_by_key",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "idempotency_key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmDraftCreationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/v1/runtime-templates": {
       "get": {
         "tags": [
@@ -1414,6 +1813,246 @@
         }
       }
     },
+    "/api/v1/sessions/{session_id}/approvals": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RuntimeApprovalRequest"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/approvals/{approval_id}/decision": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "read",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalDecision"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "decide",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalDecision"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/chat-controls": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "controls",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatControls"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/clarifications": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "clarifications",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackerClarifications"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/clarifications/{question_id}/answers": {
+      "post": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "answer",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClarificationAnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackerAnswer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions/{session_id}/delegations": {
       "post": {
         "tags": [
@@ -1489,6 +2128,56 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AgentSession"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/history": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "history",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageHistoryPage"
                 }
               }
             }
@@ -1644,6 +2333,87 @@
         }
       }
     },
+    "/api/v1/sessions/{session_id}/requirements": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "requirements",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackerRequirements"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/requirements/{revision}/confirm": {
+      "post": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "confirm",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRequirementsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackerConfirmation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions/{session_id}/runs": {
       "get": {
         "tags": [
@@ -1715,15 +2485,8 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RuntimeRunControlResponse"
-                }
-              }
-            }
+          "409": {
+            "description": "Use the exact approval request decision endpoint"
           }
         }
       }
@@ -1848,6 +2611,78 @@
         "responses": {
           "200": {
             "description": "Durable session-scoped SSE event stream"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/task-binding": {
+      "post": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "bind_task_chat",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BindTaskChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskChatBinding"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/task-context": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "task_context",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionTaskContext"
+                }
+              }
+            }
           }
         }
       }
@@ -2432,6 +3267,92 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/internal/runtime/v1/agents/{agent_id}/configuration": {
+      "get": {
+        "tags": [
+          "sdlc-runtime"
+        ],
+        "operationId": "read_sdlc_configuration",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationObservation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/internal/runtime/v1/pm/runs/{session_run_id}": {
+      "get": {
+        "tags": [
+          "pm-runtime"
+        ],
+        "operationId": "readback",
+        "parameters": [
+          {
+            "name": "session_run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmRuntimeObservation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
           }
         }
       }
@@ -3081,6 +4002,12 @@
           "state": {
             "$ref": "#/components/schemas/SessionState"
           },
+          "task_bound": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "task_key": {
             "type": [
               "string",
@@ -3449,6 +4376,82 @@
           }
         }
       },
+      "ApprovalChoice": {
+        "type": "string",
+        "enum": [
+          "once",
+          "deny"
+        ]
+      },
+      "ApprovalDecision": {
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "approval_id",
+          "session_run_id",
+          "actor_user_id",
+          "choice",
+          "state",
+          "created_at"
+        ],
+        "properties": {
+          "actor_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "approval_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "choice": {
+            "$ref": "#/components/schemas/ApprovalChoice"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ApprovalDecisionState"
+          }
+        }
+      },
+      "ApprovalDecisionRequest": {
+        "type": "object",
+        "required": [
+          "choice",
+          "idempotency_key"
+        ],
+        "properties": {
+          "choice": {
+            "$ref": "#/components/schemas/ApprovalChoice"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ApprovalDecisionState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "delivered",
+          "uncertain",
+          "failed"
+        ]
+      },
       "AssignSessionLeaderRequest": {
         "type": "object",
         "properties": {
@@ -3586,6 +4589,23 @@
           }
         }
       },
+      "BindTaskChatRequest": {
+        "type": "object",
+        "required": [
+          "task_id",
+          "idempotency_key"
+        ],
+        "properties": {
+          "idempotency_key": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "BulkDeploymentRequest": {
         "type": "object",
         "description": "Bulk runtime operation (IMPLEMENTATION_PLAN Phase 3): one job per agent,\ncreated atomically. `rollback: true` marks runtime_update jobs as\nrollback jobs (previous runtime version restored on execution).",
@@ -3647,6 +4667,218 @@
             "minimum": 0
           }
         }
+      },
+      "ChatControls": {
+        "type": "object",
+        "required": [
+          "can_send",
+          "can_steer",
+          "can_stop"
+        ],
+        "properties": {
+          "active_run_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "blocked_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "can_send": {
+            "type": "boolean"
+          },
+          "can_steer": {
+            "type": "boolean"
+          },
+          "can_stop": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ChatsDirectoryAgent": {
+        "type": "object",
+        "required": [
+          "agent",
+          "matching_session_count"
+        ],
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/AgentDirectoryItem"
+          },
+          "matching_session_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ChatsDirectoryPage": {
+        "type": "object",
+        "required": [
+          "agents",
+          "items"
+        ],
+        "properties": {
+          "agents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatsDirectoryAgent"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentSession"
+            }
+          },
+          "next_before": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "selected_agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "ClarificationAnswerRequest": {
+        "type": "object",
+        "required": [
+          "expected_question_version",
+          "requirement_revision",
+          "selected_option_ids",
+          "idempotency_key"
+        ],
+        "properties": {
+          "comment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expected_question_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "requirement_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "selected_option_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConfigurationObservation": {
+        "type": "object",
+        "required": [
+          "contract_version",
+          "observation_ref",
+          "agent_id",
+          "sdlc_role",
+          "effective_revision",
+          "package",
+          "workflow_binding",
+          "observed_at",
+          "managed_files_verified",
+          "runtime_ready",
+          "blockers"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contract_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "effective_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "managed_files_verified": {
+            "type": "boolean"
+          },
+          "observation_ref": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observed_at": {
+            "type": "string"
+          },
+          "package": {},
+          "runtime_ready": {
+            "type": "boolean"
+          },
+          "sdlc_role": {
+            "$ref": "#/components/schemas/SdlcRole"
+          },
+          "workflow_binding": {
+            "$ref": "#/components/schemas/SdlcWorkflowBinding"
+          }
+        }
+      },
+      "ConfirmRequirementsRequest": {
+        "type": "object",
+        "required": [
+          "content_hash",
+          "idempotency_key"
+        ],
+        "properties": {
+          "content_hash": {
+            "type": "string"
+          },
+          "expected_routing_policy_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 1
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ContinuePmDraftRequest": {
+        "type": "object",
+        "additionalProperties": false
       },
       "CreateAgentRequest": {
         "type": "object",
@@ -3775,6 +5007,31 @@
             "type": "string"
           }
         }
+      },
+      "CreatePmDraftRequest": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "title",
+          "description",
+          "idempotency_key"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "CreateSessionDelegationRequest": {
         "type": "object",
@@ -4447,6 +5704,27 @@
           "mirrored"
         ]
       },
+      "MessageHistoryPage": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionMessage"
+            }
+          },
+          "next_before": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "MessageKind": {
         "type": "string",
         "enum": [
@@ -4455,6 +5733,246 @@
           "tool_event",
           "system_event",
           "control"
+        ]
+      },
+      "PmDraftCreationResponse": {
+        "type": "object",
+        "required": [
+          "operation_id",
+          "project_id",
+          "agent_id",
+          "state",
+          "next_step",
+          "dispatch_allowed"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dispatch_allowed": {
+            "type": "boolean"
+          },
+          "next_step": {
+            "$ref": "#/components/schemas/PmDraftCreationStep"
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/PmDraftCreationState"
+          },
+          "task_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "PmDraftCreationState": {
+        "type": "string",
+        "enum": [
+          "incomplete",
+          "awaiting_admission"
+        ]
+      },
+      "PmDraftCreationStep": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "input",
+          "reservation",
+          "chat",
+          "admission"
+        ]
+      },
+      "PmDraftOperationQuery": {
+        "type": "object",
+        "required": [
+          "idempotency_key"
+        ],
+        "properties": {
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PmDraftProject": {
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PmDraftProjectDirectory": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "tracker_instance_id",
+          "projects",
+          "next_cursor"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PmDraftProject"
+            }
+          },
+          "tracker_instance_id": {
+            "type": "string"
+          }
+        }
+      },
+      "PmExecutionIdentity": {
+        "type": "object",
+        "description": "Identity shared with Project Workflow; runtime-local IDs are never execution IDs.",
+        "required": [
+          "task",
+          "execution_ref",
+          "tracker_instance_ref",
+          "tracker_project_ref",
+          "task_ref",
+          "root_ref",
+          "agent_ref",
+          "assignment_operation_key",
+          "assignment_ref",
+          "assignment_revision"
+        ],
+        "properties": {
+          "agent_ref": {
+            "type": "string"
+          },
+          "assignment_operation_key": {
+            "type": "string"
+          },
+          "assignment_ref": {
+            "type": "string"
+          },
+          "assignment_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "execution_ref": {
+            "type": "string"
+          },
+          "root_ref": {
+            "type": "string"
+          },
+          "task": {
+            "type": "string"
+          },
+          "task_ref": {
+            "type": "string"
+          },
+          "tracker_instance_ref": {
+            "type": "string"
+          },
+          "tracker_project_ref": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PmRuntimeObservation": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PmExecutionIdentity"
+          },
+          {
+            "type": "object",
+            "required": [
+              "observation_ref",
+              "binding_ref",
+              "hermes_run_ref",
+              "session_run_id",
+              "status",
+              "dispatch_operation_key",
+              "fence"
+            ],
+            "properties": {
+              "binding_ref": {
+                "type": "string"
+              },
+              "checkpoint_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dispatch_operation_key": {
+                "type": "string"
+              },
+              "fence": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "hermes_run_ref": {
+                "type": "string"
+              },
+              "observation_ref": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "session_run_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "$ref": "#/components/schemas/PmRuntimeStatus"
+              }
+            }
+          }
+        ],
+        "description": "Exact callback wire shape consumed by Project Workflow (no API envelope)."
+      },
+      "PmRuntimeStatus": {
+        "type": "string",
+        "enum": [
+          "running",
+          "completed",
+          "failed",
+          "cancelled",
+          "stopped"
         ]
       },
       "PortSettings": {
@@ -4826,6 +6344,65 @@
           "dev_ops"
         ]
       },
+      "SdlcWorkflowBinding": {
+        "type": "object",
+        "description": "Workflow-owned persisted mapping, not a native Hermes profile attestation.",
+        "required": [
+          "schema",
+          "namespace_id",
+          "namespace_name",
+          "workflow_id",
+          "workflow_key",
+          "role_key",
+          "profile",
+          "catalog_version",
+          "catalog_sha256",
+          "skills_revision",
+          "runtime_ready"
+        ],
+        "properties": {
+          "catalog_sha256": {
+            "type": "string"
+          },
+          "catalog_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "namespace_id": {
+            "type": "string",
+            "maxLength": 19,
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "namespace_name": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "role_key": {
+            "type": "string"
+          },
+          "runtime_ready": {
+            "type": "boolean"
+          },
+          "schema": {
+            "type": "string"
+          },
+          "skills_revision": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string",
+            "maxLength": 19,
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "workflow_key": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "SessionAgentRun": {
         "type": "object",
         "required": [
@@ -5109,6 +6686,31 @@
           "archived"
         ]
       },
+      "SessionTaskContext": {
+        "type": "object",
+        "properties": {
+          "binding": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaskChatBinding"
+              }
+            ]
+          },
+          "tracker": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrackerTaskContext"
+              }
+            ]
+          }
+        }
+      },
       "SessionVisibility": {
         "type": "string",
         "enum": [
@@ -5146,6 +6748,545 @@
           "operator",
           "user"
         ]
+      },
+      "TaskChatBinding": {
+        "type": "object",
+        "required": [
+          "tracker_instance_id",
+          "project_id",
+          "task_id",
+          "root_task_id",
+          "agent_id",
+          "owner_subject"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "owner_subject": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "root_task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tracker_instance_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrackerAnswer": {
+        "type": "object",
+        "required": [
+          "id",
+          "question_id",
+          "question_version",
+          "requirement_revision",
+          "selected_option_ids",
+          "author_subject",
+          "created_at"
+        ],
+        "properties": {
+          "author_subject": {
+            "type": "string"
+          },
+          "comment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "question_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "question_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "requirement_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "selected_option_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "TrackerClarifications": {
+        "type": "object",
+        "required": [
+          "questions"
+        ],
+        "properties": {
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrackerQuestion"
+            }
+          }
+        }
+      },
+      "TrackerConfirmation": {
+        "type": "object",
+        "required": [
+          "id",
+          "task_id",
+          "revision",
+          "content_hash",
+          "owner_subject",
+          "created_at",
+          "stage"
+        ],
+        "properties": {
+          "content_hash": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "owner_subject": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/TrackerStage"
+          },
+          "task_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "TrackerPermissions": {
+        "type": "object",
+        "required": [
+          "can_answer",
+          "can_confirm"
+        ],
+        "properties": {
+          "can_answer": {
+            "type": "boolean"
+          },
+          "can_confirm": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TrackerPmAssignment": {
+        "type": "object",
+        "required": [
+          "assignment_id",
+          "execution_id",
+          "agent_id",
+          "version",
+          "machine_subject"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assignment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "execution_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "machine_subject": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrackerQuestion": {
+        "type": "object",
+        "required": [
+          "id",
+          "request_id",
+          "task_id",
+          "root_task_id",
+          "version",
+          "requirement_revision",
+          "assignment_id",
+          "execution_id",
+          "agent_id",
+          "assignment_version",
+          "checkpoint_id",
+          "text",
+          "rationale",
+          "required",
+          "mode",
+          "options",
+          "state",
+          "author_subject",
+          "created_at"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "answer": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrackerAnswer"
+              }
+            ]
+          },
+          "assignment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assignment_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "author_subject": {
+            "type": "string"
+          },
+          "checkpoint_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "execution_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/TrackerQuestionMode"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrackerQuestionOption"
+            }
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "recommended_option_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "requirement_reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requirement_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "root_task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/TrackerQuestionState"
+          },
+          "task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "TrackerQuestionMode": {
+        "type": "string",
+        "enum": [
+          "single",
+          "multiple",
+          "text"
+        ]
+      },
+      "TrackerQuestionOption": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "consequences"
+        ],
+        "properties": {
+          "consequences": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_custom": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrackerQuestionState": {
+        "type": "string",
+        "enum": [
+          "open",
+          "answered",
+          "superseded",
+          "cancelled"
+        ]
+      },
+      "TrackerRequirements": {
+        "type": "object",
+        "required": [
+          "revisions"
+        ],
+        "properties": {
+          "revisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrackerRequirementsRevision"
+            }
+          }
+        }
+      },
+      "TrackerRequirementsRevision": {
+        "type": "object",
+        "required": [
+          "revision",
+          "content_hash",
+          "goal",
+          "scope",
+          "exclusions",
+          "scenarios",
+          "acceptance_criteria",
+          "constraints",
+          "dependencies",
+          "assumptions",
+          "checklist",
+          "prerequisites",
+          "author_subject",
+          "created_at"
+        ],
+        "properties": {
+          "acceptance_criteria": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "author_subject": {
+            "type": "string"
+          },
+          "checklist": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "constraints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "content_hash": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "goal": {
+            "type": "string"
+          },
+          "prerequisites": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 1
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scope": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrackerStage": {
+        "type": "string",
+        "enum": [
+          "Draft",
+          "Clarification",
+          "Backlog",
+          "Analysis"
+        ]
+      },
+      "TrackerTaskContext": {
+        "type": "object",
+        "required": [
+          "contract_version",
+          "tracker_instance_id",
+          "project_id",
+          "task_id",
+          "root_task_id",
+          "owner_subject",
+          "stage",
+          "permissions"
+        ],
+        "properties": {
+          "assignment": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrackerPmAssignment"
+              }
+            ]
+          },
+          "contract_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "owner_subject": {
+            "type": "string"
+          },
+          "permissions": {
+            "$ref": "#/components/schemas/TrackerPermissions"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requirement_revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "root_task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/TrackerStage"
+          },
+          "task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tracker_instance_id": {
+            "type": "string"
+          },
+          "waiting_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       },
       "UpdateAgentConfigRequest": {
         "type": "object",

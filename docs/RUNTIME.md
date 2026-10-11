@@ -43,6 +43,18 @@ Hermes:
 - Configuration is draft/validated/activating/active/failed with desired and
   effective revisions. Activation drains runs and checks files/runtime before
   releasing the agent. Failed rollback keeps the agent drained.
+- Effective configuration readiness now reads the actual managed files on each
+  request. It compares `config.yaml`, `SOUL.md`, `.env`, enabled/disabled skills
+  and the revision marker against the persisted effective snapshot, not against
+  hashes or paths provided by a marker. Missing/changed managed files,
+  re-enabled disabled skills, foreign markers and symlink/junction paths fail closed.
+  Hermes-owned categories and `.bundled_manifest` are preserved and not used as
+  authority. This check does not attest extra/runtime-owned skills; the separate
+  `runtime_skill_inventory_not_verified` blocker remains until real inventory
+  and native provenance are integrated.
+  Verification does not create or repair directories/files. Secret values and
+  hashes are not returned. This observation is not a fenced admission, proof of
+  runtime-loaded configuration, or task-specific deployment workspace receipt.
 
 Java Agent:
 
@@ -54,3 +66,29 @@ Java Agent:
 - Start requires the managed `runtime/backend.jar`, JDK command and db-only
   `/actuator/health/readiness` health. Missing jar fails validation; no fake
   successful chat/control is returned.
+
+PM continuation proof is separate from runtime health and business completion.
+The internal Workflow callback performs a fresh bounded/no-redirect HTTP probe
+against the managed agent port, with Fleet's derived per-agent credential. It
+verifies the acknowledged Hermes run and effective session identity. Queued,
+running, approval-wait and stopping are non-terminal; interrupted is failed, not
+successful or safely stopped. Terminal proof is immutable. Missing acceptance
+mapping or inaccessible runtime blocks continuation; neither an SSE EOF nor a
+database status can substitute for the probe.
+
+Fresh terminal proof reconciles the matching Fleet run in the same transaction,
+releasing runtime capacity even when the event stream was lost. A delayed EOF or
+cached running/waiting event cannot reopen the old run; unknown acceptance still
+holds the agent slot. A generic terminal cache update without verified PM proof
+is rejected. Transcript finalization and Tracker stage completion remain separate.
+
+## Configuration Foundation Candidate
+
+The [bounded release unit](plans/2026-10-09-runtime-config-release.md) adds pinned
+package drafts and Workflow owner checks to the existing configuration lifecycle,
+not a second installer. Supervisor owner preflight runs before apply; failed
+preflight preserves old files/head and releases drain. Unknown rollback retains
+the existing drain guard. Exact managed-file/role-package readback is not native
+runtime inventory or business completion; machine `runtime_ready=false`.
+Container lifecycle, endpoint attach/readback, native-context and later runtime
+schema/migration changes are not included.

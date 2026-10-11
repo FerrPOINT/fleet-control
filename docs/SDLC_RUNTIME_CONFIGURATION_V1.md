@@ -1,7 +1,8 @@
 # Требования к конфигурации семи Hermes для SDLC Base
 
-Статус: **configuration-only target**, 2026-10-03; не installed config и не
-implemented runtime API. Дополнение к [execution contract](contracts/SDLC_EXECUTION_V1.md).
+Статус: **configuration requirements**, 2026-10-03; partial source implementation,
+не installed config и не complete native admission. Дополнение к
+[execution contract](contracts/SDLC_EXECUTION_V1.md).
 [Candidate example](examples/sdlc-runtime-requirements.v1.json) — структурированный
 requirements packet, **не** DTO существующего /agents API, config.yaml,
 Compose override или install command. Его нельзя передавать activation endpoint.
@@ -66,7 +67,7 @@ Toolset name не заменяет authorization/allowed paths или OS isolati
 Context identity — least privilege; context token read-only, не terminal token.
 HOME-разделение не считается OS sandbox.
 
-## Подготовка, активация и rollback — будущая реализация
+## Подготовка, активация и rollback — полная цель
 
 Переиспользовать существующий Fleet configuration lifecycle, не второй installer:
 
@@ -110,3 +111,17 @@ Missing capability — точный blocker, не старый bridge или о�
 Source-only проверки example: семь ролей, точный Base pin, namespace/profile и
 instruction refs, non-installable flag, отсутствие concrete endpoints/secrets.
 Они выполняются verifier Base; реальный runtime acceptance здесь **NOT RUN**.
+
+## Release Unit Status (2026-10-09)
+
+The isolated [configuration foundation candidate](plans/2026-10-09-runtime-config-release.md)
+now implements pinned package drafts, frozen fresh Workflow mapping, exact
+revision/head reads and scoped managed-file observation on top of foundation47.
+The preceding full materialization/admission checklist remains the business
+target, not completed acceptance. All 18 Linux backend gates passed on exact
+code `011afd9151c828279976aec5e6cf0a28b78c1f69`; see the candidate plan for
+counts and retained evidence. Publication documentation is a docs-only follow-up,
+not another code-gate execution. Frontend, live compatibility and physical
+acceptance remain pending. There is no
+seven-agent installation, native model/tools/inventory proof, assignment ACK,
+automatic dispatch or SDLC completion claim; machine `runtime_ready` remains false.

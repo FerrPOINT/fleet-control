@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- Private и task-bound Chats выбираются по сохранённой Fleet binding. Private
+  UI сохраняет original-command recovery и получает cursor history с append
+  order; server-scoped directory сохраняет защиту создания и фильтры возврата.
+- Steer/stop проверяют актуального владельца и runtime identity; неизвестный
+  исход удерживается после reload. Ответы Task и подтверждения редакций сохраняют
+  исходный ключ и принимают только receipt соответствующего вопроса/владельца.
+- Pending run с единственным runtime session ID удерживает новый prompt;
+  подготовительный слот без обеих runtime identities остаётся допустимым.
+
 - Первый prompt допускается при валидном подготовительном pending run без
   runtime identity. Ожидающая доставка берётся из полного состояния сессии,
   включая сообщения за пределами 500 строк истории; неизвестная проекция
@@ -12,6 +21,105 @@
   используют конкретную сохранённую строку за пределами первых 500 сообщений.
   История остаётся ограниченной; hash возвращается в авторизованном POST receipt.
 
+- Reconcile the task-chat foundation with accepted main34aaec0 by normal merge;
+  retain atomic redacted process logs, canonical heartbeat monitoring and both
+  browser/screenshot packets. Fresh merged-tree acceptance remains pending.
+
+- Reject duplicate Authorization headers on PM runtime readback before parsing
+  or repository/runtime access, including repeated equal bearer credentials.
+- Reconcile the accepted Base19a7a381 pin without rewriting branch history.
+  Exercise named gray/light choices through its account menu in browser tests,
+  retaining responsive chat-directory and managed-settings theme assertions.
+
+- Preserve the central private-owner boundary across task directory counts,
+  pages, expanded owner selections, cursors and task chat read/control routes.
+  Retain accepted central scopes, authentication-generation reset and Base pin.
+- Close all seven Tracker clarification wire schemas, validate safe version
+  bounds and compare nested validation constraints with actual producer source.
+  Keep source compatibility distinct from deployed PM admission acceptance.
+- Update screenshot fixtures for the server-side chat directory, context,
+  history and controls. Refuse capture with any unhandled API route and require
+  the chat list/transcript to load, instead of publishing fixture-error screens.
+
+- Reconcile the task-chat foundation with accepted main without rewriting
+  history. Preserve verified central profile names/human-session proofs and
+  append the one task-chat migration to both historical database lineages.
+- Refuse task-chat downgrade before any schema effect when transcript/order,
+  bindings, creation, projection, PM run or approval history exists. Lock those
+  tables before the check; retain empty down/reapply and unchanged up/history.
+
+- Clear previous apply/rollback errors when a new managed-settings confirmation
+  opens or a completed attempt is cancelled. Preserve same-dialog retry, drafts,
+  optimistic version checks, local roles and restart confirmation semantics.
+  Restore keyboard focus to the actual preview/rollback initiator after the
+  controlled confirmation dialog closes.
+
+- Keep chat directory owner filtering on the existing user/session index by
+  converting its JSON owner list to a UUID array before membership checks.
+  Preserve all-users counts, project ACLs, search and pagination contracts.
+
+- Bind server-only delegated PM credentials to enumerated operations for their
+  canonical assigned task. Reject legacy/foreign task paths and owner/verifier
+  actions before attaching the bearer. Keep the Base delegation wire unchanged;
+  receiving-service enforcement and real runtime handoff are separate gates.
+
+- Add owner/key recovery for an unknown PM Draft creation response and strict
+  empty-object continuation using persisted original input. Add bounded strict
+  Tracker project directory choices with preserved rollout-filtered cursors.
+  Include an isolated creation/recovery design proposal and generated screenshots;
+  production form approval/integration and PM runtime admission remain pending.
+
+- Add disabled-by-default owner-driven PM Draft creation with a persisted
+  operation ledger, authoritative Tracker readback/input/reservation checks and
+  atomic task-bound chat. Recover lost responses with the same command keys;
+  reject stale/changed receipts. Creation stops at awaiting_admission and never
+  dispatches a PM runtime prompt. Generate the two public routes from Rust.
+
+- Add an internal atomic PM Draft chat/binding operation with durable replay,
+  exact human owner and real Hermes PM checks. It creates no prompt or runtime
+  run; runtime admission and initial delivery remain separate work.
+
+- Preserve new transcript allocation order across host clock rollback without
+  changing public message DTOs or UUID cursors. Merge overlapping history pages
+  in server order and keep older-page loading alive during SSE reconnect, with
+  a catch-up read for messages arriving while the page was pending.
+  Historical backfill retains the previous timestamp/UUID ordering.
+
+- Connect an opt-in authenticated Tracker metadata poller with fresh Base subject
+  and exact read-only scope checks, project-scoped keyset scans, bounded HTTP and
+  durable cursor replay. No PM dispatch or task transition is performed.
+
+- Add strict `metadata_v1` Tracker event decoding and immutable per-binding
+  projection/version pins, including empty pages. Validate source digests and
+  lossless decimal cursors; reject implicit legacy conversion. Polling remains
+  separate from this transactional storage contract.
+
+- Reconcile verified PM terminal proof and visible runtime state atomically;
+  serialize late stream updates so they cannot reopen the old run or overwrite
+  its accepted mapping. Unknown acceptance continues to hold agent capacity.
+
+- Add a server-only Base credential delegation client with exact Tracker PM
+  assignment/execution/agent/version scopes, bounded no-retry/no-redirect HTTP,
+  redacted secrets and fixed-origin child authorization. Coordinator and runtime
+  handoff remain blocked pending live integration.
+
+- Add transactional Tracker event inbox foundation with immutable replay receipts,
+  per-binding cursors and safe transcript/stream projections; PM answer delivery
+  remains separate integration work.
+
+- Recheck Tracker project access for task-bound transcript, lists/counts, runs,
+  controls and every session-stream event; retained Fleet ownership cannot bypass revocation.
+- Revalidate PM assignment after approval reservation waits; definitely undispatched
+  failures are terminal and mirror foreign keys no longer deadlock PM capacity locks.
+- Reject malformed approval lists as recoverable UI errors and synchronize the
+  complete three-browser chat/catalog/approval fixtures.
+- Add server-authorized chat directory search, aggregate counts and scoped cursors;
+  keep own-user default and preserve return context without loading all transcripts.
+- Add immutable PM run reservations and authenticated fresh Hermes readback for
+  Workflow; unknown acceptance holds capacity and terminal proof cannot regress.
+- Integrate exact-request human tool approvals with immutable command replay,
+  stale-assignment protection and no automatic redispatch after an unknown outcome.
+  PM structured dispatch/resume and live clarification acceptance remain incomplete.
 - После ошибки readiness refresh страница конфигурации показывает «Неизвестно»
   для runtime и SDLC, сохраняя действующую редакцию; успешный повтор возвращает
   свежие статусы, включая легитимные stopped/blocked состояния.

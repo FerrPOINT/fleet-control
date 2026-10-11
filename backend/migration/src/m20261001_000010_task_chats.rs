@@ -1,0 +1,228 @@
+use sea_orm_migration::prelude::*;
+
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+
+#[async_trait::async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager.get_connection().execute_unprepared(
+            "CREATE TABLE task_chat_bindings (
+                session_id uuid PRIMARY KEY REFERENCES agent_sessions(id),
+                tracker_instance_id text NOT NULL CHECK (length(tracker_instance_id) BETWEEN 1 AND 128),
+                project_id uuid NOT NULL, task_id uuid NOT NULL, root_task_id uuid NOT NULL,
+                agent_id uuid NOT NULL REFERENCES agents(id),
+                owner_subject text NOT NULL CHECK (length(owner_subject) BETWEEN 1 AND 256),
+                idempotency_key text NOT NULL CHECK (length(idempotency_key) BETWEEN 1 AND 128),
+                created_at timestamptz NOT NULL DEFAULT now(),
+                UNIQUE(tracker_instance_id, task_id, agent_id)
+             );
+             CREATE INDEX task_chat_projection_scan_idx ON task_chat_bindings(tracker_instance_id,session_id) INCLUDE(project_id);
+             CREATE TABLE pm_draft_creation_operations (
+                id uuid PRIMARY KEY,
+                owner_user_id uuid NOT NULL REFERENCES users(id),
+                idempotency_key text NOT NULL CHECK (length(idempotency_key) BETWEEN 1 AND 128),
+                operation jsonb NOT NULL,
+                created_at timestamptz NOT NULL DEFAULT now(),
+                updated_at timestamptz NOT NULL DEFAULT now(),
+                UNIQUE(owner_user_id,idempotency_key),
+                CHECK (operation->>'id' = id::text AND operation->>'owner_user_id' = owner_user_id::text
+                    AND operation->'request'->>'idempotency_key' = idempotency_key),
+                CHECK (operation->'input' = 'null'::jsonb OR operation->'draft' <> 'null'::jsonb),
+                CHECK (operation->'reservation' = 'null'::jsonb OR operation->'input' <> 'null'::jsonb),
+                CHECK (operation->'session_id' = 'null'::jsonb OR operation->'reservation' <> 'null'::jsonb)
+             );
+             CREATE FUNCTION fleet_guard_pm_creation() RETURNS trigger AS $$
+             BEGIN
+                IF TG_OP = 'DELETE'
+                   OR NEW.id IS DISTINCT FROM OLD.id
+                   OR NEW.owner_user_id IS DISTINCT FROM OLD.owner_user_id
+                   OR NEW.idempotency_key IS DISTINCT FROM OLD.idempotency_key
+                   OR NEW.created_at IS DISTINCT FROM OLD.created_at
+                   OR (NEW.operation - 'draft' - 'input' - 'reservation' - 'session_id')
+                     IS DISTINCT FROM (OLD.operation - 'draft' - 'input' - 'reservation' - 'session_id')
+                   OR (OLD.operation->'draft' <> 'null'::jsonb AND NEW.operation->'draft' IS DISTINCT FROM OLD.operation->'draft')
+                   OR (OLD.operation->'input' <> 'null'::jsonb AND NEW.operation->'input' IS DISTINCT FROM OLD.operation->'input')
+                   OR (OLD.operation->'reservation' <> 'null'::jsonb AND NEW.operation->'reservation' IS DISTINCT FROM OLD.operation->'reservation')
+                   OR (OLD.operation->'session_id' <> 'null'::jsonb AND NEW.operation->'session_id' IS DISTINCT FROM OLD.operation->'session_id') THEN
+                    RAISE EXCEPTION 'PM creation identity and receipts are immutable' USING ERRCODE = '23514';
+                END IF;
+                RETURN NEW;
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_pm_creation_guard BEFORE UPDATE OR DELETE ON pm_draft_creation_operations
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_pm_creation();
+             CREATE TABLE tracker_event_cursors (
+                session_id uuid PRIMARY KEY REFERENCES task_chat_bindings(session_id),
+                sequence bigint NOT NULL DEFAULT 0 CHECK (sequence >= 0),
+                projection text NOT NULL DEFAULT 'legacy_full_v1' CHECK (projection IN ('legacy_full_v1','metadata_v1')),
+                contract_version smallint NOT NULL DEFAULT 1 CHECK (contract_version = 1)
+             );
+             CREATE FUNCTION fleet_guard_tracker_projection() RETURNS trigger AS $$
+             BEGIN
+                IF TG_OP = 'DELETE' OR NEW.session_id IS DISTINCT FROM OLD.session_id
+                   OR NEW.projection IS DISTINCT FROM OLD.projection
+                   OR NEW.contract_version IS DISTINCT FROM OLD.contract_version
+                   OR NEW.sequence < OLD.sequence THEN
+                    RAISE EXCEPTION 'Tracker projection identity is immutable' USING ERRCODE = '23514';
+                END IF;
+                RETURN NEW;
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_tracker_projection_guard BEFORE UPDATE OR DELETE ON tracker_event_cursors
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_tracker_projection();
+             CREATE TABLE tracker_event_inbox (
+                session_id uuid NOT NULL REFERENCES task_chat_bindings(session_id),
+                event_id uuid NOT NULL,
+                source_sequence bigint NOT NULL CHECK (source_sequence > 0),
+                event_type text NOT NULL,
+                payload_hash text NOT NULL CHECK (length(payload_hash) = 64),
+                message_id uuid NOT NULL UNIQUE REFERENCES session_messages(id),
+                source_created_at timestamptz NOT NULL,
+                received_at timestamptz NOT NULL DEFAULT now(),
+                PRIMARY KEY(session_id,event_id),
+                UNIQUE(session_id,source_sequence)
+             );
+             CREATE FUNCTION fleet_guard_tracker_receipt() RETURNS trigger AS $$
+             BEGIN
+                RAISE EXCEPTION 'Tracker event receipt is immutable' USING ERRCODE = '23514';
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_tracker_receipt_guard BEFORE UPDATE OR DELETE ON tracker_event_inbox
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_tracker_receipt();
+             CREATE FUNCTION fleet_guard_task_chat() RETURNS trigger AS $$
+             BEGIN
+                IF EXISTS (SELECT 1 FROM task_chat_bindings WHERE session_id = OLD.id)
+                   AND (NEW.agent_id IS DISTINCT FROM OLD.agent_id OR NEW.user_id IS DISTINCT FROM OLD.user_id
+                     OR NEW.leader_agent_id IS DISTINCT FROM OLD.leader_agent_id
+                     OR NEW.visibility IS DISTINCT FROM OLD.visibility) THEN
+                    RAISE EXCEPTION 'task chat identity is immutable' USING ERRCODE = '23514';
+                END IF;
+                RETURN NEW;
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_task_chat_identity BEFORE UPDATE ON agent_sessions
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_task_chat();
+             ALTER TABLE session_messages ADD COLUMN append_sequence bigint;
+             ALTER TABLE session_messages DISABLE TRIGGER fleet_message_event;
+             WITH ordered AS (
+                SELECT id, row_number() OVER (ORDER BY created_at,id) AS sequence FROM session_messages
+             ) UPDATE session_messages m SET append_sequence=o.sequence FROM ordered o WHERE m.id=o.id;
+             ALTER TABLE session_messages ENABLE TRIGGER fleet_message_event;
+             ALTER TABLE session_messages ALTER COLUMN append_sequence SET NOT NULL;
+             ALTER TABLE session_messages ALTER COLUMN append_sequence ADD GENERATED ALWAYS AS IDENTITY;
+             SELECT setval(pg_get_serial_sequence('session_messages','append_sequence'),
+                COALESCE((SELECT max(append_sequence) FROM session_messages),0)+1,false);
+             CREATE UNIQUE INDEX session_messages_append_sequence_unique ON session_messages(append_sequence);
+             CREATE INDEX session_messages_history_idx ON session_messages(session_id, append_sequence DESC);
+             CREATE FUNCTION fleet_guard_message_order() RETURNS trigger AS $$
+             BEGIN
+                IF NEW.append_sequence IS DISTINCT FROM OLD.append_sequence THEN
+                    RAISE EXCEPTION 'message append order is immutable' USING ERRCODE = '23514';
+                END IF;
+                RETURN NEW;
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_message_order_guard BEFORE UPDATE ON session_messages
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_message_order();
+             CREATE TABLE pm_run_bindings (
+                session_run_id uuid PRIMARY KEY REFERENCES session_agent_runs(id),
+                session_id uuid NOT NULL REFERENCES task_chat_bindings(session_id),
+                agent_id uuid NOT NULL REFERENCES agents(id),
+                reservation jsonb NOT NULL,
+                dispatch_operation_key text NOT NULL CHECK (length(dispatch_operation_key) BETWEEN 1 AND 128),
+                runtime_session_id text NOT NULL,
+                hermes_run_ref text CHECK (length(hermes_run_ref) BETWEEN 1 AND 512),
+                hermes_session_ref text CHECK (length(hermes_session_ref) BETWEEN 1 AND 512),
+                CHECK ((hermes_run_ref IS NULL) = (hermes_session_ref IS NULL)),
+                terminal_status text CHECK (terminal_status IN ('completed','failed','cancelled','stopped')),
+                created_at timestamptz NOT NULL DEFAULT now(),
+                observed_at timestamptz,
+                UNIQUE(agent_id, dispatch_operation_key),
+                UNIQUE(agent_id, hermes_run_ref)
+             );
+             CREATE FUNCTION fleet_guard_pm_run() RETURNS trigger AS $$
+             BEGIN
+                IF NEW.session_run_id IS DISTINCT FROM OLD.session_run_id
+                   OR NEW.session_id IS DISTINCT FROM OLD.session_id
+                   OR NEW.agent_id IS DISTINCT FROM OLD.agent_id
+                   OR NEW.reservation IS DISTINCT FROM OLD.reservation
+                   OR NEW.dispatch_operation_key IS DISTINCT FROM OLD.dispatch_operation_key
+                   OR NEW.runtime_session_id IS DISTINCT FROM OLD.runtime_session_id
+                   OR (OLD.hermes_run_ref IS NOT NULL AND NEW.hermes_run_ref IS DISTINCT FROM OLD.hermes_run_ref)
+                   OR (OLD.hermes_session_ref IS NOT NULL AND NEW.hermes_session_ref IS DISTINCT FROM OLD.hermes_session_ref)
+                   OR (OLD.terminal_status IS NOT NULL AND NEW.terminal_status IS DISTINCT FROM OLD.terminal_status) THEN
+                    RAISE EXCEPTION 'PM run proof is immutable' USING ERRCODE = '23514';
+                END IF;
+                RETURN NEW;
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_pm_run_identity BEFORE UPDATE ON pm_run_bindings
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_pm_run();
+             CREATE INDEX pm_run_bindings_session_idx ON pm_run_bindings(session_id,created_at);
+             CREATE TABLE runtime_approval_decisions (
+                id uuid PRIMARY KEY,
+                session_id uuid NOT NULL REFERENCES agent_sessions(id),
+                approval_id uuid NOT NULL UNIQUE REFERENCES runtime_approval_requests(id),
+                session_run_id uuid NOT NULL REFERENCES session_agent_runs(id),
+                actor_user_id uuid NOT NULL REFERENCES users(id),
+                choice text NOT NULL CHECK (choice IN ('once','deny')),
+                idempotency_key text NOT NULL CHECK (length(idempotency_key) BETWEEN 1 AND 128),
+                state text NOT NULL CHECK (state IN ('pending','delivered','uncertain','failed')),
+                created_at timestamptz NOT NULL DEFAULT now(),
+                delivered_at timestamptz,
+                UNIQUE(actor_user_id,idempotency_key)
+             );
+             CREATE FUNCTION fleet_guard_approval_decision() RETURNS trigger AS $$
+             BEGIN
+                IF (to_jsonb(NEW) - 'state' - 'delivered_at') IS DISTINCT FROM (to_jsonb(OLD) - 'state' - 'delivered_at')
+                   OR (OLD.state IN ('delivered','failed') AND NEW IS DISTINCT FROM OLD)
+                   OR (NEW.state IS DISTINCT FROM OLD.state AND NOT (OLD.state = 'uncertain' AND NEW.state IN ('delivered','failed'))) THEN
+                    RAISE EXCEPTION 'approval decision is immutable' USING ERRCODE = '23514';
+                END IF;
+                RETURN NEW;
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_approval_decision_guard BEFORE UPDATE ON runtime_approval_decisions
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_approval_decision();
+             CREATE TRIGGER fleet_approval_decision_event AFTER INSERT OR UPDATE ON runtime_approval_decisions
+                FOR EACH ROW EXECUTE FUNCTION fleet_record_session_event();"
+        ).await?;
+        Ok(())
+    }
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "LOCK TABLE session_messages, task_chat_bindings, pm_draft_creation_operations,
+                    runtime_approval_decisions, pm_run_bindings, tracker_event_inbox,
+                    tracker_event_cursors IN ACCESS EXCLUSIVE MODE;
+             DO $$ BEGIN
+                IF EXISTS (SELECT 1 FROM session_messages)
+                   OR EXISTS (SELECT 1 FROM task_chat_bindings)
+                   OR EXISTS (SELECT 1 FROM pm_draft_creation_operations)
+                   OR EXISTS (SELECT 1 FROM runtime_approval_decisions)
+                   OR EXISTS (SELECT 1 FROM pm_run_bindings)
+                   OR EXISTS (SELECT 1 FROM tracker_event_inbox)
+                   OR EXISTS (SELECT 1 FROM tracker_event_cursors) THEN
+                    RAISE EXCEPTION 'task-chat history prevents downgrade; retain schema and use a forward migration or verified restore'
+                        USING ERRCODE = '23514';
+                END IF;
+             END $$;
+             DROP TABLE pm_draft_creation_operations; DROP FUNCTION fleet_guard_pm_creation();
+             DROP TABLE runtime_approval_decisions; DROP FUNCTION fleet_guard_approval_decision(); DROP TABLE pm_run_bindings; DROP FUNCTION fleet_guard_pm_run();
+             DROP TABLE tracker_event_inbox; DROP FUNCTION fleet_guard_tracker_receipt(); DROP TABLE tracker_event_cursors;
+             DROP FUNCTION fleet_guard_tracker_projection();
+             DROP TRIGGER fleet_task_chat_identity ON agent_sessions;
+             DROP FUNCTION fleet_guard_task_chat();
+             DROP TRIGGER fleet_message_order_guard ON session_messages;
+             DROP FUNCTION fleet_guard_message_order();
+             DROP INDEX session_messages_history_idx;
+             DROP INDEX session_messages_append_sequence_unique;
+             ALTER TABLE session_messages DROP COLUMN append_sequence;
+             DROP TABLE task_chat_bindings;",
+            )
+            .await?;
+        Ok(())
+    }
+}

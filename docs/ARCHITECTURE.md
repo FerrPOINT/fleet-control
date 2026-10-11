@@ -4,6 +4,39 @@ Current SDLC scope and unimplemented gates are tracked in
 [SDLC implementation](SDLC_IMPLEMENTATION.md). Automatic SDLC remains disabled;
 legacy leaders are preserved, not part of the current delivery scope.
 
+## Chat Clarification Boundary
+
+`/chats/:sessionId` renders real Fleet history and authenticated durable runtime stream.
+Its clarification/requirements tabs use an owner-authorized, fixed-origin Tracker gateway.
+Tracker alone changes questions, answers, revisions and Backlog confirmation. Fleet never
+interprets assistant prose as a question and never stores a second requirements authority.
+Bound chats cannot run ordinary prompts or steer around the unimplemented assignment gate.
+Workflow PM continuation contract is implemented independently; Fleet orchestration,
+trusted runtime readback provider and outbox/inbox projection remain integration blockers.
+See [plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md) and
+[contract](contracts/CHAT_CLARIFICATION_CONTRACT.md).
+
+Opt-in PM Draft creation is a persisted request-driven coordinator, not a worker
+with saved user credentials. Tracker owns Draft/original input/initial reservation;
+Fleet stores immutable receipts and creates the exact private PM chat atomically.
+Network calls are outside DB transactions. Each retry reads authoritative Tracker
+operations and current owner CAS; stale history cannot authorize a new binding.
+Creation ends at awaiting admission, creates no runtime run and does not schedule
+business transitions. Real Workflow/native-bundle/workspace admission and initial
+Hermes delivery remain required before the approved vertical scenario is complete.
+
+The filesystem provisioner also supplies a fresh read-only effective configuration
+check through its application port. Planning expected configuration no longer
+creates skill directories; only activation writes them. Readiness compares actual
+files to the database snapshot and fails closed without leaking secret material.
+It is an observation, not a claim/lease: a configuration change after observation,
+runtime-loaded state and task-specific workspace still require the fenced admission
+protocol. Hostile concurrent filesystem mutation requires the separate OS isolation
+work, not just the existing path checks.
+Hermes runtime-owned bundled inventory is not part of the flat Fleet skill
+snapshot. It is preserved rather than interpreted as drift, but is not attested
+by this readback; inventory/native provenance readiness remains explicitly blocked.
+
 Fleet Control keeps a small control-plane core:
 
 ```text
@@ -149,6 +182,13 @@ Provisioning and runtime updates are represented as deployment jobs so operators
 can inspect, cancel and audit long-running actions. Runtime roots, runtime
 sources, port ranges, integrations and auth settings are stored as typed
 redacted control settings.
+
+Managed-settings confirmation keeps its typed diff and apply/rollback commands
+in Fleet. Base AlertDialog supplies the modal and keyboard primitives; Fleet
+owns pending/error state and returns close focus to the actual successful-preview
+initiator through the existing close-focus hook. A fresh confirmation resets
+previous mutation errors, while retry preserves its preview and optimistic
+version. [Production UI evidence](assets/screens/settings-confirmation-2026-10-04/README.md).
 
 Agent storage reporting is computed on demand by the filesystem provisioner. It
 reuses the same `agents_root/agentN` guard as purge/provisioning, scans only the

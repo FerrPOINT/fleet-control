@@ -53,6 +53,10 @@ pub async fn run(
     if let Err(err) = ctx.ensure_seed_agents().await {
         warn!("failed to seed default agents: {err}");
     }
+    let tracker_events_task =
+        infra::tracker_event_poller::TrackerEventPoller::configured(&config.tracker, repo)
+            .expect("invalid Tracker metadata polling configuration")
+            .map(|poller| tokio::spawn(poller.run()));
 
     // Scheduled stale-folder review (docs/IMPLEMENTATION_PLAN.md Phase 3):
     // periodically surface archived agents older than the operator
@@ -105,6 +109,7 @@ pub async fn run(
                 error!("server error: {err}");
             }
             retention_task.abort();
+            if let Some(task) = &tracker_events_task { task.abort(); }
             return RunOutcome::Shutdown;
         }
         _ = &mut shutdown => RunOutcome::Shutdown,
@@ -118,5 +123,8 @@ pub async fn run(
         warn!("graceful shutdown exceeded {SHUTDOWN_TIMEOUT:?}; dropping active connections");
     }
     retention_task.abort();
+    if let Some(task) = tracker_events_task {
+        task.abort();
+    }
     outcome
 }

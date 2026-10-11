@@ -1,16 +1,255 @@
 # Current State
 
-Status (2026-10-01): SDLC foundation is partially implemented. Automatic SDLC is
+## Task-Chat Readiness Reconciliation: 9 October 2026
+
+Foundation source `8faea62e3343cfe2017153bf9e7bcb3d449c626b` passed all five
+hosted CI jobs in run37930186282, including Linux/PostgreSQL, generated OpenAPI,
+frontend and three-browser fixture acceptance. That evidence is source-specific;
+the live PM cases remain unaccepted.
+
+Accepted main `b750e7b` subsequently merged PR63 readiness refresh protection.
+This candidate preserves that source by normal merge, including all three
+running/ready, running/blocked and stopped/blocked refresh regression cases, plus
+the foundation's two localized effective-readback blocker cases. Backend, Base
+pin, generated contracts and lockfiles are unchanged relative to `8faea62`.
+Fresh merged-head verification/publication remains a separate gate. No runtime,
+rollout or PM admission is enabled by this reconciliation.
+
+## Task-Chat And Monitoring Reconciliation: 9 October 2026
+
+This isolated candidate normally merges PR47 `8befcb6` with accepted main
+`34aaec0`, retaining both histories and Base SDK `19a7a381`. Atomic redacted
+process-log insertion and canonical heartbeat incident recovery coexist with
+the task-chat foundation. Both browser test families and screenshot packets
+are retained. Only source/light checks have run on this merged tree; the older
+QA packets below do not accept it. Fresh Linux/PostgreSQL, browser and exact-head
+CI acceptance remain pending. Credentials release, installed runtime and rollout
+flags are not changed by this reconciliation.
+
+## Task-Chat Reconciliation: 9 October 2026
+
+The PR47 candidate normally merges accepted main2fad131 and pins Base19a7a381;
+history and historical migrations are retained, with only task chats000010 new.
+PM readback rejects duplicate Authorization headers before parsing or I/O.
+Linux backend/PostgreSQL gate62000c1b0949 passes all14 stages, including the
+two callback cases, ten lineage tests, clean migration rollback/reapply and
+generated OpenAPI parity. New-pin frontend passes257 tests and its source gates;
+all36 three-browser fixtures pass without retries, while27 live cases skip.
+Named themes are selected through the real account menu. Nine controller images
+are refreshed and visually inspected; full135 capture/manifest verification pass
+at375x812,1920x1080,2560x1440, with the owned preview stopped.
+See the [current ledger](CHAT_CLARIFICATION_VERIFICATION.md).
+
+Publication/exact-head CI and installed compatibility remain separate gates.
+PM creation still stops at `awaiting_admission`; real fenced first-step dispatch,
+structured PM tools, checkpoint/resume, Backlog confirmation and full SDLC are
+not accepted. No installed runtime, image, secret, volume or rollout flag changed.
+The sections below retain evidence for their older source packets.
+
+## Task-Chat Foundation: 8 October 2026
+
+The PR47 release is reconciled by a normal merge with accepted main
+`c8093aace07e54436893c5f7e35df1f968690266`. It retains the accepted Base pin
+`875cac2edf1a18c3a8a59e2f67256d02a8fc04e4`, central human/PAT permission
+semantics and authentication-generation reset. This packet still adds only
+task chats000010; later runtime/credential migrations are excluded.
+
+The task-chat directory now applies the same central private-owner boundary
+to counts, pages, multi-user selections and cursor validation. Task-context,
+history, controls and gateway authorization reuse the main session read guard.
+Expanded directory scope does not grant access to foreign private transcripts.
+The seven Tracker clarification DTOs are closed and validated; source-contract
+comparison is separate from deployed producer/admission acceptance.
+
+This is a component release, not autonomous PM/SDLC completion. Draft creation
+still ends at `awaiting_admission` with no model dispatch. Fenced first-step
+admission, structured PM tools, answer delivery/checkpoint/resume, live owner
+confirmation-to-Backlog and deployment acceptance remain open. Current gate
+results are recorded in the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md):
+196 Rust/PostgreSQL component cases, 257 frontend cases, 36 three-browser fixture
+cases and 135 regenerated screenshot entries. The 27 live cases were skipped,
+not accepted. Exact-head CI remains a separate post-push check.
+The dated sections below describe their own older source packets, not this head.
+
+## Task-Chat Release Reconciliation: 6 October 2026
+
+PR47's foundation source `5240107` is reconciled with accepted main `3c6b8ef`
+by a normal merge, without rewriting either history. The accepted Base SDK
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0`, verified profile names and Fleet
+human/central-subject proofs are preserved. The only pending migration remains
+task chats000010, appended to both accepted foundations (eleven canonical or
+fourteen split entries). No later runtime/credential migrations or installed
+images/feature flags are included. Actual verification is recorded in the
+[ledger](CHAT_CLARIFICATION_VERIFICATION.md).
+
+This is the release foundation, not the newer runtime integration branch.
+Its tests cannot certify that branch or a complete PM/SDLC flow. Producer
+compatibility, fenced admission, structured runtime tools, checkpoint/resume,
+owner-confirmation-to-Backlog and live screenshots remain open; the PR stays
+Draft until its agreed live acceptance is met.
+
+Local release gates passed179 distinct Rust/PostgreSQL component cases,
+228 frontend cases and36 three-browser fixture cases (27 live cases skipped).
+The task-chat downgrade now refuses populated history without schema/ledger
+changes; empty rollback/reapply and both accepted upgrade lineages passed.
+Source-generated OpenAPI is unchanged. These are local source gates, not
+exact-head CI or deployed PM acceptance; see the verification ledger.
+
+Status (2026-10-02): SDLC foundation is partially implemented. Automatic SDLC is
 blocked until cross-service assignment/workflow/deployment contracts are verified.
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
 
 New implementation: seven specializations, agent-grouped `/chats`, read-only
 directory, persistent bearer SSE replay, transactional prompt outbox, concurrent
-idempotency, no effective-admin central bypass, versioned configuration activation
+idempotency, historical local-role enforcement, versioned configuration activation
 with drain/readback/rollback and fail-closed SDLC readiness.
 
 Native Windows Rust commands still require MSVC `link.exe`.
+
+The 2026-10-02 transcript follow-up adds immutable internal database allocation
+order to legacy listing and paginated chat history. New messages do not reorder
+when the clock moves backwards; overlapping pages preserve server order. Historical
+records retain their former timestamp/UUID order, not recovered insertion order.
+SSE reconnect no longer cancels an in-flight older-history fetch. A catch-up read
+includes messages arriving during that fetch. This does not complete PM creation,
+delivery, resume or live Backlog acceptance.
+
+## PM Clarification Work In Progress
+
+The credential confinement follow-up limits the server-only delegated client to
+enumerated PM GET/POST operations on its canonical assigned task at the configured
+Tracker origin. Base's five-field delegation wire is unchanged. Tracker separately
+denies direct PM bearer use on legacy/global/owner/verifier operations and checks
+current assignment authority. Client allowlisting is not server authorization or
+runtime admission. Issuance ledger/tool handoff and actual Base/Tracker acceptance
+remain open; current verification is recorded in the ledger below.
+
+The creation recovery follow-up adds owner/key readback for a lost initial
+acknowledgement, persisted-operation continuation without prompt resubmission,
+and a rollout-filtered strict Tracker project directory. It adds no runtime
+dispatch and does not close admission/resume/live acceptance. The new creation
+form is an isolated [design proposal](design/PM_DRAFT_CREATION_PREVIEW.md), not
+production UI; approval and controller integration remain pending.
+
+The effective-configuration follow-up verifies actual managed files against the
+active database snapshot on every readiness request. Same-size drift, missing
+files, re-enabled disabled skills, foreign markers and symlinked paths block
+readiness. Planning/readback is read-only; activation alone creates skill paths.
+This is not a fenced admission, a runtime-loaded-config proof or task-workspace
+claim. The preceding WSL Rust 1.88 workspace gate passed 118 library and 39 actual
+PostgreSQL tests. The corrected bundled-inventory tree passed 118 library tests,
+including oversized/non-file marker denial; its broader local rerun was
+interrupted when WSL became unavailable. Exact-tree Linux CI subsequently passed
+all five jobs; see the [merge gate evidence](CHAT_CLARIFICATION_VERIFICATION.md).
+This does not close actual PM delivery/resume or live acceptance. Frontend
+passed 211 tests including Russian/English readback warnings, typecheck, lint,
+format and build. OpenAPI regenerated from source is unchanged. Three separate
+directory/SSE/historical tests remain ignored in this local workspace run.
+Controlled filesystem/HTTP evidence does not replace live PM acceptance.
+The compatibility correction preserves Hermes-owned category directories and
+`.bundled_manifest`; their presence is not managed-file drift or a native-skill
+attestation. A distinct unverified runtime inventory blocker remains. The
+controlled regression includes this layout without trusting its manifest.
+
+The internal PM Draft chat repository operation now commits private chat, exact
+binding, two participants and one audit/event atomically. It creates no prompt or
+runtime run; a bound chat cannot use ordinary message dispatch. An opt-in public
+Draft creation coordinator now persists an owner/key operation, reconciles Tracker
+creation and initial PM reservation, validates the immutable original input and
+creates that atomic chat. It ends at `awaiting_admission`, not a runtime launch.
+PM admission, initial delivery and real Backlog acceptance are not connected yet.
+The namespace follow-up now checks fresh trusted Workflow project ownership on
+every creation continuation before external writes, including completed replay.
+The dedicated read PAT stays server-only; exact issuer/provisioner/project checks,
+bounded body/deadline and no redirect/retry/proxy fallback fail closed. This is
+not a workspace/execution lease or admission receipt. The follow-up passed 115
+library and 38 actual PostgreSQL cases with both DB variables configured; three
+separately gated directory/SSE/historical tests remain ignored in this local run.
+No new UI composition, public DTO or database migration was introduced here.
+The coordinator follow-up passed 111 library tests and 37 real PostgreSQL cases;
+the separate fresh-DB migration/backfill/down-up test also passed. These are
+controlled repository/HTTP checks,
+not a real human/PM/Tracker/Workflow acceptance.
+
+The working branch is reconciled with accepted Fleet main `11a22c1` and pinned
+Base `c083783a37791e277db796361203884b87828a7d`. On Rust 1.88.0,
+Node 22.20.0 and pnpm 10.28.1, 111 library/37 real PostgreSQL tests and the
+separate historical migration test passed. Frontend now has 209 passing tests
+after receiving the accepted shared-library cleanup; 36 three-browser fixture
+cases passed and 27 live cases were skipped. Nine controller captures were
+regenerated. Package-consumer, effective-theme and generated OpenAPI/client checks
+passed. The compatibility gate documents one intentional security retirement:
+legacy run-wide approval now returns 409; other contract changes remain checked.
+These checks do not complete PM admission, initial delivery or live Backlog flow.
+
+Production `/chats/:sessionId` now has dialogue/clarification/requirements controllers,
+paginated transcript, draft preservation, read-only/dependency/unknown-outcome states and
+owner exact-revision confirmation. Gateway validates immutable Tracker identity; additive
+migration 000010 prevents task-chat reassignment. Normal prompts/steer cannot bypass SDLC.
+Tracker backend and Workflow continuation are developed in separate repositories.
+
+The follow-up adds server-scoped directory counts/search/cursors, immutable PM run
+proof and machine-only fresh readback, and integrated exact-request tool approvals.
+Readback/replay does not redispatch; fresh decisions reject stale PM assignments.
+Provider JWT validation alone never grants human approval capability.
+Task-bound lists/counts and all transcript/run/control reads now require current
+Tracker project access; streams recheck before emitting queued events. A reservation
+lock wait is followed by fresh assignment authorization before approval dispatch.
+
+Transactional Tracker inbox storage is now implemented: exact replay deduplication,
+immutable receipts, per-binding source cursor and safe transcript/stream projection.
+The authenticated background metadata poller is connected behind an explicit
+deployment flag (disabled by default). PM answer delivery remains unwired.
+
+Fleet now implements strict bounded `metadata_v1` page decoding and transactional
+format/version pinning. It validates all nine supported resource shapes, required
+nulls, canonical non-nil UUIDs, safe versions, UTC source timestamps, source
+digests and lossless decimal bigint cursors. Empty pages pin the format; changed
+replay, stale cursors and implicit legacy conversion fail closed. The full WSL
+gate passed 102 library tests and 29 actual PostgreSQL 17.11 cases. This storage
+follow-up did not itself connect a poller or prove live PM delivery.
+
+The polling follow-up checks the pinned machine subject and exact read-only
+Tracker scope through Base on every cycle, then current Tracker project access.
+Bounded GETs refuse redirects; failed or corrupt pages leave durable cursors
+unchanged. Restart/replay cannot duplicate events or create a runtime dispatch.
+The WSL gate passed 106 library tests and 31 actual PostgreSQL 17.11 cases.
+HTTP authorization/dependency fault coverage uses test endpoints, not a live
+Central issuer or PM. No accepted runtime or deployment secrets were changed.
+
+The 2026-10-02 follow-up implements the server-only Base delegation client.
+Commands derive the actual Tracker task/assignment/execution/agent/version grant;
+responses must have exact scopes, a live bounded expiry and no-store protection.
+Secrets are not serializable or debug-visible, and child authorization is bound
+to the configured Tracker API origin. This does not yet issue credentials from
+the PM coordinator or hand them to real runtime tools. The follow-up passed 100
+Rust library tests, format, all-target check and strict all-target Clippy.
+No new PostgreSQL or live provider acceptance is implied by that library gate.
+
+Terminal readback now reconciles the matching Fleet run atomically, releasing
+capacity without depending on a surviving SSE worker. PM cache updates cannot
+invent terminal proof, change the accepted runtime ID or reopen a verified run.
+This follow-up passed the full WSL suite with 100 library tests and 27 actual
+PostgreSQL 17.11 cases, plus focused final-tree PM regressions. The two separately
+ignored directory/approval-stream gates remain separate CI evidence. Workflow
+PR #90 is reconciled with accepted master, but real PM admission remains blocked
+until the actual pinned native-skills source and compatible build are available.
+
+Verified on the refreshed working branch on 2026-10-01: 96 Fleet Rust library tests
+and strict Clippy, 26 actual PostgreSQL 17.11 integration cases, 212 frontend tests and source/client
+OpenAPI plus seven Tracker wire contracts. Three-browser fixture checks cover the
+chat tabs at all three viewports, targeted approvals and the server directory;
+chat checks include axe, tablet context and keyboard focus. These fixtures
+do not prove live PM delivery. Current gaps and rollout block are listed in
+[Gap Register](GAP_REGISTER.md). Existing production screenshot manifest remains historical
+until live integration acceptance; new controller captures are UI fixture evidence only.
+Nine controller screenshots have generated route/view/viewport/hash verification. See
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md) for service boundaries and blockers.
+The merged eleven-file schema passed clean up, pending migration 000010 down,
+reapply and status on an isolated PostgreSQL 17 database. This feature owns only
+one new migration. Disposable QA database ownership was verified before cleanup;
+accepted runtimes, images and volumes were not changed.
 
 ## October 7 Heartbeat Monitoring Candidate
 
@@ -104,8 +343,9 @@ CI now includes compile, migration rollback/reapply, frontend formatting,
 route/link/screenshot gates, three-browser fixture acceptance and browser evidence
 artifacts plus disposable authenticated container acceptance. Shared Base changes are published in
 [services-base #121](https://github.com/FerrPOINT/services-base/pull/121).
-Fleet CI pins Base to `af1bdd4746dfda331d0c32741af3f7c502fad816` until the
-dependency is merged. GitHub CI status must be checked on the current PR head;
+The old CI evidence used Base `af1bdd4746dfda331d0c32741af3f7c502fad816`.
+Current CI/builds use the accepted SHA in [the Base pin](../.base-revision).
+GitHub CI status must be checked on the current PR head;
 local checks alone do not prove CI acceptance.
 
 The real seven-agent PM/requirements/decomposition/Rework/deployment scenario,

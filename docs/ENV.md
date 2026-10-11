@@ -2,6 +2,73 @@
 
 Prefix: `FLEET_CONTROL_`.
 
+Optional PM gateway uses `FLEET_CONTROL_TRACKER__URL` (fixed HTTP(S) root origin;
+no credentials, query, fragment or path) and `FLEET_CONTROL_TRACKER__INSTANCE_ID`
+(stable instance identity, matching Tracker config). Redirects are refused; bearer
+credentials go only to that operator-configured origin. Configure an internal trusted
+origin/TLS as appropriate. Task-bound transcript reads also require current Tracker
+project access; an unavailable integration cannot bypass that check. Unbound private
+transcripts remain independent. These variables do not enable autonomous PM execution.
+
+## PM Draft Creation
+
+Disabled by default. `FLEET_CONTROL_TRACKER__PM_DRAFT_CREATION_ENABLED=true`
+enables only the creation endpoint, not runtime dispatch. Also configure the
+explicit compatible test-project allowlist in the Fleet TOML configuration:
+
+```toml
+[tracker]
+pm_draft_project_ids = ["00000000-0000-4000-8000-000000000001"]
+```
+
+Replace the example with an actual authorized Tracker project UUID. An empty
+allowlist permits no creation. Tracker URL/instance and fresh verified human
+credentials are required; root/machine PATs cannot create on behalf of an owner.
+The coordinator does not persist credentials or retry without a human request.
+Disabling leaves task/chat receipts readable but rejects new continuation POSTs.
+Each continuation POST also requires a fresh namespace ownership read from the
+fixed `FLEET_CONTROL_FLEET__PROJECT_WORKFLOW_URL` root. The concrete PM agent's
+namespace must be a canonical positive decimal ID, already provisioned in
+Workflow for this exact Tracker instance/project. Configure these server values:
+
+- `FLEET_CONTROL_PM__NAMESPACE_READ_PAT`: dedicated Base PAT with
+  `project-workflow:read` and `project-workflow:namespace-owner:read:<namespace>`.
+  Do not reuse catalog/callback/JWT/runtime-signing secrets; never expose it to runtime/UI.
+- `FLEET_CONTROL_PM__NAMESPACE_AUTHORITY_ISSUER`: exact trusted Base issuer saved
+  in the ownership mapping (HTTP(S) root without trailing slash).
+- `FLEET_CONTROL_PM__NAMESPACE_PROVISIONER_SUBJECT`: canonical non-nil UUID of
+  the trusted original namespace provisioner, not the current reader.
+
+Workflow freshly introspects this PAT at Base. Missing/invalid config, denied
+access, redirects, outages, invalid/oversized responses and authority mismatch
+fail closed. A mapping for another Tracker project returns conflict. The
+coordinator does not provision mappings or mint PATs. Receipt GETs remain
+read-only and do not perform this continuation check. Mapping creation time is
+not an execution lease; passing this guard never grants runtime dispatch.
+Admission/native bundle/workspace readiness still must be implemented and verified
+before any PM runtime dispatch.
+
+## Tracker Metadata Polling
+
+Disabled by default; configure only for a compatible test project with immutable
+bindings and the `metadata_v1` producer. These are deployment-owned values, not
+UI settings or agent runtime environment:
+
+- `FLEET_CONTROL_TRACKER__EVENTS__ENABLED=true`
+- `FLEET_CONTROL_TRACKER__EVENTS__AUTH_URL`: fixed root HTTP(S) Base origin.
+- `FLEET_CONTROL_TRACKER__EVENTS__MACHINE_SUBJECT`: canonical non-nil Base UUID.
+- `FLEET_CONTROL_TRACKER__EVENTS__READ_PAT`: dedicated server-only `sdlc_pat_`
+  token with exactly `task-tracker:read`. Never put it in a URL, screenshot or repo.
+- `FLEET_CONTROL_TRACKER__EVENTS__POLL_INTERVAL_SECONDS`: default 5, range 1..300.
+
+The existing Tracker URL/instance values are mandatory when enabled. The machine
+account must be active and an explicit member of relevant Tracker projects. Base
+introspection and Tracker project access are checked each cycle. A root/admin or
+PM-write PAT is not a substitute for the read-only token. Invalid enabled config
+fails startup; disabling leaves history/cursors and active runtimes intact.
+Token rotation requires an explicit deployment-secret update and Fleet restart.
+No automatic PM credential issuance, business transition or dispatch is enabled.
+
 October additions: `FLEET_CONTROL_SECRET__<REFERENCE>` supplies secret refs used
 by config revisions; values are resolved only into per-agent managed `.env`.
 `FLEET_CONTROL_AUTH__BOOTSTRAP_ADMIN_SUB` is retired and ignored. Central users
@@ -31,6 +98,16 @@ Important runtime values:
   | `FLEET_CONTROL_FLEET__RETENTION__STALE_ARCHIVED_DAYS` | 30 | Stale threshold (days) for archived agent folders |
   | `FLEET_CONTROL_FLEET__RETENTION__REVIEW_INTERVAL_SECS` | 3600 | Scheduled stale-folder review period (seconds) |
 
+## PM Readback
+
+- `FLEET_CONTROL_PM__READBACK_TOKEN`: dedicated machine callback secret, 32..512
+  ASCII graphic bytes without whitespace; unset by default. Must differ from JWT signing,
+  runtime derivation and Workflow catalog secrets. Never expose it to agents or
+  browsers. Configure the same value as Workflow's
+  `PROJECT_WORKFLOW_PM_READBACK_TOKEN` and its fixed callback URL as
+  `http://<fleet>/internal/runtime/v1/pm/runs` (Workflow appends the run UUID). Enabling the
+  callback alone does not enable PM dispatch or automatic assignments.
+
 Default ports:
 
 - backend: `23801`
@@ -44,3 +121,28 @@ Default ports:
 - `FLEET_CONTROL_AUTH__OIDC_AUDIENCE` — ожидаемый `aud` (пусто = не проверять).
 - `FLEET_CONTROL_AUTH__OIDC_ROLE_CLAIM` — клейм роли (default `role`; admin→Admin, operator/maintainer→Operator, прочее→User).
 - `FLEET_CONTROL_AUTH__OIDC_JWKS_REFRESH_SECS` — интервал обновления кэша ключей (default 300; принудительный refresh при неизвестном `kid`).
+
+## Configuration Foundation Candidate
+
+All additions default disabled/empty and preserve legacy configurations.
+
+- `FLEET_CONTROL_FLEET__BASE_PACKAGE_CHECKOUT`: operator-owned local Git cache,
+  with the exact `4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58` commit available.
+  Its `remote.origin.url` must be `https://github.com/FerrPOINT/services-base.git`
+  or `git@github.com:FerrPOINT/services-base.git`, including for a bare cache.
+  Runtime never fetches or reads working-tree role content. Separate from SDK pin.
+- `FLEET_CONTROL_SDLC__CONFIGURATION_READBACK_ENABLED`: default false.
+- `FLEET_CONTROL_SDLC__AUTH_URL`: fixed canonical Base Auth HTTP(S) origin,
+  without credentials, path, query or fragment.
+- `FLEET_CONTROL_SDLC__CONFIGURATION_READER_SUBJECT`: canonical non-nil machine UUID.
+- `FLEET_CONTROL_SDLC__CONFIGURATION_READER_AGENT_IDS`: nonempty comma-separated
+  canonical non-nil agent UUIDs, unique, no spaces, at most 4096 bytes.
+- `FLEET_CONTROL_SDLC__WORKFLOW_BINDING__URL`: fixed Workflow HTTP(S) origin.
+- `FLEET_CONTROL_SDLC__WORKFLOW_BINDING__READ_PAT`: dedicated server-only Base PAT
+  accepted by Workflow's namespace-binding owner endpoint with exactly
+  `project-workflow:read`. Debug and serialization redact/omit this credential.
+
+The incoming configuration reader PAT must have exactly `fleet-control:read`.
+Do not substitute browser tokens, legacy Workflow catalog tokens, PM callback
+secrets or role-reader credentials. No automatic issuance, live configuration
+change or deployment activation is part of this candidate.

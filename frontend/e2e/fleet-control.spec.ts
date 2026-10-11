@@ -1,7 +1,276 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
 import { generateKeyPairSync, sign } from 'node:crypto'
+import AxeBuilder from '@axe-core/playwright'
 
 const now = '2026-09-01T10:00:00+03:00'
+
+test('PM chat clarification preserves explicit answers and exact confirmation', async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90000)
+  const state = createState()
+  state.sessions[0].task_bound = true
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  const question = {
+    id: '00000000-0000-4000-8000-000000000501',
+    request_id: '00000000-0000-4000-8000-000000000502',
+    task_id: ids.session,
+    root_task_id: ids.session,
+    assignment_id: '00000000-0000-4000-8000-000000000503',
+    execution_id: '00000000-0000-4000-8000-000000000504',
+    agent_id: ids.dev,
+    assignment_version: 1,
+    checkpoint_id: '00000000-0000-4000-8000-000000000505',
+    author_subject: ids.dev,
+    created_at: now,
+    version: 1,
+    requirement_revision: 1,
+    text: 'Кто может просматривать задачи?',
+    rationale: 'Фиксируем границы доступа.',
+    required: true,
+    mode: 'single',
+    state: 'open',
+    answer: null,
+    requirement_reference: 'REQ-1',
+    recommended_option_id: ids.dev,
+    options: [
+      {
+        id: ids.dev,
+        label: 'Участники проекта',
+        consequences: 'Доступ ограничен проектом.',
+        is_custom: false,
+      },
+    ],
+  }
+  const revision = {
+    revision: 1,
+    author_subject: ids.dev,
+    content_hash: 'a'.repeat(64),
+    created_at: now,
+    goal: 'Рабочий портал задач',
+    scope: ['Управление задачами проекта'],
+    exclusions: ['Публичный доступ'],
+    scenarios: ['Участник создаёт задачу'],
+    acceptance_criteria: ['Другой проект не видит задачу'],
+    constraints: [],
+    dependencies: [],
+    assumptions: [],
+    checklist: ['business-completeness'],
+    prerequisites: ['runtime-ready'],
+  }
+  let answered = false
+  let finalPublished = false
+  let confirmed = false
+  const savedAnswer = {
+    id: '00000000-0000-4000-8000-000000000506',
+    question_id: question.id,
+    question_version: 1,
+    requirement_revision: 1,
+    selected_option_ids: [ids.dev],
+    text: null,
+    comment: 'Только внутри проекта',
+    author_subject: ids.user,
+    created_at: now,
+  }
+  const commands: { path: string; body: unknown }[] = []
+  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/approvals')) return fulfill(route, [])
+    if (path.endsWith('/task-context'))
+      return fulfill(route, {
+        binding: {
+          tracker_instance_id: 'fixture-tracker',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          agent_id: ids.dev,
+          owner_subject: ids.user,
+        },
+        tracker: {
+          contract_version: 1,
+          tracker_instance_id: 'fixture-tracker',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          owner_subject: ids.user,
+          stage: confirmed ? 'Backlog' : 'Clarification',
+          requirement_revision: finalPublished ? 2 : 1,
+          waiting_reason: answered ? null : 'Требуется ответ владельца',
+          assignment: {
+            assignment_id: question.assignment_id,
+            execution_id: question.execution_id,
+            agent_id: ids.dev,
+            version: 1,
+            machine_subject: ids.dev,
+          },
+          permissions: { can_answer: !answered, can_confirm: finalPublished && !confirmed },
+        },
+      })
+    if (path.endsWith('/chat-controls'))
+      return fulfill(route, {
+        can_send: false,
+        can_steer: false,
+        can_stop: false,
+        active_run_id: null,
+        blocked_reason: 'workflow_assignment_required',
+      })
+    if (path.endsWith('/history'))
+      return fulfill(route, {
+        items: [makeMessage(ids.session, 'Уточним требования перед публикацией.')],
+        next_before: null,
+      })
+    if (path.endsWith('/clarifications'))
+      return fulfill(route, {
+        questions: [answered ? { ...question, state: 'answered', answer: savedAnswer } : question],
+      })
+    if (path.endsWith('/requirements'))
+      return fulfill(route, {
+        revisions: finalPublished
+          ? [revision, { ...revision, revision: 2, content_hash: 'b'.repeat(64) }]
+          : [revision],
+      })
+    if (route.request().method() === 'POST') {
+      commands.push({ path, body: route.request().postDataJSON() })
+      if (path.endsWith('/answers')) {
+        answered = true
+        return fulfill(route, savedAnswer)
+      }
+      confirmed = true
+      return fulfill(route, {
+        id: '00000000-0000-4000-8000-000000000507',
+        task_id: ids.session,
+        revision: 2,
+        content_hash: 'b'.repeat(64),
+        owner_subject: ids.user,
+        created_at: now,
+        stage: 'Backlog',
+      })
+    }
+    return route.fallback()
+  })
+  await page.goto(`/chats/${ids.session}?tab=clarification`)
+  const choice = page.getByRole('radio', { name: /Участники проекта/ })
+  await expect(choice).toBeVisible()
+  await expect(choice).not.toBeChecked()
+  await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+  await choice.check()
+  await page.getByLabel('Комментарий', { exact: true }).fill('Только внутри проекта')
+  await page.getByRole('tab', { name: /Диалог/ }).click()
+  await expect(page).toHaveURL(/tab=dialogue/)
+  await page.getByRole('tab', { name: /Уточнения/ }).click()
+  await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue('Только внутри проекта')
+  await page.getByRole('button', { name: 'Сохранить ответ' }).click()
+  await expect(page.getByText('Ответ сохранён. Требования ещё не опубликованы.')).toBeVisible()
+  expect(commands).toHaveLength(1)
+  // A separate fixture PM publication is not an automatic side effect of saving the answer.
+  finalPublished = true
+  await page.reload()
+  await page.getByRole('tab', { name: /Требования/ }).click()
+  const confirm = page.getByRole('button', { name: 'Подтвердить редакцию 2' })
+  await expect(confirm).toBeDisabled()
+  await page.getByRole('checkbox', { name: /Подтверждаю цель/ }).check()
+  await confirm.click()
+  await expect.poll(() => commands.length).toBe(2)
+  expect(commands[1].body).toMatchObject({
+    content_hash: 'b'.repeat(64),
+    idempotency_key: expect.any(String),
+  })
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    for (const tab of ['dialogue', 'clarification', 'requirements']) {
+      const selectedTab = page.getByRole('tab', {
+        name: tab === 'dialogue' ? /Диалог/ : tab === 'clarification' ? /Уточнения/ : /Требования/,
+      })
+      await selectedTab.click()
+      await expect(page).toHaveURL(new RegExp(`tab=${tab}`))
+      await expect(selectedTab).toHaveAttribute('aria-selected', 'true')
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+      const accessibility = await new AxeBuilder({ page })
+        .include('.fc-task-chat-workbench')
+        .withTags(['wcag2a', 'wcag2aa'])
+        .analyze()
+      expect(
+        accessibility.violations.filter((issue) =>
+          ['serious', 'critical'].includes(issue.impact ?? ''),
+        ),
+      ).toEqual([])
+      await page.screenshot({
+        path: testInfo.outputPath(`pm-chat-${tab}-${viewport.width}.png`),
+        fullPage: true,
+        scale: 'css',
+        animations: 'disabled',
+      })
+    }
+  }
+  await page.setViewportSize({ width: 768, height: 1024 })
+  const contextButton = page.getByRole('button', { name: 'Контекст задачи', exact: true })
+  await contextButton.click()
+  await expect(page.getByRole('dialog', { name: 'Контекст задачи' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Контекст задачи' })).not.toBeVisible()
+  await expect(contextButton).toBeFocused()
+  await page.getByRole('tab', { name: /Диалог/ }).click()
+  await page.keyboard.press('ArrowRight')
+  await expect(page).toHaveURL(/tab=clarification/)
+  expect(errors).toEqual([])
+})
+test('chat history preserves server order after clock rollback and page overlap', async ({
+  page,
+}) => {
+  const state = createState()
+  await installMocks(page, state)
+  const first = {
+    ...makeMessage(ids.session, 'First appended'),
+    id: '00000000-0000-4000-8000-000000000601',
+    created_at: '2030-01-01T12:00:00Z',
+  }
+  const last = {
+    ...makeMessage(ids.session, 'Last appended after clock rollback'),
+    id: '00000000-0000-4000-8000-000000000602',
+    created_at: '2010-01-01T12:00:00Z',
+  }
+  await page.route(`**/api/v1/sessions/${ids.session}/history**`, (route) => {
+    const before = new URL(route.request().url()).searchParams.get('before')
+    return fulfill(
+      route,
+      before
+        ? {
+            items: [
+              {
+                ...first,
+                id: '00000000-0000-4000-8000-000000000600',
+                body: 'Oldest appended',
+                created_at: '2040-01-01T12:00:00Z',
+              },
+              { ...first, body: 'Outdated overlap' },
+            ],
+            next_before: null,
+          }
+        : { items: [first, last], next_before: first.id },
+    )
+  })
+  await page.goto(`/chats/${ids.session}?tab=dialogue`)
+  const messages = page.locator('.fc-chat-message > p')
+  await expect(messages).toHaveText(['First appended', 'Last appended after clock rollback'])
+  await page.getByRole('button', { name: 'Предыдущие сообщения' }).click()
+  await expect(messages).toHaveText([
+    'Oldest appended',
+    'First appended',
+    'Last appended after clock rollback',
+  ])
+  await expect(page.getByText('Outdated overlap', { exact: true })).toHaveCount(0)
+})
+
 const ids = {
   user: '00000000-0000-4000-8000-000000000001',
   reviewer: '00000000-0000-4000-8000-000000000002',
@@ -244,6 +513,7 @@ function makeSession(
     visibility: leader ? 'leader_scoped' : 'private',
     title,
     task_key: taskKey,
+    task_bound: false,
     state: 'active',
     namespace_id: agent.namespace_id,
     external_session_id: `hermes-${agent.name}`,
@@ -769,6 +1039,46 @@ async function installMocks(page: Page, state: ApiState) {
         : byAgent
       return fulfill(route, byUser)
     }
+    if (pathName === '/api/v1/chats/directory') {
+      const users = url.searchParams.get('user_id')
+      const selectedUsers = users && users !== 'all' ? users.split(',') : [ids.user]
+      const scoped =
+        users === 'all'
+          ? state.sessions
+          : state.sessions.filter((session) => selectedUsers.includes(session.user_id))
+      const agents = state.agents.filter((agent) => agent.status !== 'archived')
+      const selectedAgent = url.searchParams.get('agent_id') ?? agents[0]?.id ?? null
+      return fulfill(route, {
+        agents: agents.map((agent) => ({
+          agent,
+          matching_session_count: scoped.filter((session) => session.primary_agent_id === agent.id)
+            .length,
+        })),
+        selected_agent_id: selectedAgent,
+        items: scoped.filter((session) => session.primary_agent_id === selectedAgent),
+        next_before: null,
+      })
+    }
+    const chatMetadata = pathName.match(
+      /^\/api\/v1\/sessions\/([^/]+)\/(task-context|chat-controls|history)$/,
+    )
+    if (chatMetadata) {
+      const sessionId = chatMetadata[1]
+      if (chatMetadata[2] === 'task-context')
+        return fulfill(route, { binding: null, tracker: null })
+      if (chatMetadata[2] === 'history')
+        return fulfill(route, {
+          items: state.messagesBySession[sessionId] ?? [],
+          next_before: null,
+        })
+      return fulfill(route, {
+        can_send: true,
+        can_steer: false,
+        can_stop: false,
+        active_run_id: null,
+        blocked_reason: null,
+      })
+    }
     const sessionMessagesMatch = pathName.match(/^\/api\/v1\/sessions\/([^/]+)\/messages$/)
     if (sessionMessagesMatch) {
       const sessionId = sessionMessagesMatch[1]
@@ -841,6 +1151,15 @@ async function installMocks(page: Page, state: ApiState) {
       session.visibility = leader ? 'leader_scoped' : 'private'
       return fulfill(route, session)
     }
+    if (/^\/api\/v1\/sessions\/[^/]+\/stream$/.test(pathName)) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store' },
+        body: ': fixture heartbeat\n\n',
+      })
+    }
+    if (/^\/api\/v1\/sessions\/[^/]+\/approvals$/.test(pathName)) return fulfill(route, [])
     const sessionMatch = pathName.match(/^\/api\/v1\/sessions\/([^/]+)(?:\/handoff)?$/)
     if (sessionMatch) {
       const session =
@@ -860,7 +1179,12 @@ async function installMocks(page: Page, state: ApiState) {
           makeRun(session.id, target),
         ]
       }
-      return fulfill(route, session)
+      return fulfill(route, {
+        ...session,
+        pending_delivery: (state.messagesBySession[session.id] ?? []).some((message) =>
+          ['pending', 'dispatched'].includes(message.delivery_state),
+        ),
+      })
     }
 
     if (pathName === '/api/v1/workflow-catalog') {

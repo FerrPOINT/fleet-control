@@ -645,6 +645,10 @@
     "limitNotice": "Показаны только последние {{limit}} записей; уточните фильтр для поиска."
   },
   "statuses": {
+    "open": "Открыт",
+    "answered": "Отвечен",
+    "superseded": "Заменён",
+    "clarification": "Уточнение",
     "provisioning": "Подготовка",
     "ready": "Готов",
     "starting": "Запускается",
@@ -870,6 +874,8 @@
       "workflow_assignment_protocol_not_verified": "Протокол назначения workflow не подтверждён",
       "sdlc_role_not_assigned": "Специализация SDLC не назначена",
       "effective_config_revision_missing": "Нет активированной редакции конфигурации",
+      "effective_configuration_readback_failed": "Файлы runtime не соответствуют активной конфигурации",
+      "runtime_skill_inventory_not_verified": "Набор скиллов runtime и их происхождение не подтверждены",
       "configuration_draining": "Выполняется активация конфигурации"
     }
   },

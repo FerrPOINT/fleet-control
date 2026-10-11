@@ -16,6 +16,12 @@ pub mod routes;
 #[openapi(
     paths(
         routes::health::health,
+        routes::pm_runtime::readback,
+        routes::sdlc_configuration::readback,
+        routes::chats_directory::directory,
+        routes::approvals::list,
+        routes::approvals::read,
+        routes::approvals::decide,
         routes::auth::register,
         routes::auth::login,
         routes::auth::refresh_openapi,
@@ -45,6 +51,7 @@ pub mod routes;
         routes::agents::update_agent_config,
         routes::agents::list_config_revisions,
         routes::agents::validate_config_revision,
+        routes::agents::prepare_base_package,
         routes::agents::activate_config_revision,
         routes::agents::get_sdlc_readiness,
         routes::agents::list_agent_skills,
@@ -67,6 +74,19 @@ pub mod routes;
         routes::sessions::steer_session_run,
         routes::sessions::stop_session_run,
         routes::sessions::resolve_session_run_approval,
+        routes::task_chats::bind_task_chat,
+        routes::task_chats::task_context,
+        routes::task_chats::clarifications,
+        routes::task_chats::answer,
+        routes::task_chats::requirements,
+        routes::task_chats::confirm,
+        routes::task_chats::history,
+        routes::task_chats::controls,
+        routes::pm_drafts::create,
+        routes::pm_drafts::projects,
+        routes::pm_drafts::read,
+        routes::pm_drafts::read_by_key,
+        routes::pm_drafts::continue_operation,
         routes::workflows::list_workflow_bindings,
         routes::workflows::get_workflow_catalog,
         routes::workflows::rebind_workflow_binding,
@@ -99,6 +119,10 @@ pub mod routes;
         routes::settings::RetentionReviewOutcomeDto,
         domain::Agent,
         domain::SystemRole,
+        domain::ApprovalChoice,
+        domain::ApprovalDecisionState,
+        domain::ApprovalDecisionRequest,
+        domain::ApprovalDecision,
         domain::AgentKind,
         domain::AgentProductRole,
         domain::AgentRole,
@@ -106,7 +130,41 @@ pub mod routes;
         domain::AgentConfigRevision,
         domain::AgentConfigurationSnapshot,
         domain::AgentSdlcReadiness,
+        domain::SdlcWorkflowBinding,
         domain::SessionEvent,
+        domain::TaskChatBinding,
+        domain::CreatePmDraftRequest,
+        routes::pm_drafts::PmDraftOperationQuery,
+        routes::pm_drafts::ContinuePmDraftRequest,
+        routes::pm_drafts::PmDraftProjectDirectory,
+        routes::pm_drafts::PmDraftProject,
+        domain::PmDraftCreationResponse,
+        domain::PmDraftCreationState,
+        domain::PmDraftCreationStep,
+        domain::BindTaskChatRequest,
+        domain::SessionTaskContext,
+        domain::TrackerTaskContext,
+        domain::TrackerPermissions,
+        domain::TrackerPmAssignment,
+        domain::TrackerStage,
+        domain::TrackerQuestionMode,
+        domain::TrackerQuestionState,
+        domain::TrackerQuestionOption,
+        domain::TrackerQuestion,
+        domain::TrackerAnswer,
+        domain::TrackerRequirementsRevision,
+        domain::TrackerConfirmation,
+        domain::TrackerClarifications,
+        domain::TrackerRequirements,
+        domain::ClarificationAnswerRequest,
+        domain::ConfirmRequirementsRequest,
+        domain::MessageHistoryPage,
+        domain::ChatControls,
+        domain::PmExecutionIdentity,
+        domain::PmRuntimeStatus,
+        domain::PmRuntimeObservation,
+        domain::ChatsDirectoryAgent,
+        domain::ChatsDirectoryPage,
         domain::AgentStatus,
         domain::DesiredState,
         domain::SkillState,
@@ -282,6 +340,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             get(routes::agents::list_config_revisions),
         )
         .route(
+            "/api/v1/agents/{agent_id}/config/base-package",
+            post(routes::agents::prepare_base_package),
+        )
+        .route(
             "/api/v1/agents/{agent_id}/config/revisions/{revision}/validate",
             post(routes::agents::validate_config_revision),
         )
@@ -305,6 +367,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         )
         .route("/api/v1/executors", get(routes::executors::list_executors))
         .route(
+            "/api/v1/chats/directory",
+            get(routes::chats_directory::directory),
+        )
+        .route(
             "/api/v1/sessions",
             get(routes::sessions::list_sessions).post(routes::sessions::create_session),
         )
@@ -316,6 +382,58 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             "/api/v1/sessions/{session_id}/messages",
             get(routes::sessions::list_session_messages)
                 .post(routes::sessions::create_session_message),
+        )
+        .route(
+            "/api/v1/projects/{project_id}/pm-drafts",
+            post(routes::pm_drafts::create),
+        )
+        .route(
+            "/api/v1/pm-drafts/projects",
+            get(routes::pm_drafts::projects),
+        )
+        .route(
+            "/api/v1/pm-drafts/operations/{operation_id}",
+            get(routes::pm_drafts::read),
+        )
+        .route(
+            "/api/v1/projects/{project_id}/pm-drafts/operation",
+            get(routes::pm_drafts::read_by_key),
+        )
+        .route(
+            "/api/v1/pm-drafts/operations/{operation_id}/continue",
+            post(routes::pm_drafts::continue_operation),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/task-binding",
+            post(routes::task_chats::bind_task_chat),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/task-context",
+            get(routes::task_chats::task_context),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/clarifications",
+            get(routes::task_chats::clarifications),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/clarifications/{question_id}/answers",
+            post(routes::task_chats::answer),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/requirements",
+            get(routes::task_chats::requirements),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/requirements/{revision}/confirm",
+            post(routes::task_chats::confirm),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/history",
+            get(routes::task_chats::history),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/chat-controls",
+            get(routes::task_chats::controls),
         )
         .route(
             "/api/v1/sessions/{session_id}/participants",
@@ -352,6 +470,14 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/sessions/{session_id}/runs/{run_id}/approval",
             post(routes::sessions::resolve_session_run_approval),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/approvals",
+            get(routes::approvals::list),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/approvals/{approval_id}/decision",
+            get(routes::approvals::read).post(routes::approvals::decide),
         )
         .route(
             "/api/v1/workflow-bindings",
@@ -445,6 +571,14 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         )
         .route("/health", get(routes::health::health))
         .route("/api/v1/health", get(routes::health::health))
+        .route(
+            "/internal/runtime/v1/pm/runs/{session_run_id}",
+            get(routes::pm_runtime::readback),
+        )
+        .route(
+            "/internal/runtime/v1/agents/{agent_id}/configuration",
+            get(routes::sdlc_configuration::readback),
+        )
         .route("/api/v1/auth/register", post(routes::auth::register))
         .route("/api/v1/auth/login", post(routes::auth::login))
         .route("/api/v1/auth/refresh", post(routes::auth::refresh))

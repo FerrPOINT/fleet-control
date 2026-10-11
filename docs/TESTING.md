@@ -1,6 +1,101 @@
 # Testing
 
+The central directory regression explicitly executes the real PostgreSQL query
+with expanded and selected-foreign owner filters. It verifies that private rows,
+counts and foreign cursors are denied together, while standalone legacy expanded
+scope remains compatible. The API matrix covers all three historical roles and
+both central service-write states; roles cannot bypass the private-owner filter.
+
+The clarification checker resolves nested schemas and retains validation
+constraints, including boolean schemas, maps, reference siblings and safe version
+bounds. Its eight cases reject loosened schemas and refuse an incompatible
+`--record` before changing the snapshot. After Rust generation, compare actual
+published producer bytes with
+`node frontend/scripts/verify-chat-contract.mjs --tracker <exported-Tracker-openapi>`
+from the repository root. Record the producer commit and artifact hash; a local
+snapshot match alone is not deployed contract or PM admission acceptance.
+
+The screenshot helper mocks the current server-side directory, history,
+task-context and chat-controls APIs. It refuses any unhandled fixture API route
+and requires the list/transcript content before capturing Chats. A PNG count or
+valid image dimensions alone must not turn a mock-error page into UI evidence.
+The independent nine clarification/requirements controller images still use
+their explicit fixture contract and `liveAcceptance=false` manifest.
+
+Historical-lineage upgrade tests and central-profile preservation run explicitly
+in CI after workspace tests, with `--include-ignored`/`--ignored` respectively.
+Use an owned disposable PostgreSQL database; lineage cases create isolated
+schemas. New task-chat upgrade acceptance exercises both accepted foundations
+with populated runtime/config/outbox/transcript/event history and unchanged
+users/deployment records. Populated down denial also covers a binding or creation
+operation before its first message. The clock-rollback regression checks exact
+bodies/allocated sequence after refusal, not just surviving message count.
+Default ignored results do not prove this gate.
+
+Delegated PM credential tests cover canonical bound-task operation allowlisting,
+foreign/legacy paths, URL normalization and wrong method rejection, unsafe revision
+numbers, owner/verifier actions, expiry, existing Authorization, scope mismatch and
+no redirect/retry. The Base request retains its original five-field wire shape;
+the private task restriction is not serialized. Client tests do not prove that
+Tracker rejects direct bearer use; that requires separate receiving-service tests.
+
+PM creation recovery tests cover persisted owner/key lookup after repository
+restart, owner versus operator/machine/local identity, fresh project revocation,
+unknown/invalid keys, strict continuation body (including array rejection before
+HTTP), and unchanged chat/run state. Directory tests cover strict wire identity,
+canonical nonnil UUIDs, sorted bounded pages, required null, foreign metadata,
+keyset cursor and rollout-filtered empty pages. Client tests distinguish 404
+from dependency/permission/conflict errors. The separate creation preview uses
+fictional data and an isolated screenshot manifest; it is not live acceptance.
+
+## PM Chat Slice
+
+Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 37
+`infra/tests/sdlc_foundation.rs` tests. Without that variable the tests skip and must not
+be counted as database acceptance. Binding tests cover concurrent replay, ownership,
+duplicate task/agent pair, immutable payload, once-only audit/event, scoped pagination,
+binding/prompt races and message creation/replay/dispatch/final mirroring after 500 messages.
+Atomic PM Draft chat cases cover concurrent actor/key replay, repository recreation,
+payload collision, duplicate binding rollback, exact participants/audit/event,
+no prompt/run/outbox, foreign or disabled owner and non-PM agent rejection.
+`FLEET_MIGRATION_TEST_DATABASE_URL` separately enables the central-subject migration test.
+
+`FLEET_MESSAGE_ORDER_TEST_DATABASE_URL` must name a separate empty disposable
+database. Run `cargo test -p migration --test message_order -- --ignored --test-threads=1`
+to check historical backfill, backwards clock timestamps, immutable identity order
+and pending migration down/reapply without losing messages. CI creates its own
+database for this gate. Downgrade/reapply is a QA exercise, not an order-preserving
+production rollback. Foundation pagination tests also check foreign cursors and
+legacy listing order. Frontend tests cover overlapping pages and SSE reconnect
+during previous-page loading, including catch-up of messages arriving mid-fetch;
+browser fixtures are not real PM acceptance.
+
+Frontend commands: `pnpm test -- --maxWorkers=2` and focused Playwright
+`pnpm exec playwright test e2e/fleet-control.spec.ts --grep "PM chat clarification" --workers=1`.
+The latter uses fixture APIs with production controllers and all three browsers; it is
+not live PM evidence. Publish the verified fixture images with
+`node scripts/publish-chat-controller-evidence.mjs`. Use the configured canonical browser
+origin consistently through SSO. Live tests require compatible Tracker, Workflow,
+scoped PM runtime and trusted readiness verifier; see the plan/gap register.
+
+`pnpm chat:contract` checks generated Fleet wire schemas against the pinned Tracker contract
+and runs the checker tests. `pnpm chat:evidence:verify` verifies the nine controller images,
+route/view/viewport identity and content hashes. These gates also run in frontend CI.
+
 ## SDLC Foundation Checks
+
+`cargo test -p infra --lib effective_configuration` checks actual temporary files:
+fresh success followed by same-size drift in every managed file, missing files,
+re-enabled disabled skills, wrong snapshot/revision/marker, missing or foreign
+workspace and Unix symlink denial. It also verifies that readback does not repair
+files or expose resolved secrets. These are controlled filesystem checks, not
+runtime-loaded configuration or PM admission evidence. The PostgreSQL HTTP case
+`readiness_http_does_not_trust_database_only_effective_revision` checks the real
+readiness handler with a DB-active revision but no installed files, plus operator
+access and regular-user denial. Without the database variable it skips.
+The filesystem regression also includes Hermes-owned category directories and
+`.bundled_manifest`. These are preserved, not trusted as a provenance source;
+the unverified runtime inventory blocker is separate from managed-file drift.
 
 New regression coverage: PostgreSQL concurrent session/message idempotency and
 private authorization; configuration drain/rollback state; unknown dispatch
@@ -231,3 +326,66 @@ Backend ownership and SSE revocation tests remain independently required.
 Discarding an obsolete browser result must never be treated as permission to
 resend an uncertain mutation. Recovery tests must preserve original command
 identity and verify authoritative readback before allowing any new dispatch.
+
+## Configuration Foundation Candidate Gates
+
+Exact code `011afd9151c828279976aec5e6cf0a28b78c1f69` passed all 18 Linux
+backend gates in packet `ba43ca138e39` (2026-10-09), with all nine parity checks
+and independently empty cleanup. The publication follow-up is documentation
+only, not a rerun on a new code SHA. Foundation47's prior evidence is not
+validation of this delta. See [scope, counts and evidence](plans/2026-10-09-runtime-config-release.md#verified-backend-evidence).
+
+After scope review and a task-owned commit, freeze/export sources from that exact
+Git SHA (never copy `.local`, `target`, `node_modules`, credentials or backups).
+Use SDK `19a7a381ae6dbea61a643bb96189e483fa64df5c` as the sibling dependency and
+set `FLEET_TEST_BASE_PACKAGE_CHECKOUT` to a separately verified Git checkout/cache
+containing `4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58` and canonical Base
+`remote.origin.url` (HTTPS or SSH as accepted by the production reader).
+Set `FLEET_TEST_DATABASE_URL` and `FLEET_MIGRATION_TEST_DATABASE_URL` to the
+owned disposable PostgreSQL database. Missing either DB or package input skips
+acceptance cases and is not PASS. CI supplies both inputs explicitly.
+
+Required Linux Rust 1.88.0 commands from `backend`:
+
+```sh
+cargo fmt --all -- --check
+cargo check --locked --workspace --all-targets
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked -p api --lib routes::pm_runtime::tests:: -- --test-threads=1
+cargo test --locked -p api --lib routes::sdlc_configuration::tests:: -- --test-threads=1
+cargo test --locked -p infra --lib base_package -- --test-threads=1
+cargo test --locked -p infra --lib effective_configuration -- --test-threads=1
+cargo test --locked -p infra --test sdlc_foundation -- --test-threads=1
+cargo test --locked --workspace -- --test-threads=1
+cargo test --locked -p migration --lib lineage_tests -- --include-ignored --test-threads=1
+cargo test --locked -p infra --test central_profile -- --ignored --test-threads=1
+cargo test --locked -p migration --test message_order -- --ignored --test-threads=1
+cargo test --locked -p infra --test chats_directory -- --ignored --test-threads=1
+cargo test --locked -p infra --test runtime_approval_events -- --ignored --test-threads=1
+cargo run --locked -p migration -- up
+cargo run --locked -p migration -- status
+cargo run --locked -p migration -- down -n 1
+cargo run --locked -p migration -- up
+cargo run --locked -p migration -- status
+cargo run --locked -p api --bin gen-openapi
+```
+
+Compare generated OpenAPI byte-for-byte with the checked-in candidate; this
+comparison passed for the exact code SHA above, including its two new paths/schemas.
+Keep foundation47's existing isolated directory/approval, clean migration
+up/down/reapply, transcript-clock and frontend compatibility/strict gates.
+No new migration or lockfile change is expected. New tests include duplicate
+Authorization zero-IO denial, exact scopes/current introspection, Workflow drift
+and transport refusal, >100-revision exact-head reads, identity/drain/outbox fences,
+concurrent preparation CAS, closed skill inventory and unchanged effective files.
+
+Local QA must wait for the exclusive heavy slot and use Base ComposeHelper journal
+v2 from the verified `SDLC_MAINTENANCE_BASE` User environment SDK, loaded first on
+`sys.path`, with an owned temporary project and `with`/finally cleanup. Require
+30 GiB free, exact disposable volume inventory and retained terminal/source/gate
+and independently empty cleanup evidence; preserve external caches, immutable
+sources and runtime/rollback data. Product SDK pin remains separate from this
+maintenance-helper installation. The completed packet used a private owned helper;
+the documentation-only follow-up does not rerun containers or backend gates.
+Controlled owner fixtures do not prove live cross-service
+credentials, installed Workflow v3 or physical Hermes admission.

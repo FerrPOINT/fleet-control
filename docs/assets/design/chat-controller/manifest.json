@@ -1,0 +1,139 @@
+{
+  "evidence": "production-controller-with-fixture-api",
+  "liveAcceptance": false,
+  "browsersVerified": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "command": "pnpm exec playwright test e2e/fleet-control.spec.ts --grep \"PM chat clarification\" --workers=1",
+  "count": 9,
+  "screenshots": [
+    {
+      "file": "pm-chat-dialogue-375.png",
+      "view": "dialogue",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=dialogue",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "3a58f681d1d08f55ca569b44d621c384b30f64e612d1009b20c25d32abf2c867"
+    },
+    {
+      "file": "pm-chat-clarification-375.png",
+      "view": "clarification",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=clarification",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "89e9739f0a120b557f3c660bf7d945a0a63d7408e4a583d08f89a1bc69e265e8"
+    },
+    {
+      "file": "pm-chat-requirements-375.png",
+      "view": "requirements",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=requirements",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "233ec0e2bb4f58c933f3f5729dd651c54650d0eb4ee3a554d211f46b039f568e"
+    },
+    {
+      "file": "pm-chat-dialogue-1920.png",
+      "view": "dialogue",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=dialogue",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "85a8771a2308f15d437e6093b429671ab3ac9364859bc83157ea013427825991"
+    },
+    {
+      "file": "pm-chat-clarification-1920.png",
+      "view": "clarification",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=clarification",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "dfd30cbab8211d466fad4cbb60e1ab4389c42a7add3d610bcfc872ecfc2e9c3a"
+    },
+    {
+      "file": "pm-chat-requirements-1920.png",
+      "view": "requirements",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=requirements",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "b79ac7d83bffb62486bf46fba04c7117cda8149e47ff8021f1861cbc5497f8ef"
+    },
+    {
+      "file": "pm-chat-dialogue-2560.png",
+      "view": "dialogue",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=dialogue",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "4121a298c1efc92d74d1d0d1e18931ac3fe1758a8f33c0749df59e611460f3d3"
+    },
+    {
+      "file": "pm-chat-clarification-2560.png",
+      "view": "clarification",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=clarification",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "32860e9e91db0a41c22111913dd870574fb722d299624d79a07881240f2c1722"
+    },
+    {
+      "file": "pm-chat-requirements-2560.png",
+      "view": "requirements",
+      "route": "/chats/00000000-0000-4000-8000-000000000201?tab=requirements",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "a5dd4a3ba2aabb69e888eb53d625720434b137c8a68c716cf940b6760a558b5e"
+    }
+  ]
+}

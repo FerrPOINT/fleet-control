@@ -394,6 +394,29 @@ pub async fn list_config_revisions(
     Ok(Json(ctx.repo.list_config_revisions(id).await?))
 }
 
+#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/config/base-package", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = domain::AgentConfigRevision), (status = 401, description = "Authentication required"), (status = 403, description = "Operator access required"), (status = 404, description = "Agent not found"), (status = 409, description = "Configuration or agent identity changed"), (status = 422, description = "Pinned package or agent configuration is invalid"), (status = 503, description = "Workflow owner binding readback unavailable")))]
+pub async fn prepare_base_package(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<domain::AgentConfigRevision>, AppError> {
+    require_operator(&user)?;
+    let checkout = &ctx.config.fleet.base_package_checkout;
+    if checkout.trim().is_empty() {
+        return Err(AppError::validation(
+            "Base package checkout is not configured",
+        ));
+    }
+    let agent = ctx.repo.get_agent(id).await?;
+    let binding =
+        app::sdlc_workflow::read_binding(&ctx.config.sdlc.workflow_binding, &agent).await?;
+    Ok(Json(
+        ctx.repo
+            .prepare_base_package_revision(id, checkout, &binding, user.id)
+            .await?,
+    ))
+}
+
 #[utoipa::path(post, path = "/api/v1/agents/{agent_id}/config/revisions/{revision}/validate", tag = "agents", params(("agent_id" = Uuid, Path), ("revision" = i64, Path)), responses((status = 200, body = domain::AgentConfigRevision)))]
 pub async fn validate_config_revision(
     State(ctx): State<Arc<AppContext>>,
@@ -401,14 +424,41 @@ pub async fn validate_config_revision(
     Path((id, revision)): Path<(Uuid, i64)>,
 ) -> Result<Json<domain::AgentConfigRevision>, AppError> {
     require_operator(&user)?;
-    let value = ctx
-        .repo
-        .list_config_revisions(id)
-        .await?
-        .into_iter()
-        .find(|value| value.revision == revision)
-        .ok_or_else(|| AppError::not_found("config_revision", revision))?;
+    let value = ctx.repo.get_config_revision(id, revision).await?;
     let mut errors = value.snapshot.config.input_errors();
+    if value
+        .snapshot
+        .config
+        .config_json
+        .get("fleet_sdlc_package")
+        .is_some()
+    {
+        let agent = ctx.repo.get_agent(id).await?;
+        if app::sdlc_workflow::verify_revision_binding(
+            &ctx.config.sdlc.workflow_binding,
+            &agent,
+            &value,
+        )
+        .await
+        .is_err()
+        {
+            errors.push("workflow_binding_readback_failed".into());
+        }
+    }
+    if value
+        .snapshot
+        .config
+        .config_json
+        .get("fleet_sdlc_package")
+        .is_some()
+        && ctx
+            .repo
+            .verify_base_package_revision(id, revision, &ctx.config.fleet.base_package_checkout)
+            .await
+            .is_err()
+    {
+        errors.push("pinned_base_package_verification_failed".into());
+    }
     if value
         .snapshot
         .config
@@ -460,6 +510,24 @@ pub async fn activate_config_revision(
             "Java Agent configuration activation is planned for phase 2",
         ));
     }
+    let value = ctx.repo.get_config_revision(id, revision).await?;
+    if value
+        .snapshot
+        .config
+        .config_json
+        .get("fleet_sdlc_package")
+        .is_some()
+    {
+        app::sdlc_workflow::verify_revision_binding(
+            &ctx.config.sdlc.workflow_binding,
+            &agent,
+            &value,
+        )
+        .await?;
+        ctx.repo
+            .verify_base_package_revision(id, revision, &ctx.config.fleet.base_package_checkout)
+            .await?;
+    }
     Ok(Json(
         ctx.repo
             .request_config_activation(id, revision, user.id)
@@ -475,8 +543,7 @@ pub async fn get_sdlc_readiness(
 ) -> Result<Json<domain::AgentSdlcReadiness>, AppError> {
     require_operator(&user)?;
     let agent = ctx.repo.get_agent(id).await?;
-    let revisions = ctx.repo.list_config_revisions(id).await?;
-    let effective = revisions.iter().find(|value| value.is_effective);
+    let effective = ctx.repo.get_effective_config_revision(id).await?;
     let runtime_healthy = agent.status == domain::AgentStatus::Running
         && agent.runtime.health_status.as_deref() == Some("running");
     let mut blockers = Vec::new();
@@ -491,15 +558,37 @@ pub async fn get_sdlc_readiness(
     }
     if effective.is_none() {
         blockers.push("configuration_not_applied".into());
+    } else if let Some(revision) = effective.as_ref()
+        && ctx
+            .provisioner
+            .verify_effective_configuration(&agent, &ctx.config, revision)
+            .await
+            .is_err()
+    {
+        // Do not expose paths, resolved env values, hashes, or underlying IO errors.
+        blockers.push("effective_configuration_readback_failed".into());
     }
-    if revisions.iter().any(|value| value.draining) {
+    if ctx.repo.agent_is_draining(id).await? {
         blockers.push("configuration_draining".into());
     }
     if agent.namespace_id.is_none() || agent.workflow_id.is_none() {
         blockers.push("workflow_not_bound".into());
     }
+    if let Some(revision) = effective.as_ref()
+        && app::sdlc_workflow::verify_revision_binding(
+            &ctx.config.sdlc.workflow_binding,
+            &agent,
+            revision,
+        )
+        .await
+        .is_err()
+    {
+        blockers.push("workflow_binding_readback_failed".into());
+    }
     // Existing workflow catalog is not proof of assignment/rebind/terminal support.
     blockers.push("workflow_assignment_protocol_not_verified".into());
+    // Readback covers Fleet-managed files, not Hermes bundled/native skill provenance.
+    blockers.push("runtime_skill_inventory_not_verified".into());
     Ok(Json(domain::AgentSdlcReadiness {
         agent_id: id,
         runtime_healthy,

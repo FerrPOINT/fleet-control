@@ -4,6 +4,23 @@ use std::{fmt, str::FromStr};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+pub mod task_chats;
+pub use task_chats::*;
+pub mod pm_draft;
+pub use pm_draft::*;
+pub mod pm_execution;
+pub use pm_execution::*;
+pub mod chats_directory;
+pub use chats_directory::*;
+pub mod approval_decisions;
+pub use approval_decisions::*;
+pub mod tracker_events;
+pub use tracker_events::*;
+pub mod tracker_metadata;
+pub use tracker_metadata::*;
+pub mod sdlc_workflow;
+pub use sdlc_workflow::*;
+
 pub type Timestamp = String;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -1105,6 +1122,8 @@ pub struct AgentSession {
     pub last_message_preview: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_delivery: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_bound: Option<bool>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
 }
