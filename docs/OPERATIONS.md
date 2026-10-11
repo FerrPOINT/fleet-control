@@ -21,6 +21,21 @@ A `completed` status without exact boolean completed/partial/interrupted flags
 is not terminal proof; unknown evidence retains the hold. Stop ACK alone does
 not release capacity or prove business completion.
 
+The source-frozen shared-probe candidate allows PM callbacks and saved-answer
+continuation to use strict durable original terminal custody after successful
+replacement or rollback, without querying the replacement as though it were the
+old run. Unknown, nonterminal or incomplete custody still requires original
+native readback; do not manually mark terminal or clear holds. Fresh owner,
+project, Tracker/Workflow and configuration checks remain. Only an unprepared
+new continuation intent captures current runtime pins; recovery preserves an
+existing intent's immutable pins. This terminal proof does not repair a missing
+transcript mirror or prove business success. Cached Stopped/Cancelled/Failed
+needs no mirror commit; Completed uses this shortcut only when
+`terminal_committed=true`. Uncommitted Completed must obtain original strict
+native proof or remain held after replacement. Do not set the marker manually.
+Independent source review passed; PG/native qualification remains pending. Controlled
+HTTP/repository publication is not physical Docker replacement/rollback proof.
+
 Rehearse025/026 on both supported lineages before deployment; candidate counts
 are27/30.026 downgrade refuses any retained Stop joined to a PM binding;025
 retains its guidance-exception downgrade guard. Preserve

@@ -185,7 +185,20 @@ Workflow `RuntimeObservation` identity plus observation/binding/run/status,
 dispatch key, checkpoint and fence. Fleet run UUIDs are globally unique;
 Hermes run references are agent-local. A dedicated callback token is not an agent
 credential. Reservations commit before dispatch, acknowledgement pins the
-effective Hermes session ID, and every callback probes the actual runtime.
+effective Hermes session ID. The source-frozen shared-probe candidate permits callback
+and continuation readback from strict durable original terminal custody after
+successful runtime replacement or rollback; unknown, nonterminal or incomplete
+custody still requires the original authenticated native probe. Fresh owner,
+project, Tracker/Workflow and configuration checks remain. Only a new continuation
+intent captures current runtime pins before first prepare; an existing intent
+retains its original immutable pins. Historical terminal proof is neither a
+transcript mirror commit nor business success. Cached Stopped/Cancelled/Failed
+does not require a mirror commit; the Completed shortcut additionally requires
+`terminal_committed=true`. Uncommitted Completed retains the original strict
+native probe and holds if that proof is unavailable after replacement; no marker
+may be fabricated. Independent source review passed; PostgreSQL/native qualification
+remains pending. Controlled HTTP/repository fixtures do not qualify physical
+Docker replacement or rollback.
 Callback, PM event/readback recovery and saved-answer continuation are wired in
 source. Their implementation does not establish deployed compatibility or successful
 end-to-end execution; executable qualification remains separate.
