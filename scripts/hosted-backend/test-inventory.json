@@ -871,6 +871,7 @@
       "effective_configuration::tests::base_package_skill_readback_rejects_linked_and_special_entries"
     ],
     "config_revision_pg": [
+      "config_revision_archive_rechecks_drain_after_stop_and_preserves_activation_custody",
       "config_revision_drains_runs_and_failed_rollback_stays_blocked",
       "config_revision_identity_guard_fences_rebind_active_runs_and_unknown_dispatch",
       "config_revision_readiness_http_uses_exact_heads_without_trusting_database_only_files"

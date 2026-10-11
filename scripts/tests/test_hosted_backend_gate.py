@@ -116,6 +116,9 @@ class HostedBackendTests(unittest.TestCase):
                     "managed_unstarted_stop_and_api_archive_preserve_unknown_custody"]))
             elif stage == "container_preparation_pg":
                 self.assertEqual(actual, names + ["unstarted_stop_and_archive_serialize_preparation_claims"])
+            elif stage == "config_revision_pg":
+                self.assertEqual(actual, sorted(names + [
+                    "config_revision_archive_rechecks_drain_after_stop_and_preserves_activation_custody"]))
             else:
                 self.assertEqual(actual, names, stage)
         for key in ("authority", "utility_source_sha256", "utility_tree", "package_input", "python_contracts"):
@@ -199,6 +202,8 @@ class HostedBackendTests(unittest.TestCase):
                 expected.add("managed_unstarted_stop_and_api_archive_preserve_unknown_custody")
             if stage == "container_preparation_pg":
                 expected.add("unstarted_stop_and_archive_serialize_preparation_claims")
+            if stage == "config_revision_pg":
+                expected.add("config_revision_archive_rechecks_drain_after_stop_and_preserves_activation_custody")
             self.assertEqual(set(REVIEWED["groups"][stage]), expected, stage)
         self.assertEqual(set(REVIEWED["groups"]) - set(previous["groups"]), {"pm_ack_migration"})
         self.assertEqual([name for name in REVIEWED["groups"]["pm_recovery_pg"] if "production_aaa_future_layout" not in name],
@@ -611,6 +616,8 @@ class HostedBackendTests(unittest.TestCase):
                 "pm_events::pm_http_disabled_dispatch_recovers_accepted_sse_and_terminal_once"]) if stage == "foundation" else names
             if stage == "container_preparation_pg":
                 expected = names + ["unstarted_stop_and_archive_serialize_preparation_claims"]
+            if stage == "config_revision_pg":
+                expected = sorted(names + ["config_revision_archive_rechecks_drain_after_stop_and_preserves_activation_custody"])
             self.assertEqual(REVIEWED["groups"][stage], expected, stage)
         self.assertEqual((ROOT / gate.INIT).read_bytes().replace(b"CREATE DATABASE fleet_pm_recovery_test;\n", b"").replace(
             b"CREATE DATABASE fleet_pm_ack_migration_test;\n", b""), self.source_blob(gate.INIT, donor))
@@ -895,6 +902,8 @@ class HostedBackendTests(unittest.TestCase):
                 expected.add("real_base_expired_children_replay_without_minting_and_are_rejected_by_fleet")
             elif stage == "container_preparation_pg":
                 expected.add("unstarted_stop_and_archive_serialize_preparation_claims")
+            elif stage == "config_revision_pg":
+                expected.add("config_revision_archive_rechecks_drain_after_stop_and_preserves_activation_custody")
             self.assertEqual(set(REVIEWED["groups"][stage]), expected, stage)
         self.assertEqual({stage: len(REVIEWED["groups"][stage]) for stage in (
             "foundation", "credentials_pg", "credentials_unit", "real_auth")},
@@ -932,6 +941,8 @@ class HostedBackendTests(unittest.TestCase):
         groups = copy.deepcopy(previous["groups"])
         groups["foundation"] = sorted(groups["foundation"] + ["managed_unstarted_stop_and_api_archive_preserve_unknown_custody"])
         groups["container_preparation_pg"] += ["unstarted_stop_and_archive_serialize_preparation_claims"]
+        groups["config_revision_pg"] = sorted(groups["config_revision_pg"] + [
+            "config_revision_archive_rechecks_drain_after_stop_and_preserves_activation_custody"])
         self.assertEqual(REVIEWED["groups"], groups)
         self.assertEqual(REVIEWED["migration_registries"], previous["migration_registries"])
         name = "unstarted_stop_and_archive_serialize_preparation_claims"
@@ -4124,6 +4135,22 @@ class HostedBackendTests(unittest.TestCase):
             "base_package_unit", "config_files_unit", "package_effective_unit")), [])
         self.assertEqual(sorted(name for name in candidates if "tests::base_package_effective_" in name),
                          REVIEWED["groups"]["package_effective_unit"])
+        for stage, source, prefix, selection, count in (
+            ("credentials_pg", "backend/infra/tests/support/pm_credential_creation.rs", "pm_credential_creation::", "pm_credential_creation::", 16),
+            ("base_package_pg", "backend/infra/tests/support/base_package.rs", "base_package::", "base_package::", 8),
+            ("config_revision_pg", "backend/infra/tests/sdlc_foundation.rs", "", "config_revision_", 4),
+        ):
+            self.assertIn("run_tests " + stage + " -p infra --test sdlc_foundation " + selection, shell)
+            declarations = re.finditer(
+                r"(?m)(?P<attrs>(?:[ \t]*#\[[^\n]*\]\n)+)[ \t]*(?:async )?fn (?P<name>\w+)\(",
+                self.source_blob(source).decode())
+            selected = sorted(prefix + match["name"] for match in declarations
+                if re.search(r"#\[(?:tokio::)?test\]", match["attrs"])
+                and "#[ignore" not in match["attrs"] and selection in prefix + match["name"])
+            self.assertEqual(len(selected), count, stage)
+            self.assertEqual(selected, sorted(prefix + row["name"] for row in REVIEWED["workspace_default_declarations"]
+                if row["source"] == source and selection in prefix + row["name"]), stage)
+            self.assertEqual(selected, REVIEWED["groups"][stage], stage)
         for stage in ("base_package_pg", "config_revision_pg"):
             self.assertIn('FLEET_TEST_DATABASE_URL="$FLEET_CONFIGURATION_TEST_DATABASE_URL" \\\n  run_tests ' + stage, shell)
         self.assertNotEqual(gate.database_environment()["FLEET_TEST_DATABASE_URL"],
@@ -4322,6 +4349,9 @@ class HostedBackendTests(unittest.TestCase):
         for stage, names in previous["groups"].items():
             if stage == "container_preparation_pg":
                 self.assertEqual(REVIEWED["groups"][stage], names + ["unstarted_stop_and_archive_serialize_preparation_claims"])
+            elif stage == "config_revision_pg":
+                self.assertEqual(REVIEWED["groups"][stage], sorted(names + [
+                    "config_revision_archive_rechecks_drain_after_stop_and_preserves_activation_custody"]))
             elif stage in ("foundation", "container_activation_pg", "credentials_pg", "lineage10", "config_shared_unit"):
                 self.assertTrue(set(names) < set(REVIEWED["groups"][stage]))
             else:

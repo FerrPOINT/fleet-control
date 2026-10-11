@@ -488,7 +488,7 @@ def reviewed_inventory(controls):
         "config_api", "base_package_unit", "config_files_unit", "package_effective_unit",
         "config_shared_unit", "base_package_pg", "config_revision_pg")}
         == dict(config_api=8, base_package_unit=11, config_files_unit=4, package_effective_unit=2,
-                config_shared_unit=11, base_package_pg=8, config_revision_pg=3), "Configuration coverage drift")
+                config_shared_unit=11, base_package_pg=8, config_revision_pg=4), "Configuration coverage drift")
     require(value.get("package_input") == dict(commit=PACKAGE_SHA, tree=PACKAGE_TREE,
             inventory_sha256=PACKAGE_INVENTORY_SHA), "Package input drift")
     require({key: len(names) for key, names in value["python_contracts"].items()} == dict(
