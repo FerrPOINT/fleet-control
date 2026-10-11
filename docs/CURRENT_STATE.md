@@ -24,14 +24,15 @@ live-region update barrier and corrects the browser fixture to read the existing
 The integration also includes exact-run PM instruction receipts in the existing
 tool journal. New question/revision claims require a validated matching receipt;
 continuation cannot reuse the old run's proof. This is not proof that the model
-read the instructions or completed the workflow. Latest terminal138/sourceaabe
-backend qualification fails at credentials_pg10/84, exit101. Its static frame
-identifies effective-configuration readback refusal, not a matrix case. Reviewed
-test-only source2dcff77 reconciles its own fixture skill catalog with the installed
-empty snapshot and verifies initial/replacement profiles; qualification is pending.
-Check, Clippy and earlier Auth/API stages
-completed in the ordered prefix, not credentials PG, foundation or the final API
-comparison. Historical50cb/source5bc passed
+read the instructions or completed the workflow. Latest backend38112575090/1
+on a78/sourcec3fc is terminal FAILURE at config_revision_pg: gate exit1,
+command exitnull, UNKNOWN with no retained test/frame. Source inspection finds
+three expected selectors versus four selected source tests; the receipt does not
+prove four PG passes or diagnose the c3fc guard. Prior9e/source2dc38110519035/1
+failed the fence-negative assertion at1218:13. Published c3fc changes that custody
+refusal to Conflict and asserts no new run/control/workflow mutations; PG
+qualification remains open, distinct from the separate Linux201 pure-controls PASS.
+Historical50cb/source5bc passed
 PM recovery13 before failing at runtime_stream_bounds51/84. Fixture949
 isolates each invalid-stream case and its background-worker runtime, correcting
 a verified lifetime defect, not proving the cause or a qualified fix. Existing custody,
@@ -69,18 +70,28 @@ new acceptance here; exact dependency provenance is in the verification ledger.
 
 ## Current Evidence
 
-| Scope                    | Verified evidence                                                                                                                                                                                                                                                                                                                                              | Still open                                                                                                                                                                             |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust OpenAPI, sourceaabe | [38107719356](https://github.com/FerrPOINT/fleet-control/actions/runs/38107719356)/1 SUCCESS on controls12de; artifact11689594281; original strict readback independently verified. Schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`, unchanged; genuine307-input export includes the changed app trait                        | Complete backend/DB/native checks remain separate from schema generation                                                                                                               |
-| Backend                  | [38108696548](https://github.com/FerrPOINT/fleet-control/actions/runs/38108696548)/1 FAIL on138/sourceaabe at credentials_pg10/84, exit101; artifact11690881634 original strict readback retains test_failure and pm_credential_creation.rs:23:17, readable/untruncated, both scoped cleanups true                                                             | Static frame identifies effective-configuration readback refusal, not the matrix case. Reviewed2dcff77 fixture fix awaits qualification; later gates/final API/native/live remain open |
-| Frontend, sourceaca/fc0  | [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687) SUCCESS; original strict readback verifies artifact11677891567. All23 gates,461 units,135 catalogue/186 fixture images; all three browsers47 passed/zero flaky with nine opt-in live skips each. 135 catalogue and9 PM views imported, selected corrected captures reviewed | Complete live PM acceptance; fixture success does not qualify backend or installed runtime                                                                                             |
-| PM execution             | Structured tools, checkpoint continuation, controls, stream recovery and instruction receipts are integrated; historical source5bc passed PM recovery13 before failing runtime stream bounds51                                                                                                                                                                 | Sourceaabe failed credentials_pg10 before foundation/PM13. Reviewed2dcff77 fixture repair is not complete PG/HTTP, compatible-service or owner-flow evidence                           |
-| Forge                    | [38093642467](https://github.com/FerrPOINT/CI-CD/actions/runs/38093642467)/1 on278/sourcee781 FAIL: authenticated A five stages PASS; B PG5/24 negatives/14 cleaned journals PASS; C OCI7 exit101, CLI1/child DiskSpaceGuard. Stages8-12 NOT_RUN; scoped cleanup/all remaining0                                                                                | Original aggregate rejects C; no full12/PM/native Hermes acceptance. Initial disk measurements do not prove capacity at the later child failure; no floor waiver                       |
-| Base                     | [PR183](https://github.com/FerrPOINT/services-base/pull/183) merged externally as66b7faf; three maintenance helper blobs match the previously qualified payload and the Forge successor pins that merged object                                                                                                                                                | Consumer/native checks remain separate; no silent SDK or installed-packet promotion                                                                                                    |
+| Scope                    | Verified evidence                                                                                                                                                                                                                                                                                                                                                  | Still open                                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust OpenAPI, sourceaabe | [38107719356](https://github.com/FerrPOINT/fleet-control/actions/runs/38107719356)/1 SUCCESS on controls12de; artifact11689594281; original strict readback independently verified. Schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`, unchanged; genuine307-input export includes the changed app trait                            | Complete backend/DB/native checks remain separate from schema generation                                                                                                         |
+| Backend                  | [38112575090](https://github.com/FerrPOINT/fleet-control/actions/runs/38112575090)/1 FAIL on a78/sourcec3fc at config_revision_pg; original strict artifact11692069237 readback: gate exit1, command exitnull, UNKNOWN, empty diagnostics/failed_tests, readable/untruncated, harnessnull; both scoped cleanups true                                               | Source count drift3 expected/4 selected is proven, not four PG PASS, credentials PG PASS or a failure of the c3fc fix; final backend/API/native/live qualification remains open  |
+| Backend pure controls    | [38112684097](https://github.com/FerrPOINT/fleet-control/actions/runs/38112684097)/1 SUCCESS on3b379; exacta78 checkout authenticated; native Ubuntu24 original suite201 PASS,0 skips/failures/errors,8.895s, exit0                                                                                                                                                | Pure controls only, not backend/PG/native PM acceptance. Prior [38111234565](https://github.com/FerrPOINT/fleet-control/actions/runs/38111234565)/1 201/0 skips qualifies only9e |
+| Frontend, sourceaca/fc0  | [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687) SUCCESS; original strict readback verifies artifact11677891567. All23 gates,461 units,135 catalogue/186 fixture images; all three browsers47 passed/zero flaky with nine opt-in live skips each. 135 catalogue and9 PM views imported, selected corrected captures reviewed     | Complete live PM acceptance; fixture success does not qualify backend or installed runtime                                                                                       |
+| PM execution             | Supported MCP tools, checkpoint continuation, controls, stream recovery and instruction receipts are integrated; historical source5bc passed PM recovery13 before failing runtime stream bounds51                                                                                                                                                                  | Latest a78/sourcec3fc config_revision_pg UNKNOWN does not qualify the PM/PG matrix or owner flow; current source corrections remain unqualified                                  |
+| Native candidate build   | [38113987817](https://github.com/FerrPOINT/fleet-control/actions/runs/38113987817)/1 FAIL onf876/sourcec3fc, step9 Hermes candidate build outer exit1/UNKNOWN/FULL; closed recipe_instruction=uv_sync, inner_exit_code=2; five parities true, guarded cleanup passed, artifacts0; native-nine/cuts skipped                                                         | Identifies the grouped RUN only, not root cause, failed subcommand or receipt acceptance; no offline/native qualification or runtime promotion                                   |
+| Forge                    | [38109147644](https://github.com/FerrPOINT/CI-CD/actions/runs/38109147644)/1 on030/source756 FAIL: A5 PASS; B PG5/24 negatives/14 cleaned journals PASS; C OCI7 rollback assertion oci_delivery.rs:625:5, then secondary cleanup assertion477:17, closed child ValueError; stages8-12 NOT_RUN; original aggregate rejects C, owned cleanup/zero remaining verified | Published source84f QA rollback fix has Linux81+43 pure PASS only; native/full12 pending. Neither the closed class nor pure tests establish actual root cause or acceptance      |
+| Base                     | [PR183](https://github.com/FerrPOINT/services-base/pull/183) merged externally as66b7faf; three maintenance helper blobs match the previously qualified payload and the Forge successor pins that merged object                                                                                                                                                    | Consumer/native checks remain separate; no silent SDK or installed-packet promotion                                                                                              |
 
 Source8f/025 and fixture949 require qualification on their final inputs; passing
 PM recovery on older5bc does not qualify these later changes. afab and Forge20e
 remain distinct historical receipts in the verification ledger.
+
+Forge [source84f0962](https://github.com/FerrPOINT/CI-CD/commit/84f0962ce14b95983a015e7d2303cd6f00ec59a7)
+normally follows756: two QA files distinguish a new OCI operation path from
+same-path replay when rollback repeats a Compose body; PG same-body rejection
+and custody guards remain. Two existing docs also changed. Parent Linux pure
+checks passed81/0 skips in0.320s and43/0 skips in5.748s, not Docker/native tests.
+Old030 receipts are unchanged; historical278/sourcee781 DiskSpaceGuard is not
+the latest failure. No recipe/policy/resource cause is inferred from ValueError.
 
 Historical3e/source7a8 retained E0369 with a nullable frame, not a localized cause;
 the earlier6843/source8f receipt remains historical. Historical
@@ -139,17 +150,38 @@ production guards are unchanged. This source defect matches the refusal category
 but the receipt does not establish which matrix case failed or qualify the fix.
 Its API dependency closure is unchanged from authentic sourceaabe; reuse of that
 export must retain its original provenance and verify exact closure parity.
+The later9e/source2dc run38110519035/1 fails the fence-negative assertion at
+line1218:13, not the earlier effective-config frame. Source review shows changed
+custody returned Unavailable, which the public continuation wrapper maps to
+Pending; the receipt itself does not retain that returned outcome or a matrix case.
+Published c3fc175 returns Conflict before new run/control/workflow mutations.
+The regression requires that exact refusal, unchanged predecessor/ledger and no
+new saved-run/dispatch custody. Credential coordination/preparation precedes the
+guard; this is not proof of zero side effects. It does not change the API closure
+or relax a fence.
+The later a78/sourcec3fc38112575090/1 is terminal FAILURE at config_revision_pg.
+Original strict artifact11692069237 readback verifies ZIP SHA256
+`47e2b32a00f3956d0002a2b2fbab556b7e8d4b43f724b24dbc65f60f4153f996`;
+gate exit1, command exitnull, UNKNOWN, no retained diagnostics/failed tests,
+readable/untruncated log, null harness result and both scoped cleanups true.
+Canonical a78 inventory expects3 config_revision_pg tests while its filter
+selects4 in c3fc, including the archive recheck regression. This source-proven
+qualification drift does not establish all four PG passes, credentials PG PASS
+or a c3fc fix failure. Linux201 pure-controls PASS is a separate result.
 Published source candidatec976c27 rejects config activation with409 before
 drain when a bound PM run is pending, including no-journal/prepared/unknown
 acceptance. Accepted-running PM retains normal drain. It adds no migration;
 its PG regression is pending and the source8f receipts do not qualify it.
 
-Native [38081865039](https://github.com/FerrPOINT/fleet-control/actions/runs/38081865039)/1
-fails on257/source5db at Hermes candidate build, exit1/UNKNOWN/TAIL; five
-parities true, artifacts0, native-nine/cuts skipped. No UV category or Rust code
-is retained. Controller build/metadata passed, not offline qualification;
-cleanup proves only absence of this attempt's two exact aliases, not a full
-resource audit. No recipe cause is established. Exact receipts and earlier
+Native [38113987817](https://github.com/FerrPOINT/fleet-control/actions/runs/38113987817)/1
+fails onf876/sourcec3fc at step9 Hermes candidate build: outer exit1, UNKNOWN/FULL,
+closed `recipe_instruction=uv_sync`, `inner_exit_code=2`. Original frozen readback
+identifies the grouped hash-checked RUN, not a failed subcommand or root cause.
+Five parities true, builder cleanup cleaned and exact-owned alias cleanup passed;
+artifacts0, native-nine/cuts skipped. This authorized isolated QA is not offline/
+native acceptance or runtime promotion. Historical4a/source2dc38111540024 remains
+UNKNOWN/FULL without recipe attribution;257/source5db38081865039 remains
+UNKNOWN/TAIL. Neither is reclassified. Exact receipts and earlier
 431/579/1fa/bb failures remain in the
 [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#current-hosted-qualification-2026-10-10).
 
@@ -158,7 +190,8 @@ C:53.760GiB free against30GiB, available physical memory18.664GiB and available
 commit2.990GiB, below the unchanged6GiB floor; this is not a fresh-now readback.
 Daemon free disk is unconfirmed. Historical grouping audit35/0/0 passes with only
 permanent projects, not capacity admission.
-No QA was launched; native qualification remains held.
+No local QA was launched under that capacity observation; hosted candidate-build
+failure above supplies no native qualification.
 
 Base main was rechecked as380c66e on11 October04:00UTC. The three maintenance
 helpers remain byte-identical to66b7; Auth cookie-isolation changes do not promote

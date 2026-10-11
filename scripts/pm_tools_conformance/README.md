@@ -1,11 +1,13 @@
-# PM tools conformance handoff
+# Historical PM Tools Offline Oracle
 
-This is an offline test/contract packet, not a runtime patch or a live acceptance
-receipt. No Hermes plugin, SDK, source pin, database or runtime is changed.
-The producer contract is in
-[PM_TOOLS_HANDOFF_REQUIREMENTS.md](../../docs/contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md).
+This is a historical offline test/contract packet for the rejected pre-model
+producer proposal, not a current admission release gate, runtime patch or live
+acceptance receipt. No Hermes plugin, SDK, source pin, database or runtime is
+changed. See the [current supported MCP handoff](../../docs/contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md)
+and the [full historical proposal](https://github.com/FerrPOINT/fleet-control/blob/c3fc175b97168736717c72c2b32e1036c5b6f9db/docs/contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md).
+The runner code, pins and retained evidence below remain historical and unchanged.
 
-## Pins and command
+## Historical Pins And Command
 
 - Fleet: `ede1e41e843b3992757d4e16c051db6667da7add`.
 - Hermes: `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`.
@@ -38,7 +40,7 @@ denies all new subprocesses during source execution, and denies writes outside i
 disposable scratch. This is an operational guard, not a hostile-code sandbox.
 The Python host environment is measured, not claimed to be a locked Hermes venv.
 
-## Runner validation successor
+## Historical Runner Validation
 
 `dc6ab80091eb4d7ac8d8f5c02d233e49b2f51a65` remains immutable. Its parent rerun
 `run-e35178825a60` is FAIL: 90-second child timeout after 16 oracle plus four
@@ -99,7 +101,7 @@ scratch absent and PASS_OFFLINE_ONLY. Its seal is
 This evidence belongs to that exact integration HEAD and packet bytes, before
 this documentation update; it does not qualify later source or enable admission.
 
-## Scope and interpretation
+## Historical Scope And Interpretation
 
 - `probes/test_hermes.py`: eight executable probes of real Hermes Git modules.
   The profile adapter, process-ownership callbacks and agent conversation body
@@ -109,14 +111,16 @@ this documentation update; it does not qualify later source or enable admission.
 - `qa/contract.py`, `qa/test_contract.py`: proposed gateway/admission oracle and
   sixteen tests. All peers/credentials/bindings/clock/receipts are synthetic.
   Its journal is in-memory and is not a durable implementation.
-- `docs/contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md` in the Fleet repository:
-  pinned-source evidence, bounded vertical contract, exact
-  missing producer/custody/readback primitives and future native acceptance.
+- [Historical proposal at c3fc](https://github.com/FerrPOINT/fleet-control/blob/c3fc175b97168736717c72c2b32e1036c5b6f9db/docs/contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md):
+  the oracle's original proposed producer/custody/readback contract, superseded
+  by the accepted no-hook decision, not the current MCP implementation.
 - `qa/run.py`: offline isolation, Git-blob import/export, retained evidence and
   fail-closed test inventory. No full source/context export or cache reuse.
 
-The expected result is 24 offline tests, zero skips, `PASS_OFFLINE_ONLY` and
-independently `producer_admission=BLOCKED`, `live_evidence=false`.
+The historical expected result is 24 offline tests, zero skips,
+`PASS_OFFLINE_ONLY` and independently `producer_admission=BLOCKED`,
+`live_evidence=false`. That BLOCKED field describes the rejected proposal only;
+it is not a release gate for the supported no-hook MCP path.
 Authoritative observed results and seal are in each retained terminal report,
 not inferred from this expected inventory. Evidence/scratch, full Hermes source,
 venv and caches are not tracked or shipped in this packet.
@@ -127,15 +131,14 @@ contexts, and demonstrate that the real pre-LLM hook collector is not a veto.
 Negative oracle tests hold unknown writes across changed call/run IDs, not just
 same-key retries. No unknown/rejected write is represented as delivered.
 
-## Explicit blockers
+## Historical Oracle Limitations
 
-The producer has no qualified fail-closed first-model admission barrier or
-supported authenticated PM run-scoped identity handoff. Fleet's prepared child
-credential is not yet retained/delivered by a gateway custody implementation.
-Exact Tracker write readback and crash-durable operation recovery are also not
-qualified here. No endpoint/capability has been fabricated to cover these gaps.
+This packet does not qualify the proposed first-model barrier, authenticated
+producer handoff, durable custody or real Tracker mutation/readback. It also does
+not qualify the later implemented MCP path. Its synthetic oracle cannot establish
+current source wiring, deployment compatibility or live PM acceptance.
 
 No Docker, Cargo, PostgreSQL, model, server listener, native runtime, external
-mutation, push or dispatch was run. Task-bound admission remains unchanged and
-held. Parent integration may use this contract/test packet without enabling an
-unsafe runtime path; native producer/custody acceptance is a separate gate.
+mutation, push or dispatch was run by this offline packet. Current release gates
+are the [supported MCP handoff qualification boundary](../../docs/contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md#qualification-boundary),
+not installation of the rejected Hermes hook or the oracle's admission handshake.
